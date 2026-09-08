@@ -1,0 +1,11 @@
+/* Estilos compartilhados. Design visual definido junto com as telas —
+   ver docs/central-unica-ti-plano.md. */
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
