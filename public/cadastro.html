@@ -5,15 +5,148 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cadastro — Central Única de TI</title>
   <link rel="icon" href="assets/img/favicon.ico">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Poppins:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/cadastro.css">
 </head>
 <body class="cadastro">
   <main class="cadastro__layout">
-    <section class="cadastro__form" aria-labelledby="cadastro-titulo">
-      <h1 id="cadastro-titulo">Cadastro</h1>
+
+    <!--35% TELA ESQUERDA-->
+    <aside class="cadastro__vitrine">
+      <img class="cadastro__logo" src="assets/img/logo-branco.svg" alt="Gasômetro Madeiras">
+      <div class="cadastro__chamada">
+        <h2 class="cadastro__chamada-titulo">TI Gasômetro Madeiras</h2>
+        <p class="cadastro__chamada-texto">
+          Crie sua conta para ter acesso as soluções e ao portal de chamados.
+        </p>
+      </div>
+    </aside>
+
+    <!--65% TELA DIREITA-->
+    <section class="cadastro__form">
+      <form class="cadastro__formulario" novalidate>
+
+        <!--CABECALHO-->
+        <h1 class="cadastro__titulo">Criar conta</h1>
+        <p class="cadastro__subtitulo">
+          A equipe de TI valida o cadastro antes de liberar o acesso.
+        </p>
+
+        <!--CAMPOS A ESQUERDA, AVISO E ACOES A DIREITA-->
+        <div class="cadastro__corpo">
+
+          <div class="cadastro__campos">
+            <!--NOME-->
+            <div class="cadastro__campo">
+              <label class="cadastro__label" for="nome">Nome completo</label>
+              <input class="cadastro__input" type="text" id="nome" name="nome"
+                     placeholder="Digite seu nome completo"
+                     autocomplete="name" required>
+            </div>
+
+            <!--SETOR E UNIDADE-->
+            <div class="cadastro__linha">
+              <div class="cadastro__campo">
+                <label class="cadastro__label" for="setor">Setor</label>
+                <select class="cadastro__input cadastro__select" id="setor" name="setor" required>
+                  <option value="" selected>Selecione o setor</option>
+                </select>
+              </div>
+
+              <div class="cadastro__campo">
+                <label class="cadastro__label" for="unidade">Unidade</label>
+                <select class="cadastro__input cadastro__select" id="unidade" name="unidade" required>
+                  <option value="" selected>Selecione a unidade</option>
+                </select>
+              </div>
+            </div>
+
+            <!--E-MAIL-->
+            <div class="cadastro__campo">
+              <label class="cadastro__label" for="email">E-mail corporativo</label>
+              <input class="cadastro__input" type="email" id="email" name="email"
+                     placeholder="seu.nome@gasometromadeiras.com.br"
+                     autocomplete="email" required>
+              <p class="cadastro__ajuda">Apenas e-mails da empresa são aceitos.</p>
+            </div>
+
+            <!--SENHA E CONFIRMACAO-->
+            <div class="cadastro__linha">
+              <div class="cadastro__campo">
+                <label class="cadastro__label" for="senha">Senha</label>
+                <div class="cadastro__senha">
+                  <input class="cadastro__input" type="password" id="senha" name="senha"
+                         placeholder="Mínimo 8 caracteres"
+                         autocomplete="new-password" required>
+                  <button class="cadastro__olho" type="button"
+                          data-alvo="senha" aria-label="Mostrar senha">
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                      <path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12Z"
+                            fill="none" stroke="currentColor" stroke-width="1.7"
+                            stroke-linecap="round" stroke-linejoin="round"/>
+                      <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="cadastro__campo">
+                <label class="cadastro__label" for="confirmar">Confirmar senha</label>
+                <div class="cadastro__senha">
+                  <input class="cadastro__input" type="password" id="confirmar" name="confirmar"
+                         placeholder="Repita a senha"
+                         autocomplete="new-password" required>
+                  <button class="cadastro__olho" type="button"
+                          data-alvo="confirmar" aria-label="Mostrar senha">
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                      <path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12Z"
+                            fill="none" stroke="currentColor" stroke-width="1.7"
+                            stroke-linecap="round" stroke-linejoin="round"/>
+                      <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p class="cadastro__ajuda">
+              Mínimo 8 caracteres, com maiúscula, número e símbolo.
+            </p>
+
+          </div>
+
+          <div class="cadastro__lateral">
+            <!--AVISO DE LIBERACAO-->
+            <div class="cadastro__aviso">
+              <svg class="cadastro__aviso-icone" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M12 10.6v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                <circle cx="12" cy="7.6" r="1.1" fill="currentColor"/>
+              </svg>
+              <p>
+                O acesso é liberado depois que o TI confere o setor e a unidade. Você
+                receberá um e-mail quando estiver liberado.
+              </p>
+            </div>
+
+            <!--ACOES-->
+            <div class="cadastro__acoes">
+              <button class="cadastro__botao" type="submit">
+                Criar conta
+                <span class="cadastro__botao-seta" aria-hidden="true">→</span>
+              </button>
+              <p class="cadastro__entrar">
+                Já tem conta? <a href="login.html">Entrar</a>
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+      </form>
     </section>
 
-    <aside class="cadastro__vitrine" aria-hidden="true"></aside>
   </main>
 
   <script type="module" src="js/pages/cadastro.js"></script>
