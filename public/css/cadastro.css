@@ -1,0 +1,38 @@
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.cadastro {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.cadastro__layout {
+  display: grid;
+  grid-template-columns: 40% 60%;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.cadastro__form,
+.cadastro__vitrine {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3rem;
+}
+
+/*40% TELA ESQUERDA*/
+.cadastro__form {
+  background: linear-gradient(135deg, #a74500 0%, #f87800 40%, #fff4e8 100%);
+}
+
+/*60% TELA DIREITA*/
+.cadastro__vitrine {
+  background-color: #fff;
+}
