@@ -1,10 +1,6 @@
 # Vercel
 .vercel
 
-# Config com credenciais reais (nao versionar em repo publico)
-public/js/config/supabase-config.js
-!public/js/config/supabase-config.example.js
-
 # Supabase local
 supabase/.branches
 supabase/.temp
