@@ -39,6 +39,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-height: 0;
   padding: 3rem;
 
   background: radial-gradient(
@@ -99,28 +100,38 @@ body {
 .cadastro__form {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   padding: 2.5rem 3.5rem;
   background-color: #fff;
 }
 
 .cadastro__formulario {
   width: 100%;
-  max-width: 44rem;
-  margin: auto 0;
+  max-width: 27.5rem;
+  margin: auto;
 }
 
 /*CABECALHO*/
+.cadastro__contador {
+  margin: 0 0 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #dd5b12;
+}
+
 .cadastro__titulo {
   margin: 0 0 0.5rem;
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #14181f;
 }
 
 .cadastro__subtitulo {
-  margin: 0 0 1.25rem;
-  padding-bottom: 1.25rem;
+  margin: 0 0 1rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid #e4e8ee;
   font-size: 0.875rem;
   color: #64748b;
@@ -128,7 +139,7 @@ body {
 
 /*CAMPOS*/
 .cadastro__campo {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.125rem;
 }
 
 .cadastro__linha {
@@ -150,7 +161,7 @@ body {
 .cadastro__input {
   width: 100%;
   box-sizing: border-box;
-  padding: 0.875rem 0.9375rem;
+  padding: 0.8125rem 0.9375rem;
   border: 1px solid #d7dce3;
   border-radius: 3px;
   background-color: #fff;
@@ -211,26 +222,56 @@ body {
   color: #14181f;
 }
 
-/*CAMPOS A ESQUERDA, AVISO E ACOES A DIREITA*/
-.cadastro__corpo {
-  display: grid;
-  grid-template-columns: 1fr 15rem;
-  gap: 2.5rem;
-  align-items: start;
+/*ETAPAS: SO UMA APARECE POR VEZ*/
+.cadastro__etapas {
+  min-height: 26rem;
 }
 
-/*COLUNA DA DIREITA*/
-.cadastro__lateral {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+.cadastro__etapa {
+  display: none;
+}
+
+.cadastro__etapa--ativa {
+  display: block;
+}
+
+/*ANIMACAO DA TROCA DE ETAPA*/
+.cadastro__etapa--vem-da-direita {
+  animation: cadastro-vem-da-direita 0.32s ease-out;
+}
+
+.cadastro__etapa--vem-da-esquerda {
+  animation: cadastro-vem-da-esquerda 0.32s ease-out;
+}
+
+@keyframes cadastro-vem-da-direita {
+  from {
+    opacity: 0;
+    transform: translateX(2rem);
+  }
+}
+
+@keyframes cadastro-vem-da-esquerda {
+  from {
+    opacity: 0;
+    transform: translateX(-2rem);
+  }
+}
+
+/*QUEM PEDE MENOS MOVIMENTO NAO VE A ANIMACAO*/
+@media (prefers-reduced-motion: reduce) {
+  .cadastro__etapa--vem-da-direita,
+  .cadastro__etapa--vem-da-esquerda {
+    animation: none;
+  }
 }
 
 /*AVISO DE LIBERACAO*/
 .cadastro__aviso {
   display: flex;
   gap: 0.75rem;
-  padding: 0.9375rem;
+  margin: 1rem 0;
+  padding: 0.8125rem;
   border: 1px solid #cfe0f7;
   border-radius: 3px;
   background-color: #eaf2fd;
@@ -251,20 +292,17 @@ body {
 /*ACOES*/
 .cadastro__acoes {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.75rem 1rem;
 }
 
 .cadastro__botao {
-  display: flex;
-  width: 100%;
-  box-sizing: border-box;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 0.625rem;
   padding: 0.875rem 1.375rem;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 3px;
   background-color: #dd5b12;
   font-size: 0.875rem;
@@ -277,12 +315,26 @@ body {
   background-color: #c24f00;
 }
 
+/*BOTAO VOLTAR: SECUNDARIO*/
+.cadastro__botao--voltar {
+  border: 1px solid #d7dce3;
+  background-color: #fff;
+  color: #55606e;
+}
+
+.cadastro__botao--voltar:hover {
+  border-color: #94a3b8;
+  background-color: #f4f6f9;
+  color: #14181f;
+}
+
 .cadastro__botao:focus-visible {
   outline: 2px solid #14181f;
   outline-offset: 2px;
 }
 
 .cadastro__entrar {
+  flex-basis: 100%;
   margin: 0;
   font-size: 0.8125rem;
   color: #64748b;
@@ -293,10 +345,60 @@ body {
   color: #14181f;
 }
 
+/*TELAS GRANDES: A BASE REM CRESCE E TUDO CRESCE JUNTO*/
+@media (min-width: 1600px) {
+  html {
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 1920px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 2560px) {
+  html {
+    font-size: 20px;
+  }
+}
+
+/*TELA MEDIA: PAINEIS COM MENOS PADDING*/
+@media (max-width: 1200px) {
+  .cadastro__vitrine,
+  .cadastro__form {
+    padding: 2.5rem;
+  }
+
+  .cadastro__logo {
+    width: 9.5rem;
+  }
+
+  .cadastro__chamada-titulo {
+    font-size: 1.875rem;
+  }
+}
+
 /*TELA ESTREITA: EMPILHA E ESCONDE A VITRINE*/
 @media (max-width: 860px) {
+  html,
+  body {
+    height: auto;
+  }
+
+  .cadastro {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
   .cadastro__layout {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   .cadastro__vitrine {
@@ -304,8 +406,11 @@ body {
   }
 
   .cadastro__form {
-    overflow-y: auto;
     padding: 2rem 1.5rem;
+  }
+
+  .cadastro__titulo {
+    font-size: 1.5rem;
   }
 
   .cadastro__linha {
@@ -313,8 +418,26 @@ body {
     gap: 0;
   }
 
-  .cadastro__corpo {
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
+  /*SEM ALTURA RESERVADA: A ETAPA MANDA NA ALTURA*/
+  .cadastro__etapas {
+    min-height: 0;
+  }
+
+  /*16px EVITA O ZOOM AUTOMATICO DO IOS AO FOCAR O CAMPO*/
+  .cadastro__input {
+    font-size: 1rem;
+  }
+}
+
+/*CELULAR: OS DOIS BOTOES DIVIDEM A LARGURA*/
+@media (max-width: 480px) {
+  .cadastro__form {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .cadastro__botao {
+    flex: 1;
+    justify-content: center;
+    padding: 0.875rem 1rem;
   }
 }

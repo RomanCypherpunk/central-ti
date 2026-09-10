@@ -24,21 +24,24 @@
       </div>
     </aside>
 
-    <!--65% TELA DIREITA-->
+    <!--65% TELA DIREITA: TROCA DE ETAPA-->
     <section class="cadastro__form">
       <form class="cadastro__formulario" novalidate>
 
         <!--CABECALHO-->
+        <p class="cadastro__contador">
+          Etapa <span class="cadastro__contador-atual">1</span> de 2
+        </p>
         <h1 class="cadastro__titulo">Criar conta</h1>
         <p class="cadastro__subtitulo">
           A equipe de TI valida o cadastro antes de liberar o acesso.
         </p>
 
-        <!--CAMPOS A ESQUERDA, AVISO E ACOES A DIREITA-->
-        <div class="cadastro__corpo">
+        <div class="cadastro__etapas">
 
-          <div class="cadastro__campos">
-            <!--NOME-->
+          <!--ETAPA 1: QUEM E VOCE-->
+          <div class="cadastro__etapa cadastro__etapa--ativa">
+
             <div class="cadastro__campo">
               <label class="cadastro__label" for="nome">Nome completo</label>
               <input class="cadastro__input" type="text" id="nome" name="nome"
@@ -46,7 +49,7 @@
                      autocomplete="name" required>
             </div>
 
-            <!--SETOR E UNIDADE-->
+            <!--SETOR E UNIDADE: OPCOES VEM DO SUPABASE-->
             <div class="cadastro__linha">
               <div class="cadastro__campo">
                 <label class="cadastro__label" for="setor">Setor</label>
@@ -63,7 +66,21 @@
               </div>
             </div>
 
-            <!--E-MAIL-->
+            <div class="cadastro__acoes">
+              <button class="cadastro__botao" type="button" data-acao="proximo">
+                Próximo
+                <span aria-hidden="true">→</span>
+              </button>
+              <p class="cadastro__entrar">
+                Já tem conta? <a href="login.html">Entrar</a>
+              </p>
+            </div>
+
+          </div>
+
+          <!--ETAPA 2: ACESSO-->
+          <div class="cadastro__etapa">
+
             <div class="cadastro__campo">
               <label class="cadastro__label" for="email">E-mail corporativo</label>
               <input class="cadastro__input" type="email" id="email" name="email"
@@ -72,7 +89,6 @@
               <p class="cadastro__ajuda">Apenas e-mails da empresa são aceitos.</p>
             </div>
 
-            <!--SENHA E CONFIRMACAO-->
             <div class="cadastro__linha">
               <div class="cadastro__campo">
                 <label class="cadastro__label" for="senha">Senha</label>
@@ -114,9 +130,6 @@
               Mínimo 8 caracteres, com maiúscula, número e símbolo.
             </p>
 
-          </div>
-
-          <div class="cadastro__lateral">
             <!--AVISO DE LIBERACAO-->
             <div class="cadastro__aviso">
               <svg class="cadastro__aviso-icone" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -130,16 +143,20 @@
               </p>
             </div>
 
-            <!--ACOES-->
             <div class="cadastro__acoes">
+              <button class="cadastro__botao cadastro__botao--voltar" type="button" data-acao="voltar">
+                <span aria-hidden="true">←</span>
+                Voltar
+              </button>
               <button class="cadastro__botao" type="submit">
                 Criar conta
-                <span class="cadastro__botao-seta" aria-hidden="true">→</span>
+                <span aria-hidden="true">→</span>
               </button>
               <p class="cadastro__entrar">
                 Já tem conta? <a href="login.html">Entrar</a>
               </p>
             </div>
+
           </div>
 
         </div>
