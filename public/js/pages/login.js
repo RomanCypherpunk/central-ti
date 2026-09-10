@@ -51,3 +51,34 @@ formulario.addEventListener("submit", async (evento) => {
 
   window.location.href = "index.html";
 });
+
+//ESQUECEU A SENHA: MANDA O CODIGO E LEVA PARA A TELA DE RECUPERACAO
+const botaoEsqueci = document.querySelector("[data-acao='esqueci']");
+
+botaoEsqueci.addEventListener("click", async () => {
+  const email = campoEmail.value.trim();
+
+  // O código precisa de um destinatário, e quem sabe qual é o e-mail é esta tela.
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    mostrarErro("Informe o e-mail corporativo para receber o código.");
+    campoEmail.focus();
+    return;
+  }
+
+  esconderErro();
+  botaoEsqueci.disabled = true;
+  botaoEsqueci.textContent = "Enviando…";
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+  if (error) {
+    mostrarErro("Não foi possível enviar o código. Tente em alguns instantes.");
+    botaoEsqueci.disabled = false;
+    botaoEsqueci.textContent = "Esqueceu a senha?";
+    return;
+  }
+
+  // sessionStorage, e não a URL: e-mail não deve trafegar em query string.
+  sessionStorage.setItem("recuperar_email", email);
+  window.location.href = "recuperar-senha.html";
+});

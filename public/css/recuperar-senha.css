@@ -13,20 +13,21 @@ body {
 }
 
 /*TELA SEM ROLAGEM*/
-.login {
+.recuperar {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
 }
 
 /*SORA NOS TITULOS E DESTAQUES*/
-.login__chamada-titulo,
-.login__titulo,
-.login__botao {
+.recuperar__chamada-titulo,
+.recuperar__destaques,
+.recuperar__titulo,
+.recuperar__botao {
   font-family: "Sora", system-ui, sans-serif;
 }
 
-.login__layout {
+.recuperar__layout {
   display: grid;
   grid-template-columns: 35% 65%;
   height: 100%;
@@ -34,7 +35,7 @@ body {
 
 /* 35% TELA ESQUERDA */
 
-.login__vitrine {
+.recuperar__vitrine {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -51,33 +52,52 @@ body {
 }
 
 /*LOGO*/
-.login__logo {
+.recuperar__logo {
   width: 11rem;
   height: auto;
 }
 
 /*CHAMADA DO RODAPE*/
-.login__chamada {
+.recuperar__chamada {
   max-width: 22rem;
   padding-top: 1.5rem;
 }
 
-.login__chamada-titulo {
+.recuperar__chamada-titulo {
   margin: 0 0 0.75rem;
   font-size: 2.25rem;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.login__chamada-texto {
+.recuperar__chamada-texto {
   margin: 0 0 1.5rem;
   font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.5;
 }
 
+.recuperar__destaques {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.recuperar__destaques li {
+  display: flex;
+  gap: 0.625rem;
+  margin-bottom: 0.5rem;
+}
+
+.recuperar__destaques li::before {
+  content: "✓";
+  font-weight: 700;
+}
+
 /* 65% TELA DIREITA */
-.login__form {
+.recuperar__form {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -85,14 +105,23 @@ body {
   background-color: #fff;
 }
 
-.login__formulario {
+.recuperar__formulario {
   width: 100%;
   max-width: 27.5rem;
   margin: auto;
 }
 
 /*CABECALHO*/
-.login__titulo {
+.recuperar__contador {
+  margin: 0 0 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #dd5b12;
+}
+
+.recuperar__titulo {
   margin: 0 0 0.5rem;
   font-size: 1.75rem;
   font-weight: 700;
@@ -100,7 +129,7 @@ body {
   color: #14181f;
 }
 
-.login__subtitulo {
+.recuperar__subtitulo {
   margin: 0 0 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid #e4e8ee;
@@ -109,11 +138,17 @@ body {
 }
 
 /*CAMPOS*/
-.login__campo {
+.recuperar__campo {
   margin-bottom: 1.125rem;
 }
 
-.login__label {
+.recuperar__linha {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.recuperar__label {
   display: block;
   margin-bottom: 0.5rem;
   font-size: 0.6875rem;
@@ -123,23 +158,23 @@ body {
   color: #55606e;
 }
 
-.login__input {
+.recuperar__input {
   width: 100%;
   box-sizing: border-box;
   padding: 0.8125rem 0.9375rem;
   border: 1px solid #d7dce3;
   border-radius: 3px;
   background-color: #fff;
-  font-family: inherit;
+  font-family: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 0.875rem;
   color: #14181f;
 }
 
-.login__input::placeholder {
+.recuperar__input::placeholder {
   color: #94a3b8;
 }
 
-.login__input:focus {
+.recuperar__input:focus {
   outline: none;
   border-color: #f87800;
   box-shadow: 0 0 0 3px rgba(248, 120, 0, 0.18);
@@ -147,30 +182,36 @@ body {
 
 /*AUTOPREENCHIMENTO DO NAVEGADOR: O FUNDO CINZA E DESENHADO PELO CHROME E SO
   UMA SOMBRA INTERNA SOLIDA COBRE. A COR DO TEXTO PRECISA DE -webkit-text-fill-color.*/
-.login__input:-webkit-autofill,
-.login__input:-webkit-autofill:hover,
-.login__input:-webkit-autofill:focus,
-.login__input:-webkit-autofill:active {
+.recuperar__input:-webkit-autofill,
+.recuperar__input:-webkit-autofill:hover,
+.recuperar__input:-webkit-autofill:focus,
+.recuperar__input:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0 100px #fff inset;
   -webkit-text-fill-color: #14181f;
   caret-color: #14181f;
 }
 
 /*NO FOCO A SOMBRA INTERNA CONVIVE COM O ANEL LARANJA*/
-.login__input:-webkit-autofill:focus {
+.recuperar__input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0 100px #fff inset, 0 0 0 3px rgba(248, 120, 0, 0.18);
 }
 
+.recuperar__ajuda {
+  margin: 0.4375rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
 /*OLHO DA SENHA*/
-.login__senha {
+.recuperar__senha {
   position: relative;
 }
 
-.login__senha .login__input {
+.recuperar__senha .recuperar__input {
   padding-right: 2.75rem;
 }
 
-.login__olho {
+.recuperar__olho {
   position: absolute;
   top: 50%;
   right: 0.5rem;
@@ -184,12 +225,52 @@ body {
   cursor: pointer;
 }
 
-.login__olho:hover {
+.recuperar__olho:hover {
   color: #14181f;
 }
 
+/*ETAPAS: SO UMA APARECE POR VEZ*/
+.recuperar__etapa {
+  display: none;
+}
+
+.recuperar__etapa--ativa {
+  display: block;
+}
+
+/*ANIMACAO DA TROCA DE ETAPA*/
+.recuperar__etapa--vem-da-direita {
+  animation: recuperar-vem-da-direita 0.32s ease-out;
+}
+
+.recuperar__etapa--vem-da-esquerda {
+  animation: recuperar-vem-da-esquerda 0.32s ease-out;
+}
+
+@keyframes recuperar-vem-da-direita {
+  from {
+    opacity: 0;
+    transform: translateX(2rem);
+  }
+}
+
+@keyframes recuperar-vem-da-esquerda {
+  from {
+    opacity: 0;
+    transform: translateX(-2rem);
+  }
+}
+
+/*QUEM PEDE MENOS MOVIMENTO NAO VE A ANIMACAO*/
+@media (prefers-reduced-motion: reduce) {
+  .recuperar__etapa--vem-da-direita,
+  .recuperar__etapa--vem-da-esquerda {
+    animation: none;
+  }
+}
+
 /*MENSAGEM DE ERRO*/
-.login__erro {
+.recuperar__erro {
   display: none;
   margin: 0 0 1.125rem;
   padding: 0.75rem 0.9375rem;
@@ -201,25 +282,25 @@ body {
   color: #9c2b2b;
 }
 
-.login__erro--visivel {
+.recuperar__erro--visivel {
   display: block;
 }
 
 /*BOTAO EM ENVIO*/
-.login__botao:disabled {
+.recuperar__botao:disabled {
   opacity: 0.65;
   cursor: default;
 }
 
 /*ACOES*/
-.login__acoes {
+.recuperar__acoes {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem 1rem;
 }
 
-.login__botao {
+.recuperar__botao {
   display: inline-flex;
   align-items: center;
   gap: 0.625rem;
@@ -233,23 +314,36 @@ body {
   cursor: pointer;
 }
 
-.login__botao:hover {
+.recuperar__botao:hover {
   background-color: #c24f00;
 }
 
-.login__botao:focus-visible {
+/*BOTAO VOLTAR: SECUNDARIO*/
+.recuperar__botao--voltar {
+  border: 1px solid #d7dce3;
+  background-color: #fff;
+  color: #55606e;
+}
+
+.recuperar__botao--voltar:hover {
+  border-color: #94a3b8;
+  background-color: #f4f6f9;
+  color: #14181f;
+}
+
+.recuperar__botao:focus-visible {
   outline: 2px solid #14181f;
   outline-offset: 2px;
 }
 
-.login__cadastrar {
+.recuperar__entrar {
   flex-basis: 100%;
   margin: 0;
   font-size: 0.8125rem;
   color: #64748b;
 }
 
-.login__cadastrar a {
+.recuperar__entrar a {
   font-weight: 700;
   color: #14181f;
 }
@@ -275,16 +369,16 @@ body {
 
 /*TELA MEDIA: PAINEIS COM MENOS PADDING*/
 @media (max-width: 1200px) {
-  .login__vitrine,
-  .login__form {
+  .recuperar__vitrine,
+  .recuperar__form {
     padding: 2.5rem;
   }
 
-  .login__logo {
+  .recuperar__logo {
     width: 9.5rem;
   }
 
-  .login__chamada-titulo {
+  .recuperar__chamada-titulo {
     font-size: 1.875rem;
   }
 }
@@ -296,73 +390,80 @@ body {
     height: auto;
   }
 
-  .login {
+  .recuperar {
     height: auto;
     min-height: 100vh;
     min-height: 100dvh;
     overflow: visible;
   }
 
-  .login__layout {
+  .recuperar__layout {
     grid-template-columns: 1fr;
     height: auto;
     min-height: 100vh;
     min-height: 100dvh;
   }
 
-  .login__vitrine {
+  .recuperar__vitrine {
     display: none;
   }
 
-  .login__form {
+  .recuperar__form {
     padding: 2rem 1.5rem;
   }
 
-  .login__titulo {
+  .recuperar__titulo {
     font-size: 1.5rem;
   }
 
+  .recuperar__linha {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
   /*16px EVITA O ZOOM AUTOMATICO DO IOS AO FOCAR O CAMPO*/
-  .login__input {
+  .recuperar__input {
     font-size: 1rem;
   }
 }
 
-/*CELULAR: O BOTAO OCUPA A LARGURA*/
+/*CELULAR: OS DOIS BOTOES DIVIDEM A LARGURA*/
 @media (max-width: 480px) {
-  .login__form {
+  .recuperar__form {
     padding: 1.5rem 1.25rem;
   }
 
-  .login__botao {
+  .recuperar__botao {
     flex: 1;
     justify-content: center;
     padding: 0.875rem 1rem;
   }
 }
 
-/*LABEL E "ESQUECEU A SENHA?" NA MESMA LINHA*/
-.login__label-linha {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
+/*CAMPO DO CODIGO: DIGITOS ESPACADOS PARA CONFERIR COM O E-MAIL*/
+.recuperar__codigo {
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.5em;
+  text-align: center;
+  text-indent: 0.5em;
 }
 
-/*BOTAO COM CARA DE LINK: A ACAO DEPENDE DO E-MAIL DIGITADO, ENTAO NAO E UM <a>*/
-.login__esqueci {
+/*BOTAO COM CARA DE LINK PARA REENVIAR O CODIGO*/
+.recuperar__reenviar {
   padding: 0;
-  margin-bottom: 0.5rem;
   border: 0;
   background: none;
   font-family: inherit;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #dd5b12;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #14181f;
   text-decoration: underline;
   cursor: pointer;
 }
 
-.login__esqueci:hover {
-  color: #c24f00;
+.recuperar__reenviar:disabled {
+  color: #94a3b8;
+  cursor: default;
 }
