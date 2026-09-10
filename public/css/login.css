@@ -13,21 +13,20 @@ body {
 }
 
 /*TELA SEM ROLAGEM*/
-.cadastro {
+.login {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
 }
 
 /*SORA NOS TITULOS E DESTAQUES*/
-.cadastro__chamada-titulo,
-.cadastro__destaques,
-.cadastro__titulo,
-.cadastro__botao {
+.login__chamada-titulo,
+.login__titulo,
+.login__botao {
   font-family: "Sora", system-ui, sans-serif;
 }
 
-.cadastro__layout {
+.login__layout {
   display: grid;
   grid-template-columns: 35% 65%;
   height: 100%;
@@ -35,7 +34,7 @@ body {
 
 /* 35% TELA ESQUERDA */
 
-.cadastro__vitrine {
+.login__vitrine {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -52,52 +51,33 @@ body {
 }
 
 /*LOGO*/
-.cadastro__logo {
+.login__logo {
   width: 11rem;
   height: auto;
 }
 
 /*CHAMADA DO RODAPE*/
-.cadastro__chamada {
+.login__chamada {
   max-width: 22rem;
   padding-top: 1.5rem;
 }
 
-.cadastro__chamada-titulo {
+.login__chamada-titulo {
   margin: 0 0 0.75rem;
   font-size: 2.25rem;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.cadastro__chamada-texto {
+.login__chamada-texto {
   margin: 0 0 1.5rem;
   font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.5;
 }
 
-.cadastro__destaques {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 0.8125rem;
-  font-weight: 700;
-}
-
-.cadastro__destaques li {
-  display: flex;
-  gap: 0.625rem;
-  margin-bottom: 0.5rem;
-}
-
-.cadastro__destaques li::before {
-  content: "✓";
-  font-weight: 700;
-}
-
 /* 65% TELA DIREITA */
-.cadastro__form {
+.login__form {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -105,23 +85,14 @@ body {
   background-color: #fff;
 }
 
-.cadastro__formulario {
+.login__formulario {
   width: 100%;
   max-width: 27.5rem;
   margin: auto;
 }
 
 /*CABECALHO*/
-.cadastro__contador {
-  margin: 0 0 0.5rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #dd5b12;
-}
-
-.cadastro__titulo {
+.login__titulo {
   margin: 0 0 0.5rem;
   font-size: 1.75rem;
   font-weight: 700;
@@ -129,7 +100,7 @@ body {
   color: #14181f;
 }
 
-.cadastro__subtitulo {
+.login__subtitulo {
   margin: 0 0 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid #e4e8ee;
@@ -138,17 +109,11 @@ body {
 }
 
 /*CAMPOS*/
-.cadastro__campo {
+.login__campo {
   margin-bottom: 1.125rem;
 }
 
-.cadastro__linha {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
-}
-
-.cadastro__label {
+.login__label {
   display: block;
   margin-bottom: 0.5rem;
   font-size: 0.6875rem;
@@ -158,7 +123,7 @@ body {
   color: #55606e;
 }
 
-.cadastro__input {
+.login__input {
   width: 100%;
   box-sizing: border-box;
   padding: 0.8125rem 0.9375rem;
@@ -170,42 +135,26 @@ body {
   color: #14181f;
 }
 
-.cadastro__input::placeholder {
+.login__input::placeholder {
   color: #94a3b8;
 }
 
-.cadastro__input:focus {
+.login__input:focus {
   outline: none;
   border-color: #f87800;
   box-shadow: 0 0 0 3px rgba(248, 120, 0, 0.18);
 }
 
-/*SETA DO SELECT*/
-.cadastro__select {
-  appearance: none;
-  padding-right: 2.25rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  background-size: 1rem;
-}
-
-.cadastro__ajuda {
-  margin: 0.4375rem 0 0;
-  font-size: 0.75rem;
-  color: #64748b;
-}
-
 /*OLHO DA SENHA*/
-.cadastro__senha {
+.login__senha {
   position: relative;
 }
 
-.cadastro__senha .cadastro__input {
+.login__senha .login__input {
   padding-right: 2.75rem;
 }
 
-.cadastro__olho {
+.login__olho {
   position: absolute;
   top: 50%;
   right: 0.5rem;
@@ -219,86 +168,19 @@ body {
   cursor: pointer;
 }
 
-.cadastro__olho:hover {
+.login__olho:hover {
   color: #14181f;
 }
 
-/*ETAPAS: SO UMA APARECE POR VEZ*/
-.cadastro__etapas {
-  min-height: 26rem;
-}
-
-.cadastro__etapa {
-  display: none;
-}
-
-.cadastro__etapa--ativa {
-  display: block;
-}
-
-/*ANIMACAO DA TROCA DE ETAPA*/
-.cadastro__etapa--vem-da-direita {
-  animation: cadastro-vem-da-direita 0.32s ease-out;
-}
-
-.cadastro__etapa--vem-da-esquerda {
-  animation: cadastro-vem-da-esquerda 0.32s ease-out;
-}
-
-@keyframes cadastro-vem-da-direita {
-  from {
-    opacity: 0;
-    transform: translateX(2rem);
-  }
-}
-
-@keyframes cadastro-vem-da-esquerda {
-  from {
-    opacity: 0;
-    transform: translateX(-2rem);
-  }
-}
-
-/*QUEM PEDE MENOS MOVIMENTO NAO VE A ANIMACAO*/
-@media (prefers-reduced-motion: reduce) {
-  .cadastro__etapa--vem-da-direita,
-  .cadastro__etapa--vem-da-esquerda {
-    animation: none;
-  }
-}
-
-/*AVISO DE LIBERACAO*/
-.cadastro__aviso {
-  display: flex;
-  gap: 0.75rem;
-  margin: 1rem 0;
-  padding: 0.8125rem;
-  border: 1px solid #cfe0f7;
-  border-radius: 3px;
-  background-color: #eaf2fd;
-  color: #2c5c96;
-}
-
-.cadastro__aviso-icone {
-  flex-shrink: 0;
-  margin-top: 0.0625rem;
-}
-
-.cadastro__aviso p {
-  margin: 0;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-}
-
 /*ACOES*/
-.cadastro__acoes {
+.login__acoes {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem 1rem;
 }
 
-.cadastro__botao {
+.login__botao {
   display: inline-flex;
   align-items: center;
   gap: 0.625rem;
@@ -312,36 +194,23 @@ body {
   cursor: pointer;
 }
 
-.cadastro__botao:hover {
+.login__botao:hover {
   background-color: #c24f00;
 }
 
-/*BOTAO VOLTAR: SECUNDARIO*/
-.cadastro__botao--voltar {
-  border: 1px solid #d7dce3;
-  background-color: #fff;
-  color: #55606e;
-}
-
-.cadastro__botao--voltar:hover {
-  border-color: #94a3b8;
-  background-color: #f4f6f9;
-  color: #14181f;
-}
-
-.cadastro__botao:focus-visible {
+.login__botao:focus-visible {
   outline: 2px solid #14181f;
   outline-offset: 2px;
 }
 
-.cadastro__entrar {
+.login__cadastrar {
   flex-basis: 100%;
   margin: 0;
   font-size: 0.8125rem;
   color: #64748b;
 }
 
-.cadastro__entrar a {
+.login__cadastrar a {
   font-weight: 700;
   color: #14181f;
 }
@@ -367,16 +236,16 @@ body {
 
 /*TELA MEDIA: PAINEIS COM MENOS PADDING*/
 @media (max-width: 1200px) {
-  .cadastro__vitrine,
-  .cadastro__form {
+  .login__vitrine,
+  .login__form {
     padding: 2.5rem;
   }
 
-  .cadastro__logo {
+  .login__logo {
     width: 9.5rem;
   }
 
-  .cadastro__chamada-titulo {
+  .login__chamada-titulo {
     font-size: 1.875rem;
   }
 }
@@ -388,55 +257,45 @@ body {
     height: auto;
   }
 
-  .cadastro {
+  .login {
     height: auto;
     min-height: 100vh;
     min-height: 100dvh;
     overflow: visible;
   }
 
-  .cadastro__layout {
+  .login__layout {
     grid-template-columns: 1fr;
     height: auto;
     min-height: 100vh;
     min-height: 100dvh;
   }
 
-  .cadastro__vitrine {
+  .login__vitrine {
     display: none;
   }
 
-  .cadastro__form {
+  .login__form {
     padding: 2rem 1.5rem;
   }
 
-  .cadastro__titulo {
+  .login__titulo {
     font-size: 1.5rem;
   }
 
-  .cadastro__linha {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-
-  /*SEM ALTURA RESERVADA: A ETAPA MANDA NA ALTURA*/
-  .cadastro__etapas {
-    min-height: 0;
-  }
-
   /*16px EVITA O ZOOM AUTOMATICO DO IOS AO FOCAR O CAMPO*/
-  .cadastro__input {
+  .login__input {
     font-size: 1rem;
   }
 }
 
-/*CELULAR: OS DOIS BOTOES DIVIDEM A LARGURA*/
+/*CELULAR: O BOTAO OCUPA A LARGURA*/
 @media (max-width: 480px) {
-  .cadastro__form {
+  .login__form {
     padding: 1.5rem 1.25rem;
   }
 
-  .cadastro__botao {
+  .login__botao {
     flex: 1;
     justify-content: center;
     padding: 0.875rem 1rem;
