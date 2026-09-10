@@ -3,7 +3,7 @@
 import { supabase } from "../config/supabase-config.js";
 
 //MOSTRAR E ESCONDER SENHA
-document.querySelectorAll(".cadastro__olho").forEach((botao) => {
+document.querySelectorAll(".login__olho").forEach((botao) => {
   botao.addEventListener("click", () => {
     const campo = document.getElementById(botao.dataset.alvo);
     const escondida = campo.type === "password";
@@ -17,18 +17,18 @@ const erro = document.querySelector("[data-erro='login']");
 
 function mostrarErro(mensagem) {
   erro.textContent = mensagem;
-  erro.classList.add("cadastro__erro--visivel");
+  erro.classList.add("login__erro--visivel");
 }
 
 function esconderErro() {
   erro.textContent = "";
-  erro.classList.remove("cadastro__erro--visivel");
+  erro.classList.remove("login__erro--visivel");
 }
 
-const formulario = document.querySelector(".cadastro__formulario");
+const formulario = document.querySelector(".login__formulario");
 const campoEmail = document.getElementById("email");
 const campoSenha = document.getElementById("senha");
-const botaoEntrar = document.querySelector(".cadastro__botao[type='submit']");
+const botaoEntrar = document.querySelector(".login__botao[type='submit']");
 
 formulario.addEventListener("submit", async (evento) => {
   evento.preventDefault();
