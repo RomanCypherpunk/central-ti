@@ -9,6 +9,7 @@ body {
 
 body {
   margin: 0;
+  background-color: #fff;
   font-family: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
@@ -365,4 +366,21 @@ body {
 
 .login__esqueci:hover {
   color: #c24f00;
+}
+
+/*ENTRADA: A TELA SURGE EM VEZ DE APARECER DE UMA VEZ, FECHANDO A SAIDA DA HOME*/
+.login__layout {
+  animation: login-entra 0.3s ease-out;
+}
+
+@keyframes login-entra {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login__layout {
+    animation: none;
+  }
 }

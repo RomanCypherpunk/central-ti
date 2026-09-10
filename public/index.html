@@ -5,9 +5,81 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Central Única de TI</title>
   <link rel="icon" href="assets/img/favicon.ico">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Poppins:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/index.css">
+  <script>
+    // Antes da primeira pintura, senao a tela pisca no tema errado ao recarregar.
+    document.documentElement.dataset.tema = localStorage.getItem("tema") ?? "claro";
+  </script>
 </head>
-<body>
+<body style="visibility: hidden">
+
+  <header class="topo">
+
+    <!--MARCA-->
+    <div class="topo__marca">
+      <img class="topo__logo topo__logo--claro" src="assets/img/logo-claro.svg" alt="Gasômetro Madeiras">
+      <img class="topo__logo topo__logo--escuro" src="assets/img/logo-branco.svg" alt="Gasômetro Madeiras">
+      <span class="topo__divisor" aria-hidden="true"></span>
+      <span class="topo__produto">TI - Gasômetro Madeiras</span>
+    </div>
+
+    <!--ACOES DA DIREITA-->
+    <div class="topo__acoes">
+
+      <!--TEMA-->
+      <div class="topo__tema" role="group" aria-label="Tema">
+        <button class="topo__tema-botao" type="button" data-tema="claro" aria-label="Tema claro">
+          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+            <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+            <path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"
+                  stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="topo__tema-botao" type="button" data-tema="escuro" aria-label="Tema escuro">
+          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+            <path d="M20.5 14.4A8.6 8.6 0 0 1 9.6 3.5a8.6 8.6 0 1 0 10.9 10.9Z"
+                  fill="none" stroke="currentColor" stroke-width="1.7"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <span class="topo__divisor" aria-hidden="true"></span>
+
+      <!--USUARIO: PREENCHIDO PELO main.js A PARTIR DA SESSAO-->
+      <button class="topo__usuario" type="button">
+        <span class="topo__avatar" data-iniciais></span>
+        <span class="topo__usuario-texto">
+          <span class="topo__usuario-nome" data-nome></span>
+          <span class="topo__usuario-setor" data-setor></span>
+        </span>
+        <svg class="topo__usuario-seta" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <!--SAIR-->
+      <button class="topo__sair" type="button" data-acao="sair">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M14.5 4.5h3.2a1.8 1.8 0 0 1 1.8 1.8v11.4a1.8 1.8 0 0 1-1.8 1.8h-3.2"
+                fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9.5 15.5 5 12l4.5-3.5M5 12h9" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Sair</span>
+      </button>
+
+    </div>
+  </header>
+
+  <main class="conteudo">
+  </main>
+
   <script type="module" src="js/auth-guard.js"></script>
   <script type="module" src="js/main.js"></script>
 </body>
