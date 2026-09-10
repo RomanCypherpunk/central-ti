@@ -145,6 +145,22 @@ body {
   box-shadow: 0 0 0 3px rgba(248, 120, 0, 0.18);
 }
 
+/*AUTOPREENCHIMENTO DO NAVEGADOR: O FUNDO CINZA E DESENHADO PELO CHROME E SO
+  UMA SOMBRA INTERNA SOLIDA COBRE. A COR DO TEXTO PRECISA DE -webkit-text-fill-color.*/
+.login__input:-webkit-autofill,
+.login__input:-webkit-autofill:hover,
+.login__input:-webkit-autofill:focus,
+.login__input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 100px #fff inset;
+  -webkit-text-fill-color: #14181f;
+  caret-color: #14181f;
+}
+
+/*NO FOCO A SOMBRA INTERNA CONVIVE COM O ANEL LARANJA*/
+.login__input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 100px #fff inset, 0 0 0 3px rgba(248, 120, 0, 0.18);
+}
+
 /*OLHO DA SENHA*/
 .login__senha {
   position: relative;

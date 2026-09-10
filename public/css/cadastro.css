@@ -180,6 +180,22 @@ body {
   box-shadow: 0 0 0 3px rgba(248, 120, 0, 0.18);
 }
 
+/*AUTOPREENCHIMENTO DO NAVEGADOR: O FUNDO CINZA E DESENHADO PELO CHROME E SO
+  UMA SOMBRA INTERNA SOLIDA COBRE. A COR DO TEXTO PRECISA DE -webkit-text-fill-color.*/
+.cadastro__input:-webkit-autofill,
+.cadastro__input:-webkit-autofill:hover,
+.cadastro__input:-webkit-autofill:focus,
+.cadastro__input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 100px #fff inset;
+  -webkit-text-fill-color: #14181f;
+  caret-color: #14181f;
+}
+
+/*NO FOCO A SOMBRA INTERNA CONVIVE COM O ANEL LARANJA*/
+.cadastro__input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 100px #fff inset, 0 0 0 3px rgba(248, 120, 0, 0.18);
+}
+
 /*SETA DO SELECT*/
 .cadastro__select {
   appearance: none;
@@ -240,10 +256,6 @@ body {
 }
 
 /*ETAPAS: SO UMA APARECE POR VEZ*/
-.cadastro__etapas {
-  min-height: 26rem;
-}
-
 .cadastro__etapa {
   display: none;
 }
@@ -456,11 +468,6 @@ body {
   .cadastro__linha {
     grid-template-columns: 1fr;
     gap: 0;
-  }
-
-  /*SEM ALTURA RESERVADA: A ETAPA MANDA NA ALTURA*/
-  .cadastro__etapas {
-    min-height: 0;
   }
 
   /*16px EVITA O ZOOM AUTOMATICO DO IOS AO FOCAR O CAMPO*/
