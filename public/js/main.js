@@ -4,8 +4,9 @@ import { supabase } from "./config/supabase-config.js";
 
 //ENTRADA DA PAGINA: CARTOES E PAINEIS SOBEM COM FADE, EM SEQUENCIA
 const ELEMENTOS_ENTRADA = [
-  ".atalho",
-  ".painel",
+  ".saudacao",
+  ".porta",
+  ".coluna",
 ];
 
 document.querySelectorAll(ELEMENTOS_ENTRADA.join(",")).forEach((elemento, indice) => {
@@ -56,6 +57,8 @@ async function preencherUsuario() {
   const nome = user.user_metadata?.nome ?? user.email;
 
   document.querySelector("[data-nome]").textContent = nome;
+  // O nome da saudacao e o mesmo gravado no cadastro.
+  document.querySelector("[data-saudacao-nome]").textContent = nome;
   document.querySelector("[data-iniciais]").textContent = iniciais(nome);
 
   const setorId = user.user_metadata?.setor_id;
