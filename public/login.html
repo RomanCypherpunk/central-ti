@@ -3,11 +3,78 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login — Central Única de TI</title>
+  <title>Entrar — Central Única de TI</title>
   <link rel="icon" href="assets/img/favicon.ico">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Poppins:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/cadastro.css">
 </head>
-<body>
+<body class="cadastro">
+  <main class="cadastro__layout">
+
+    <!--35% TELA ESQUERDA-->
+    <aside class="cadastro__vitrine">
+      <img class="cadastro__logo" src="assets/img/logo-branco.svg" alt="Gasômetro Madeiras">
+      <div class="cadastro__chamada">
+        <h2 class="cadastro__chamada-titulo">TI Gasômetro Madeiras</h2>
+        <p class="cadastro__chamada-texto">
+          Entre para acessar as soluções e o portal de chamados.
+        </p>
+      </div>
+    </aside>
+
+    <!--65% TELA DIREITA-->
+    <section class="cadastro__form">
+      <form class="cadastro__formulario" novalidate>
+
+        <h1 class="cadastro__titulo">Entrar</h1>
+        <p class="cadastro__subtitulo">
+          Use o e-mail e a senha cadastrados.
+        </p>
+
+        <p class="cadastro__erro" data-erro="login" role="alert"></p>
+
+        <div class="cadastro__campo">
+          <label class="cadastro__label" for="email">E-mail</label>
+          <input class="cadastro__input" type="email" id="email" name="email"
+                 placeholder="seu.nome@gasometromadeiras.com.br"
+                 autocomplete="email" required>
+        </div>
+
+        <div class="cadastro__campo">
+          <label class="cadastro__label" for="senha">Senha</label>
+          <div class="cadastro__senha">
+            <input class="cadastro__input" type="password" id="senha" name="senha"
+                   placeholder="Sua senha"
+                   autocomplete="current-password" required>
+            <button class="cadastro__olho" type="button"
+                    data-alvo="senha" aria-label="Mostrar senha">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12Z"
+                      fill="none" stroke="currentColor" stroke-width="1.7"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="cadastro__acoes">
+          <button class="cadastro__botao" type="submit">
+            Entrar
+            <span aria-hidden="true">→</span>
+          </button>
+          <p class="cadastro__entrar">
+            Ainda não tem conta? <a href="cadastro.html">Criar conta</a>
+          </p>
+        </div>
+
+      </form>
+    </section>
+
+  </main>
+
   <script type="module" src="js/pages/login.js"></script>
 </body>
 </html>

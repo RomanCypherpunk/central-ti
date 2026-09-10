@@ -42,6 +42,8 @@
           <!--ETAPA 1: QUEM E VOCE-->
           <div class="cadastro__etapa cadastro__etapa--ativa">
 
+            <p class="cadastro__erro" data-erro="etapa1" role="alert"></p>
+
             <div class="cadastro__campo">
               <label class="cadastro__label" for="nome">Nome completo</label>
               <input class="cadastro__input" type="text" id="nome" name="nome"
@@ -54,14 +56,14 @@
               <div class="cadastro__campo">
                 <label class="cadastro__label" for="setor">Setor</label>
                 <select class="cadastro__input cadastro__select" id="setor" name="setor" required>
-                  <option value="" selected>Selecione o setor</option>
+                  <option value="" selected disabled>Selecione o setor</option>
                 </select>
               </div>
 
               <div class="cadastro__campo">
                 <label class="cadastro__label" for="unidade">Unidade</label>
                 <select class="cadastro__input cadastro__select" id="unidade" name="unidade" required>
-                  <option value="" selected>Selecione a unidade</option>
+                  <option value="" selected disabled>Selecione a unidade</option>
                 </select>
               </div>
             </div>
@@ -80,6 +82,8 @@
 
           <!--ETAPA 2: ACESSO-->
           <div class="cadastro__etapa">
+
+            <p class="cadastro__erro" data-erro="etapa2" role="alert"></p>
 
             <div class="cadastro__campo">
               <label class="cadastro__label" for="email">E-mail corporativo</label>
