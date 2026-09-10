@@ -78,6 +78,128 @@
   </header>
 
   <main class="conteudo">
+    <div class="home">
+
+      <!--AS DUAS PORTAS DE ENTRADA-->
+      <div class="atalhos">
+
+        <article class="atalho">
+          <span class="atalho__icone">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path d="M6 3.5h9.5L19 7v13.5H6z" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linejoin="round"/>
+              <path d="M9 9h7M9 12.5h7M9 16h4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <h2 class="atalho__titulo">Base de Soluções</h2>
+          <p class="atalho__descricao">
+            Quando o problema já aconteceu antes: artigos por setor com erro e
+            correção, script e procedimento.
+          </p>
+          <!--SETOR DO USUARIO: VEM DO CADASTRO, PREENCHIDO PELO main.js-->
+          <div class="atalho__marcas">
+            <span class="marca" data-setor-marca></span>
+          </div>
+          <a class="botao" href="base.html">
+            Consultar soluções
+            <span aria-hidden="true">→</span>
+          </a>
+        </article>
+
+        <article class="atalho">
+          <span class="atalho__icone">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path d="M20.5 12.5a7.5 7.5 0 0 1-10.9 6.7L4 20.5l1.3-5.4A7.5 7.5 0 1 1 20.5 12.5Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <h2 class="atalho__titulo">Abrir um chamado no TI</h2>
+          <p class="atalho__descricao">
+            Quando você precisa de ajuda humana: descreva o problema e a triagem
+            encaminha ao analista certo.
+          </p>
+          <p class="atalho__prazo">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M12 7.5V12l3 1.8" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Primeira resposta em até 4 horas úteis
+          </p>
+          <a class="botao" href="triagem.html">
+            Abrir chamado
+            <span aria-hidden="true">→</span>
+          </a>
+        </article>
+
+      </div>
+
+      <!--MEUS CHAMADOS: LISTA VEM DO SUPABASE-->
+      <section class="painel painel--chamados">
+        <header class="painel__topo">
+          <h2 class="painel__titulo">
+            Meus chamados
+            <span class="painel__resumo" data-resumo-chamados>2 em andamento · 1 aguardando sua resposta</span>
+          </h2>
+          <a class="painel__link" href="portal.html">
+            Ver todos
+            <span aria-hidden="true">→</span>
+          </a>
+        </header>
+
+        <ul class="cartoes" data-meus-chamados>
+          <li><a class="cartao" href="portal.html">
+            <span class="etiqueta etiqueta--andamento">Em andamento</span>
+            <p class="cartao__titulo">Impressora do setor fora da rede</p>
+            <p class="cartao__meta">#4821 · aberto em 03/09 · Marcos T.</p>
+          </a></li>
+          <li><a class="cartao" href="portal.html">
+            <span class="etiqueta etiqueta--andamento">Em andamento</span>
+            <p class="cartao__titulo">Relatório de vendas duplicando linhas</p>
+            <p class="cartao__meta">#4809 · aberto em 01/09 · Priscila R.</p>
+          </a></li>
+          <li><a class="cartao" href="portal.html">
+            <span class="etiqueta etiqueta--aguardando">Aguardando você</span>
+            <p class="cartao__titulo">Acesso ao módulo de compras</p>
+            <p class="cartao__meta">#4794 · o analista pediu um print</p>
+          </a></li>
+        </ul>
+      </section>
+
+      <!--SOLUCOES MAIS VISTAS: LISTA VEM DO SUPABASE-->
+      <section class="painel">
+        <header class="painel__topo">
+          <h2 class="painel__titulo">
+            Soluções mais vistas
+            <span class="painel__resumo">últimos 30 dias</span>
+          </h2>
+          <a class="painel__link" href="base.html">
+            Ver todas
+            <span aria-hidden="true">→</span>
+          </a>
+        </header>
+
+        <ul class="cartoes" data-solucoes-populares>
+          <li><a class="cartao" href="base.html">
+            <span class="etiqueta">Financeiro</span>
+            <p class="cartao__titulo">Erro ao emitir nota fiscal fora do horário</p>
+            <p class="cartao__meta">312 acessos · 28 chamados evitados</p>
+          </a></li>
+          <li><a class="cartao" href="base.html">
+            <span class="etiqueta">Sistema</span>
+            <p class="cartao__titulo">Senha do ERP bloqueada após 3 tentativas</p>
+            <p class="cartao__meta">274 acessos · 41 chamados evitados</p>
+          </a></li>
+          <li><a class="cartao" href="base.html">
+            <span class="etiqueta">Conexão</span>
+            <p class="cartao__titulo">Loja sem acesso à rede: o que checar antes</p>
+            <p class="cartao__meta">198 acessos · 19 chamados evitados</p>
+          </a></li>
+        </ul>
+      </section>
+
+    </div>
   </main>
 
   <script type="module" src="js/auth-guard.js"></script>

@@ -2,6 +2,22 @@
 
 import { supabase } from "./config/supabase-config.js";
 
+//ENTRADA DA PAGINA: CARTOES E PAINEIS SOBEM COM FADE, EM SEQUENCIA
+const ELEMENTOS_ENTRADA = [
+  ".atalho",
+  ".painel",
+];
+
+document.querySelectorAll(ELEMENTOS_ENTRADA.join(",")).forEach((elemento, indice) => {
+  elemento.classList.add("entrada");
+  elemento.style.setProperty("--entrada-atraso", `${indice * 70}ms`);
+});
+
+requestAnimationFrame(() => {
+  document.querySelectorAll(".entrada")
+    .forEach((elemento) => elemento.classList.add("entrada--visivel"));
+});
+
 //TEMA: SOL E LUA
 const botoesTema = document.querySelectorAll(".topo__tema-botao");
 
@@ -52,9 +68,14 @@ async function preencherUsuario() {
     .eq("id", setorId)
     .single();
 
-  if (setor) {
-    document.querySelector("[data-setor]").textContent = setor.nome;
-  }
+  if (!setor) return;
+
+  document.querySelector("[data-setor]").textContent = setor.nome;
+
+  // A Base de Soluções mostra só o setor de quem está logado.
+  const marca = document.querySelector("[data-setor-marca]");
+
+  if (marca) marca.textContent = setor.nome;
 }
 
 preencherUsuario();
