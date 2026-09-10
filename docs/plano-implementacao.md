@@ -83,6 +83,59 @@ Regras de RLS já implementadas (resumo):
 
 ---
 
+## Fase 1.5 — Recuperação de senha
+
+**Status: concluída** (2026-09-10) — SMTP próprio configurado (Resend),
+template do código aplicado, testado pelo usuário com e-mail real.
+
+O João Gabriel já construiu o front-end completo: `public/recuperar-senha.html`
++ `public/css/recuperar-senha.css` + `public/js/pages/recuperar-senha.js`,
+mais o botão "Esqueceu a senha?" em `login.html`/`login.js`. O fluxo
+esperado é: e-mail → código de 6 dígitos → `supabase.auth.verifyOtp()` →
+nova senha via `supabase.auth.updateUser()`. Front-end pronto e correto.
+
+**Bloqueio real:** o Supabase não permite customizar o template de e-mail
+(trocar o link padrão `{{ .ConfirmationURL }}` pelo código `{{ .Token }}`)
+no plano Free enquanto o projeto usa o provedor de e-mail compartilhado
+deles — erro retornado: *"Email template modification is not available
+for free tier projects using the default email provider."* Sem template
+customizado, o e-mail que chega tem um link, não um código, e o formulário
+de recuperação (que só aceita código de 6 dígitos) nunca funciona.
+
+`otp_length` já foi ajustado de 8 para 6 (bate com o `maxlength="6"` do
+front-end), aplicado via `supabase config push` — essa parte não depende
+de SMTP e já está correta no projeto remoto.
+
+**Resolvido com Resend** (não com Gmail — a tentativa com Gmail
+`helpdeskti@madeirasgasometro.com.br` esbarrou em "Senhas de app" oculta,
+comportamento normal do Google para contas recém-criadas):
+
+- Domínio `madeirasgasometro.com.br` verificado no Resend (registros DKIM
+  e SPF adicionados na zona DNS da Locaweb — coexistem sem conflito com o
+  SendGrid que a empresa já usa para e-mail marketing, por usarem nomes
+  de registro diferentes).
+- SMTP configurado em `supabase/config.toml`
+  (`[auth.email.smtp]`, host `smtp.resend.com`, porta 587) e aplicado via
+  `supabase config push` — a senha (API key do Resend) é lida da variável
+  de ambiente `RESEND_SMTP_PASS` no momento do push, nunca commitada em
+  texto puro.
+- Template do e-mail de recuperação (`supabase/templates/recovery.html`,
+  mostra `{{ .Token }}`) aplicado com sucesso assim que o SMTP passou a
+  existir — o erro 400 anterior ("not available for free tier... using
+  the default email provider") não ocorre mais fora do provedor padrão.
+- Remetente agora aparece como "TI Gasômetro Madeiras
+  <helpdeskti@madeirasgasometro.com.br>" em vez de "Supabase Auth
+  <noreply@mail.app.supabase.io>".
+- Testado pelo usuário com e-mail real: código de 6 dígitos chegando
+  corretamente.
+
+**Pendência de segurança:** a API key do Resend foi colada uma vez direto
+no chat durante a configuração — deve ser revogada no painel do Resend
+(API Keys → revoke) e substituída por uma nova, gerada e usada sem passar
+pelo histórico de conversa.
+
+---
+
 ## Fase 1 — Cadastro e login
 
 **Status: concluída** (2026-09-10) — testado de ponta a ponta manualmente

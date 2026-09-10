@@ -28,7 +28,20 @@ additional_redirect_urls = []
 double_confirm_changes = false
 enable_confirmations = false
 max_frequency = "1m0s"
-otp_length = 8
+otp_length = 6
+
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 587
+user = "resend"
+pass = "env(RESEND_SMTP_PASS)"
+admin_email = "helpdeskti@madeirasgasometro.com.br"
+sender_name = "TI Gasômetro Madeiras"
+
+[auth.email.template.recovery]
+subject = "Recuperação de senha — TI Gasômetro Madeiras"
+content_path = "./supabase/templates/recovery.html"
 
 [auth.mfa.totp]
 enroll_enabled = true
