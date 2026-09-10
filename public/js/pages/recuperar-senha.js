@@ -11,6 +11,30 @@ if (!email) {
 
 document.querySelector("[data-email]").textContent = email;
 
+//ENTRADA DA PAGINA: LOGO, TEXTO E FORMULARIO SOBEM COM FADE, EM SEQUENCIA
+const ELEMENTOS_ENTRADA = [
+  ".recuperar__logo",
+  ".recuperar__chamada-titulo",
+  ".recuperar__chamada-texto",
+  ".recuperar__contador",
+  ".recuperar__titulo",
+  ".recuperar__subtitulo",
+  ".recuperar__etapas",
+];
+
+ELEMENTOS_ENTRADA.forEach((seletor, indice) => {
+  const elemento = document.querySelector(seletor);
+  if (!elemento) return;
+
+  elemento.classList.add("recuperar__entrada");
+  elemento.style.setProperty("--entrada-atraso", `${indice * 70}ms`);
+});
+
+requestAnimationFrame(() => {
+  document.querySelectorAll(".recuperar__entrada")
+    .forEach((elemento) => elemento.classList.add("recuperar__entrada--visivel"));
+});
+
 //MOSTRAR E ESCONDER SENHA
 document.querySelectorAll(".recuperar__olho").forEach((botao) => {
   botao.addEventListener("click", () => {
@@ -19,6 +43,11 @@ document.querySelectorAll(".recuperar__olho").forEach((botao) => {
 
     campo.type = escondida ? "text" : "password";
     botao.setAttribute("aria-label", escondida ? "Esconder senha" : "Mostrar senha");
+
+    // Reinicia a animação de giro mesmo em cliques seguidos.
+    botao.classList.remove("recuperar__olho--alternado");
+    void botao.offsetWidth;
+    botao.classList.add("recuperar__olho--alternado");
   });
 });
 

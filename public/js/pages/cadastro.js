@@ -2,6 +2,30 @@
 
 import { supabase } from "../config/supabase-config.js";
 
+//ENTRADA DA PAGINA: LOGO, TEXTO E FORMULARIO SOBEM COM FADE, EM SEQUENCIA
+const ELEMENTOS_ENTRADA = [
+  ".cadastro__logo",
+  ".cadastro__chamada-titulo",
+  ".cadastro__chamada-texto",
+  ".cadastro__contador",
+  ".cadastro__titulo",
+  ".cadastro__subtitulo",
+  ".cadastro__etapas",
+];
+
+ELEMENTOS_ENTRADA.forEach((seletor, indice) => {
+  const elemento = document.querySelector(seletor);
+  if (!elemento) return;
+
+  elemento.classList.add("cadastro__entrada");
+  elemento.style.setProperty("--entrada-atraso", `${indice * 70}ms`);
+});
+
+requestAnimationFrame(() => {
+  document.querySelectorAll(".cadastro__entrada")
+    .forEach((elemento) => elemento.classList.add("cadastro__entrada--visivel"));
+});
+
 //MOSTRAR E ESCONDER SENHA
 document.querySelectorAll(".cadastro__olho").forEach((botao) => {
   botao.addEventListener("click", () => {
@@ -10,6 +34,20 @@ document.querySelectorAll(".cadastro__olho").forEach((botao) => {
 
     campo.type = escondida ? "text" : "password";
     botao.setAttribute("aria-label", escondida ? "Esconder senha" : "Mostrar senha");
+
+    // Reinicia a animação de giro mesmo em cliques seguidos.
+    botao.classList.remove("cadastro__olho--alternado");
+    void botao.offsetWidth;
+    botao.classList.add("cadastro__olho--alternado");
+  });
+});
+
+//PULSO NO SELECT QUANDO UMA OPCAO E ESCOLHIDA
+document.querySelectorAll(".cadastro__select").forEach((select) => {
+  select.addEventListener("change", () => {
+    select.classList.remove("cadastro__select--escolhido");
+    void select.offsetWidth;
+    select.classList.add("cadastro__select--escolhido");
   });
 });
 

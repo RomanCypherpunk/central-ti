@@ -47,14 +47,40 @@ body {
     #5e141d 0%,
     #dd5b12 100%
   );
+  background-size: 160% 160%;
+  animation: login-fundo-respira 16s ease-in-out infinite;
 
   color: #fff;
+}
+
+/*FUNDO DA VITRINE: RESPIRACAO LENTA, SEM CHAMAR ATENCAO*/
+@keyframes login-fundo-respira {
+  0%, 100% { background-position: 0% 0%; }
+  50% { background-position: 100% 60%; }
 }
 
 /*LOGO*/
 .login__logo {
   width: 11rem;
   height: auto;
+}
+
+/*ENTRADA DA PAGINA: ELEMENTOS SOBEM COM FADE, EM SEQUENCIA*/
+.login__entrada {
+  opacity: 0;
+  transform: translateY(0.9rem);
+}
+
+.login__entrada--visivel {
+  animation: login-entra 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: var(--entrada-atraso, 0s);
+}
+
+@keyframes login-entra {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /*CHAMADA DO RODAPE*/
@@ -140,10 +166,15 @@ body {
   color: #94a3b8;
 }
 
+.login__input {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
 .login__input:focus {
   outline: none;
   border-color: #f87800;
   box-shadow: 0 0 0 3px rgba(248, 120, 0, 0.18);
+  transform: scale(1.01);
 }
 
 /*AUTOPREENCHIMENTO DO NAVEGADOR: O FUNDO CINZA E DESENHADO PELO CHROME E SO
@@ -183,10 +214,26 @@ body {
   background: none;
   color: #64748b;
   cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
 .login__olho:hover {
   color: #14181f;
+  transform: translateY(-50%) scale(1.12);
+}
+
+.login__olho:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+/*GIRO RAPIDO AO TROCAR ENTRE MOSTRAR/ESCONDER*/
+.login__olho--alternado svg {
+  animation: login-olho-vira 0.3s ease;
+}
+
+@keyframes login-olho-vira {
+  from { transform: rotateY(90deg); opacity: 0.3; }
+  to { transform: rotateY(0deg); opacity: 1; }
 }
 
 /*MENSAGEM DE ERRO*/
@@ -221,6 +268,7 @@ body {
 }
 
 .login__botao {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.625rem;
@@ -232,10 +280,46 @@ body {
   font-weight: 700;
   color: #fff;
   cursor: pointer;
+  overflow: hidden;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/*BRILHO QUE DESLIZA NO HOVER*/
+.login__botao::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+}
+
+.login__botao:hover::before {
+  animation: login-botao-brilho 0.7s ease;
+}
+
+@keyframes login-botao-brilho {
+  from { left: -60%; }
+  to { left: 130%; }
 }
 
 .login__botao:hover {
   background-color: #c24f00;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(221, 91, 18, 0.32);
+}
+
+.login__botao:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 2px 6px rgba(221, 91, 18, 0.28);
 }
 
 .login__botao:focus-visible {
@@ -368,19 +452,29 @@ body {
   color: #c24f00;
 }
 
-/*ENTRADA: A TELA SURGE EM VEZ DE APARECER DE UMA VEZ, FECHANDO A SAIDA DA HOME*/
-.login__layout {
-  animation: login-entra 0.3s ease-out;
-}
-
-@keyframes login-entra {
-  from {
-    opacity: 0;
-  }
-}
-
+/*QUEM PEDE MENOS MOVIMENTO NAO VE NENHUMA DAS ANIMACOES*/
 @media (prefers-reduced-motion: reduce) {
-  .login__layout {
+  .login__vitrine,
+  .login__entrada--visivel,
+  .login__olho--alternado svg,
+  .login__botao::before {
     animation: none;
   }
+
+  .login__entrada {
+    opacity: 1;
+    transform: none;
+  }
+
+  .login__input:focus,
+  .login__botao:hover,
+  .login__botao:active {
+    transform: none;
+  }
+
+  .login__olho:hover,
+  .login__olho:active {
+    transform: translateY(-50%);
+  }
 }
+

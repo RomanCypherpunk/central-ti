@@ -2,6 +2,26 @@
 
 import { supabase } from "../config/supabase-config.js";
 
+//ENTRADA DA PAGINA: LOGO, TEXTO E FORMULARIO SOBEM COM FADE, EM SEQUENCIA
+const ELEMENTOS_ENTRADA = [
+  ".login__logo",
+  ".login__chamada-titulo",
+  ".login__chamada-texto",
+  ".login__titulo",
+  ".login__subtitulo",
+  ".login__campo",
+];
+
+document.querySelectorAll(ELEMENTOS_ENTRADA.join(",")).forEach((elemento, indice) => {
+  elemento.classList.add("login__entrada");
+  elemento.style.setProperty("--entrada-atraso", `${indice * 70}ms`);
+});
+
+requestAnimationFrame(() => {
+  document.querySelectorAll(".login__entrada")
+    .forEach((elemento) => elemento.classList.add("login__entrada--visivel"));
+});
+
 //MOSTRAR E ESCONDER SENHA
 document.querySelectorAll(".login__olho").forEach((botao) => {
   botao.addEventListener("click", () => {
@@ -10,6 +30,11 @@ document.querySelectorAll(".login__olho").forEach((botao) => {
 
     campo.type = escondida ? "text" : "password";
     botao.setAttribute("aria-label", escondida ? "Esconder senha" : "Mostrar senha");
+
+    // Reinicia a animação de giro mesmo em cliques seguidos.
+    botao.classList.remove("login__olho--alternado");
+    void botao.offsetWidth;
+    botao.classList.add("login__olho--alternado");
   });
 });
 
