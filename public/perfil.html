@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dados pessoais - TI</title>
+  <link rel="icon" href="assets/img/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/perfil.css">
+</head>
+<body style="visibility: hidden">
+
+  <header class="topo">
+
+    <!--MARCA-->
+    <div class="topo__marca">
+      <img class="topo__logo" src="assets/img/logo-claro.svg" alt="Gasômetro Madeiras">
+      <span class="topo__divisor" aria-hidden="true"></span>
+      <span class="topo__produto">TI - Gasômetro Madeiras</span>
+    </div>
+
+    <!--ACOES DA DIREITA-->
+    <div class="topo__acoes">
+
+      <div class="topo__perfil">
+        <button class="topo__usuario" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="topo__avatar" data-iniciais></span>
+          <span class="topo__usuario-texto">
+            <span class="topo__usuario-nome" data-nome></span>
+            <span class="topo__usuario-setor" data-setor></span>
+          </span>
+          <svg class="topo__usuario-seta" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <div class="topo__menu">
+          <a class="topo__menu-item" href="index.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M4 11.5 12 4.5l8 7" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6 10.5V19h12v-8.5" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Início
+          </a>
+          <!--PORTAL: SO PARA ADMIN. NASCE ESCONDIDO E O main.js MOSTRA-->
+          <a class="topo__menu-item" href="portal.html" data-menu-portal hidden>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M3.5 9h17" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M8 13h3.5M8 16h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            Portal de Chamados
+          </a>
+
+          <a class="topo__menu-item" href="solicitacoes.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <rect x="3.5" y="5" width="17" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M7.5 9.5h9M7.5 13h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            Solicitações
+          </a>
+          <a class="topo__menu-item" href="base.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M3.5 5.2A1.7 1.7 0 0 1 5.2 3.5H10a2.5 2.5 0 0 1 2 1v14a2.5 2.5 0 0 0-2-1H5.2a1.7 1.7 0 0 1-1.7-1.7Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+              <path d="M20.5 5.2a1.7 1.7 0 0 0-1.7-1.7H14a2.5 2.5 0 0 0-2 1v14a2.5 2.5 0 0 1 2-1h4.8a1.7 1.7 0 0 0 1.7-1.7Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+            </svg>
+            Soluções
+          </a>
+        </div>
+      </div>
+
+      <button class="topo__sair" type="button" data-acao="sair">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M14.5 4.5h3.2a1.8 1.8 0 0 1 1.8 1.8v11.4a1.8 1.8 0 0 1-1.8 1.8h-3.2"
+                fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9.5 15.5 5 12l4.5-3.5M5 12h9" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Sair</span>
+      </button>
+
+    </div>
+  </header>
+
+  <main class="perfil">
+    <div class="perfil__cartao">
+
+      <div class="perfil__cabecalho">
+        <h1 class="perfil__titulo">Dados pessoais</h1>
+        <p class="perfil__subtitulo">Sua foto e seu nome aparecem nos chamados que você acompanha.</p>
+      </div>
+
+      <p class="perfil__aviso" data-aviso role="status"></p>
+
+      <!--FOTO-->
+      <div class="perfil__foto-bloco">
+        <span class="perfil__foto" data-foto>
+          <span class="perfil__foto-iniciais" data-foto-iniciais></span>
+        </span>
+
+        <div class="perfil__foto-acoes">
+          <label class="perfil__botao perfil__botao--suave">
+            <input type="file" data-foto-arquivo hidden accept="image/*">
+            Trocar foto
+          </label>
+          <button class="perfil__remover" type="button" data-foto-remover hidden>Remover</button>
+          <p class="perfil__ajuda">JPG ou PNG, até 2 MB.</p>
+        </div>
+      </div>
+
+      <!--NOME: SEPARADO PORQUE SO O PRIMEIRO APARECE NA SAUDACAO E NOS CARDS-->
+      <div class="perfil__linha">
+        <div class="perfil__campo">
+          <label class="perfil__label" for="nome">Nome</label>
+          <input class="perfil__input" type="text" id="nome" data-nome-campo
+                 autocomplete="given-name" placeholder="Seu nome">
+        </div>
+
+        <div class="perfil__campo">
+          <label class="perfil__label" for="sobrenome">Sobrenome</label>
+          <input class="perfil__input" type="text" id="sobrenome" data-sobrenome-campo
+                 autocomplete="family-name" placeholder="Seu sobrenome">
+        </div>
+      </div>
+
+      <!--DADOS QUE SO O TI MUDA-->
+      <div class="perfil__linha">
+        <div class="perfil__campo">
+          <label class="perfil__label" for="email">E-mail</label>
+          <input class="perfil__input" type="email" id="email" data-email-campo disabled>
+        </div>
+
+        <div class="perfil__campo">
+          <label class="perfil__label" for="setor">Setor</label>
+          <input class="perfil__input" type="text" id="setor" data-setor-campo disabled>
+        </div>
+      </div>
+
+      <p class="perfil__ajuda perfil__ajuda--bloco">
+        E-mail e setor são definidos pela equipe de TI. Para mudar, abra um chamado.
+      </p>
+
+      <div class="perfil__acoes">
+        <button class="perfil__botao" type="button" data-salvar>Salvar alterações</button>
+        <button class="perfil__senha" type="button" data-trocar-senha>Trocar a senha</button>
+      </div>
+
+    </div>
+  </main>
+
+  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/pages/perfil.js"></script>
+</body>
+</html>

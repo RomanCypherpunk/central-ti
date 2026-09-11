@@ -1,0 +1,1589 @@
+/* ==========================================================================
+   PORTAL DE CHAMADOS: QUADRO KANBAN
+   O topo, o menu de perfil e o avatar vem de index.css. Aqui fica so o
+   quadro, as colunas e os cards.
+   ========================================================================== */
+
+/* ==========================================================================
+   TEMA
+   O escuro e so desta tela: o toggle do topo grava [data-tema] no <html>,
+   e aqui tudo que muda de cor le uma variavel em vez de um hex fixo. Assim
+   o tema escuro redefine ~20 tokens em vez de repetir ~80 seletores.
+   ========================================================================== */
+
+body.portal-pagina {
+  --superficie: #fff;          /*CARD, MODAL: O QUE FICA POR CIMA*/
+  --superficie-2: #f4f4f5;     /*FILA, SELO, CAMPO: O FUNDO DE APOIO*/
+  --superficie-3: #fafafa;     /*LATERAL DE ANEXOS, CAIXA DE ESCRITA*/
+  --borda: #e5e5e5;
+  --borda-suave: #ececec;
+  --texto: #1a1a1a;
+  --texto-2: #5a5a5a;          /*APOIO: NUMERO DO TICKET, CONTADOR*/
+  --texto-3: #8a8a8a;          /*ROTULO, ICONE APAGADO*/
+  --texto-4: #a1a1aa;          /*VAZIO, CARIMBO DE HORA*/
+  --laranja: #dd5b12;
+  --realce: #fdf3ec;           /*ALVO DE SOLTURA, CARD SOB O MOUSE*/
+  --realce-borda: #f0c3a3;
+  --avatar-fundo: #f0dcce;
+  --avatar-texto: #a8794f;
+  --balao-deles: #e4e4e5;      /*SOLICITANTE*/
+  --balao-nosso: #facfc0;      /*EQUIPE*/
+  --balao-texto: #1a1a1a;      /*OS DOIS BALOES SAO CLAROS NOS DOIS TEMAS*/
+  --sombra-card: 0 1px 2px rgba(26, 26, 26, 0.05);
+  --sombra-card-alta: 0 6px 16px rgba(26, 26, 26, 0.09);
+
+  /*ETIQUETAS, STATUS E ERRO: CORES COM SIGNIFICADO. NO ESCURO O FUNDO
+    FICA ESCURO E O TEXTO CLARO, SENAO O CONTRASTE SOME.*/
+  --etiqueta-urgente-fundo: #fdeceb;
+  --etiqueta-urgente-texto: #b02a2a;
+  --etiqueta-prioridade-fundo: #fff4e0;
+  --etiqueta-prioridade-texto: #9a5b00;
+  --etiqueta-normal-fundo: #f0f0f1;
+  --etiqueta-normal-texto: #6b6b70;
+  /*ABERTO azul, AGUARDANDO RETORNO verde, USUARIO RESPONDEU amarelo,
+    FECHADO cinza — o cinza apaga o que ja saiu do fluxo de trabalho.*/
+  --status-aberto: #2c5c96;
+  --status-aguardando: #2f9e44;
+  --status-respondeu: #a37a0a;
+  --status-fechado: #8a8a8a;
+  --erro-fundo: #fdeceb;
+  --erro-borda: #f3bcbc;
+  --erro-texto: #b02a2a;
+  --selo-sim-fundo: #fde8dc;
+  --selo-sim-texto: #b8460c;
+  --laranja-forte: #c24f00;
+}
+
+/*ESCURO: AS DUAS CORES QUE O USUARIO PEDIU SAO --superficie-2 (fila) E
+  --superficie (card). O degrade laranja do quadro fica como esta.*/
+[data-tema="escuro"] body.portal-pagina {
+  /*AVISA O NAVEGADOR: BARRA DE ROLAGEM E CONTROLES NATIVOS NO ESCURO.
+    Sem isto a barra do modal fica branca e brilha no meio do escuro.*/
+  color-scheme: dark;
+
+  --superficie: #242529;
+  --superficie-2: #101204;
+  --superficie-3: #1a1b1f;
+  --borda: #34353a;
+  --borda-suave: #2c2d31;
+  --texto: #ededed;
+  --texto-2: #a8a8ad;
+  --texto-3: #8f8f96;
+  --texto-4: #76767d;
+  --realce: #2f3036;
+  --realce-borda: #7a4a2a;
+  --avatar-fundo: #4a3527;
+  --avatar-texto: #e0b894;
+  /*NO ESCURO A SOMBRA NAO APARECE; QUEM SEPARA O CARD DO FUNDO E A BORDA*/
+  --sombra-card: none;
+  --sombra-card-alta: 0 6px 16px rgba(0, 0, 0, 0.45);
+
+  /*MESMOS SIGNIFICADOS, INVERTIDOS: FUNDO ESCURO DESSATURADO E TEXTO CLARO*/
+  --etiqueta-urgente-fundo: #3d1f1f;
+  --etiqueta-urgente-texto: #f1a3a3;
+  --etiqueta-prioridade-fundo: #3a2c14;
+  --etiqueta-prioridade-texto: #e8bd73;
+  --etiqueta-normal-fundo: #2f3036;
+  --etiqueta-normal-texto: #a8a8ad;
+  --status-aberto: #7aa9de;
+  --status-aguardando: #5fc77c;
+  --status-respondeu: #d9b441;
+  --status-fechado: #8f8f96;
+  --erro-fundo: #3d1f1f;
+  --erro-borda: #6b3232;
+  --erro-texto: #f1a3a3;
+  --selo-sim-fundo: #4a2a18;
+  --selo-sim-texto: #f0a877;
+  --laranja-forte: #e86a20;
+}
+
+/*A PAGINA TOMA A TELA INTEIRA E NAO ROLA: QUEM ROLA E O QUADRO (na horizontal)
+  E CADA COLUNA (na vertical). index.css so poe min-height no body, e sem
+  altura fechada o flex: 1 do .portal nao tem de onde esticar.*/
+body.portal-pagina {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/*MESMO FUNDO DA FAIXA DA HOME, INCLUSIVE A RESPIRACAO LENTA*/
+.portal {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 1.25rem 1.25rem 0;
+
+  background: radial-gradient(
+    circle at top left,
+    #5e141d 0%,
+    #dd5b12 100%
+  );
+  background-size: 250% 500%;
+  animation: destaque-fundo-respira 7s ease-in-out infinite;
+}
+
+.portal__cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-shrink: 0;
+  margin-bottom: 0.875rem;
+}
+
+.portal__identificacao {
+  min-width: 0;
+}
+
+.portal__titulo {
+  margin: 0 0 0.125rem;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 600;
+  /*SOBRE O DEGRADE LARANJA: BRANCO NOS DOIS TEMAS*/
+  color: #fff;
+}
+
+.portal__subtitulo {
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ==========================================================================
+   BUSCA
+   ========================================================================== */
+
+.busca {
+  position: relative;
+  flex-shrink: 0;
+  width: 20rem;
+}
+
+.busca__icone {
+  position: absolute;
+  top: 50%;
+  left: 0.625rem;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.65);
+  pointer-events: none;
+}
+
+.busca__campo {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4375rem 0.625rem 0.4375rem 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.12);
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.75rem;
+  /*SOBRE O DEGRADE LARANJA: BRANCO NOS DOIS TEMAS*/
+  color: #fff;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.busca__campo::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.busca__campo:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+/*O X NATIVO DO type=search NAO COMBINA COM O CAMPO ESCURO*/
+.busca__campo::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/*RESULTADOS: LISTA SUSPENSA SOBRE O QUADRO*/
+.busca__resultados {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  right: 0;
+  z-index: 5;
+  width: 24rem;
+  max-height: 22rem;
+  padding: 0.3125rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background-color: var(--superficie);
+  box-shadow: 0 12px 32px rgba(26, 26, 26, 0.22);
+  overflow-y: auto;
+}
+
+.busca__titulo {
+  margin: 0.25rem 0.4375rem 0.375rem;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-4);
+}
+
+.busca__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.4375rem;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.busca__item:hover,
+.busca__item:focus-visible {
+  outline: none;
+  background-color: var(--superficie-2);
+}
+
+.busca__item-icone {
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+  color: var(--texto-4);
+}
+
+.busca__item-texto {
+  min-width: 0;
+}
+
+.busca__item-titulo {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--texto);
+}
+
+.busca__item-contexto {
+  display: block;
+  margin-top: 0.0625rem;
+  font-size: 0.625rem;
+  color: var(--texto-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.busca__vazio {
+  padding: 0.75rem 0.4375rem;
+  font-size: 0.75rem;
+  text-align: center;
+  color: var(--texto-3);
+}
+
+/*CARD QUE VEIO DA BUSCA: PISCA PARA O OLHO ACHAR ONDE ELE ESTA*/
+.card--destacado {
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 3px rgba(221, 91, 18, 0.28);
+}
+
+/*ERRO DE CARGA: OCUPA O LUGAR DO QUADRO*/
+.portal__erro {
+  display: none;
+  margin: 0 0 1.25rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--erro-borda);
+  border-radius: 8px;
+  background-color: var(--erro-fundo);
+  font-size: 0.875rem;
+  color: var(--erro-texto);
+}
+
+.portal__erro--visivel {
+  display: block;
+}
+
+/* ==========================================================================
+   QUADRO E COLUNAS
+   ========================================================================== */
+
+/*O QUADRO ROLA NA HORIZONTAL; CADA COLUNA ROLA NA VERTICAL POR DENTRO.
+  align-items: flex-start faz a coluna ter a altura do conteudo, em vez de
+  esticar ate o fim da tela mesmo quase vazia.
+
+  flex: 1 faz a area de rolagem ir ate o rodape da tela, e nao parar onde
+  as colunas terminam — assim a barra (desenhada por nos, la embaixo)
+  fica de fora a fora em vez de flutuar no meio.*/
+.portal__quadro {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  min-height: 0;
+  padding-bottom: 0.75rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  cursor: grab;
+}
+
+/*SEGURANDO O FUNDO PARA PUXAR O QUADRO*/
+.portal__quadro--puxando {
+  cursor: grabbing;
+  user-select: none;
+}
+
+/*BARRA NATIVA ESCONDIDA: a nossa e desenhada em .portal__barra*/
+.portal__quadro::-webkit-scrollbar {
+  display: none;
+}
+
+/*BARRA DE ROLAGEM PROPRIA: COLADA NO RODAPE, DE FORA A FORA, DISCRETA*/
+.portal__barra {
+  display: none;
+  flex-shrink: 0;
+  height: 0.375rem;
+  margin: 0 -1.25rem;
+  padding: 0 1.25rem 0.5rem;
+  box-sizing: content-box;
+  cursor: pointer;
+}
+
+.portal__barra--visivel {
+  display: block;
+}
+
+.portal__barra-trilho {
+  position: relative;
+  height: 100%;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+.portal__barra-alca {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  min-width: 2.5rem;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.4);
+  transition: background-color 0.2s ease;
+}
+
+.portal__barra:hover .portal__barra-alca,
+.portal__barra-alca--arrastando {
+  background-color: rgba(255, 255, 255, 0.65);
+}
+
+.fila {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 13.5rem;
+  /*CABE UM PUNHADO DE CARDS ANTES DE ROLAR POR DENTRO; sem isso uma fila
+    cheia passaria do rodape da tela.*/
+  max-height: calc(100dvh - 11rem);
+  border: 1px solid var(--borda);
+  border-radius: 9px;
+  background-color: var(--superficie-2);
+  /*O grab e do fundo do quadro; dentro da coluna o cursor volta ao normal*/
+  cursor: default;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+/*COLUNA SOB O CARD ARRASTADO: FICA CLARO ONDE VAI SOLTAR*/
+.fila--alvo {
+  border-color: var(--laranja);
+  background-color: var(--realce);
+}
+
+.fila__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.5rem 0.5rem 0.375rem;
+}
+
+.fila__nome {
+  margin: 0;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--texto);
+}
+
+.fila__contador {
+  flex-shrink: 0;
+  min-width: 1.125rem;
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 999px;
+  background-color: var(--borda);
+  font-size: 0.625rem;
+  text-align: center;
+  color: var(--texto-2);
+}
+
+/*min-height GARANTE AREA DE SOLTURA MESMO NA FILA VAZIA*/
+.fila__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-height: 3rem;
+  margin: 0;
+  padding: 0 0.375rem 0.5rem;
+  list-style: none;
+  overflow-y: auto;
+}
+
+/*FILA SEM CHAMADO: O ESPACO CONTINUA ALI, SO QUE MUDO*/
+.fila__vazia {
+  padding: 0.375rem 0.25rem 0.5rem;
+  font-size: 0.625rem;
+  text-align: center;
+  color: var(--texto-4);
+}
+
+/* ==========================================================================
+   CARD DO CHAMADO
+   ========================================================================== */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3125rem;
+  padding: 0.5rem 0.5rem 0.4375rem;
+  border: 1px solid var(--borda);
+  border-radius: 7px;
+  background-color: var(--superficie);
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.05);
+  cursor: grab;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--realce-borda);
+  box-shadow: 0 6px 16px rgba(26, 26, 26, 0.09);
+  transform: translateY(-1px);
+}
+
+/*CARD SENDO ARRASTADO: SAI DO CAMINHO VISUALMENTE*/
+.card--arrastando {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+/*ETIQUETAS DE PRIORIDADE: SO APARECEM QUANDO A FLAG ESTA MARCADA*/
+.card__etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.card__etiqueta {
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 3px;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.card__etiqueta--urgente {
+  background-color: var(--etiqueta-urgente-fundo);
+  color: var(--etiqueta-urgente-texto);
+}
+
+.card__etiqueta--prioridade {
+  background-color: var(--etiqueta-prioridade-fundo);
+  color: var(--etiqueta-prioridade-texto);
+}
+
+.card__etiqueta--normal {
+  background-color: var(--etiqueta-normal-fundo);
+  color: var(--etiqueta-normal-texto);
+}
+
+/*TITULO: CATEGORIA | TICKET-NNN*/
+.card__titulo {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--texto);
+}
+
+.card__categoria {
+  font-weight: 600;
+}
+
+.card__numero {
+  color: var(--texto-2);
+}
+
+/*STATUS: DERIVADO DOS COMENTARIOS, MESMO VOCABULARIO VISUAL DA HOME*/
+.card__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  font-size: 0.625rem;
+}
+
+.card__status::before {
+  content: "";
+  width: 0.3125rem;
+  height: 0.3125rem;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.card__status--aberto {
+  color: var(--status-aberto);
+}
+
+.card__status--aguardando {
+  color: var(--status-aguardando);
+}
+
+.card__status--respondeu {
+  color: var(--status-respondeu);
+}
+
+.card__status--fechado {
+  color: var(--status-fechado);
+}
+
+/*MEMBROS: INICIAIS EM CIRCULO, ALINHADOS A DIREITA*/
+/*SO OCUPA ESPACO QUANDO TEM ALGUEM NO CHAMADO*/
+.card__membros {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.1875rem;
+}
+
+.card__membros:empty {
+  display: none;
+}
+
+.card__membro {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  background-color: var(--avatar-fundo);
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: var(--avatar-texto);
+}
+
+/* ==========================================================================
+   RESPONSIVO
+   ========================================================================== */
+
+/* ==========================================================================
+   DETALHE DO CHAMADO
+   ========================================================================== */
+
+/*<dialog> ja traz o fundo esmaecido, o Esc e o foco preso de graça*/
+.detalhe {
+  width: min(60rem, 92vw);
+  max-height: 88dvh;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background-color: var(--superficie);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.detalhe::backdrop {
+  background-color: rgba(16, 10, 8, 0.62);
+}
+
+.detalhe__conteudo {
+  display: flex;
+  flex-direction: column;
+  max-height: 88dvh;
+}
+
+.detalhe__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+  padding: 0.75rem 0.875rem;
+  border-bottom: 1px solid var(--borda-suave);
+}
+
+/*FILA ATUAL: O MESMO "INBOX" QUE APARECE NO TOPO DO CARTAO DO TRELLO*/
+.detalhe__fila {
+  padding: 0.1875rem 0.5rem;
+  border-radius: 4px;
+  background-color: var(--superficie-2);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-2);
+}
+
+.detalhe__fechar {
+  display: flex;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--texto-3);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.detalhe__fechar:hover {
+  background-color: var(--superficie-2);
+  color: var(--texto);
+}
+
+.detalhe__corpo {
+  display: grid;
+  grid-template-columns: 1fr 20rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.detalhe__principal {
+  padding: 1.125rem 1.25rem 1.5rem;
+  overflow-y: auto;
+}
+
+.detalhe__titulo {
+  margin: 0 0 1.25rem;
+  padding: 0.25rem 0.4375rem;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--texto);
+}
+
+/*CAMPOS EDITAVEIS SO MOSTRAM QUE SAO EDITAVEIS QUANDO O MOUSE CHEGA PERTO*/
+.detalhe__titulo:hover,
+.detalhe__descricao:hover {
+  border-color: var(--borda);
+}
+
+.detalhe__titulo:focus,
+.detalhe__descricao:focus {
+  outline: none;
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 3px rgba(221, 91, 18, 0.15);
+}
+
+/*DADOS DO CHAMADO: GRADE DE ROTULO EM CIMA, VALOR EMBAIXO*/
+/*DUAS COLUNAS FIXAS: COM auto-fit A ULTIMA LINHA SOBRAVA CELULA VAZIA,
+  QUE APARECIA COMO UM BURACO CINZA NO MEIO DA FICHA*/
+.dados {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.0625rem;
+  margin: 0 0 1.125rem;
+  border: 1px solid var(--borda-suave);
+  border-radius: 8px;
+  background-color: var(--borda-suave);
+  overflow: hidden;
+}
+
+.dados__item {
+  padding: 0.5rem 0.6875rem;
+  background-color: var(--superficie);
+}
+
+/*ITEM LARGO: E-MAIL E ACESSO REMOTO NAO CABEM EM UMA COLUNA SO*/
+.dados__item--largo {
+  grid-column: 1 / -1;
+}
+
+.dados__rotulo {
+  margin: 0 0 0.125rem;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+
+.dados__valor {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--texto);
+  overflow-wrap: anywhere;
+}
+
+/*VAZIO: FICA APAGADO PARA O OLHO PULAR DIRETO NO QUE TEM CONTEUDO*/
+.dados__valor--vazio {
+  color: var(--texto-4);
+}
+
+/*SIM/NAO QUE MUDA O ATENDIMENTO: CLIENTE ESPERANDO, SISTEMA FORA*/
+.dados__marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 4px;
+  background-color: var(--superficie-2);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--texto-2);
+}
+
+.dados__marca--sim {
+  background-color: var(--selo-sim-fundo);
+  color: var(--selo-sim-texto);
+}
+
+/*PRIORIDADE E MEMBROS DIVIDEM A LINHA: ECONOMIZA ALTURA PARA O CHAT*/
+.detalhe__lado-a-lado {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.detalhe__bloco {
+  margin-bottom: 1.125rem;
+}
+
+.detalhe__rotulo {
+  margin: 0 0 0.4375rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+
+.detalhe__etiquetas,
+.detalhe__membros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/*ETIQUETA COMO BOTAO: CLICAR LIGA E DESLIGA A PRIORIDADE*/
+.detalhe__etiqueta {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: var(--superficie-2);
+  font-family: inherit;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.detalhe__etiqueta:hover {
+  border-color: var(--borda);
+}
+
+.detalhe__etiqueta--ativa.detalhe__etiqueta--urgente {
+  background-color: var(--etiqueta-urgente-fundo);
+  color: var(--etiqueta-urgente-texto);
+}
+
+.detalhe__etiqueta--ativa.detalhe__etiqueta--prioridade {
+  background-color: var(--etiqueta-prioridade-fundo);
+  color: var(--etiqueta-prioridade-texto);
+}
+
+/*MEMBRO: CLICAR TIRA DO CHAMADO; O + ABRE A LISTA DE QUEM PODE ENTRAR*/
+.detalhe__membro {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background-color: var(--superficie);
+  font-family: inherit;
+  font-size: 0.6875rem;
+  color: var(--texto);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.detalhe__membro:hover {
+  border-color: var(--realce-borda);
+  background-color: var(--realce);
+}
+
+.detalhe__membro-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background-color: var(--avatar-fundo);
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: var(--avatar-texto);
+}
+
+.detalhe__adicionar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px dashed var(--borda);
+  border-radius: 50%;
+  background: none;
+  color: var(--texto-3);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.detalhe__adicionar:hover {
+  border-color: var(--laranja);
+  color: var(--laranja);
+}
+
+/*LISTA DE QUEM PODE ENTRAR NO CHAMADO*/
+.detalhe__escolher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--borda);
+  border-radius: 7px;
+  background-color: var(--superficie-3);
+}
+
+.detalhe__escolher:empty {
+  display: none;
+}
+
+.detalhe__descricao {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--texto);
+  white-space: pre-wrap;
+}
+
+/*CONFIRMACAO DE QUE GRAVOU (OU DE QUE FALHOU)*/
+.detalhe__aviso {
+  min-height: 1rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.6875rem;
+  color: var(--texto-3);
+}
+
+.detalhe__aviso--erro {
+  color: var(--etiqueta-urgente-texto);
+}
+
+/* ==========================================================================
+   CORRESPONDENCIA (abaixo da descricao)
+   ========================================================================== */
+
+.conversa {
+  margin-top: 1.5rem;
+  padding-top: 1.125rem;
+  border-top: 1px solid var(--borda-suave);
+}
+
+.conversa__mensagens {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  max-height: 20rem;
+  margin-bottom: 0.75rem;
+  padding-right: 0.25rem;
+  overflow-y: auto;
+}
+
+/*position: relative ANCORA O PAINEL DE TEXTOS RAPIDOS, QUE SOBE POR CIMA*/
+.conversa__escrever {
+  position: relative;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background-color: var(--superficie);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.conversa__escrever:focus-within {
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 3px rgba(221, 91, 18, 0.15);
+}
+
+.conversa__campo {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.625rem 0.75rem 0.375rem;
+  border: 0;
+  border-radius: 8px 8px 0 0;
+  background: none;
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--texto);
+  resize: vertical;
+}
+
+.conversa__campo:focus {
+  outline: none;
+}
+
+.conversa__acoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.375rem 0.5rem 0.5rem 0.75rem;
+}
+
+.conversa__anexar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.4375rem;
+  border-radius: 5px;
+  font-size: 0.6875rem;
+  color: var(--texto-3);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.conversa__anexar:hover {
+  background-color: var(--superficie-2);
+  color: var(--texto);
+}
+
+/*QUANDO UM ARQUIVO ESTA ESCOLHIDO, O ROTULO MOSTRA O NOME DELE*/
+.conversa__anexar--escolhido {
+  color: var(--laranja-forte);
+}
+
+.conversa__enviar {
+  flex-shrink: 0;
+  padding: 0.4375rem 0.875rem;
+  border: 0;
+  border-radius: 6px;
+  background-color: var(--laranja);
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--superficie);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.conversa__enviar:hover:not(:disabled) {
+  background-color: var(--laranja-forte);
+}
+
+.conversa__enviar:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* ==========================================================================
+   ANEXOS (coluna da direita)
+   ========================================================================== */
+
+.detalhe__lateral {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 1.125rem 1rem 1.25rem;
+  border-left: 1px solid var(--borda-suave);
+  background-color: var(--superficie-3);
+}
+
+.anexos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.anexo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4375rem 0.5rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background-color: var(--superficie);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.anexo:hover {
+  border-color: var(--realce-borda);
+  background-color: var(--realce);
+}
+
+.anexo__icone {
+  flex-shrink: 0;
+  color: var(--texto-4);
+}
+
+.anexo__texto {
+  min-width: 0;
+}
+
+.anexo__nome {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--texto);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.anexo__quando {
+  display: block;
+  font-size: 0.5625rem;
+  color: var(--texto-4);
+}
+
+.anexos__vazio {
+  margin: 0;
+  padding: 0.75rem 0;
+  font-size: 0.6875rem;
+  text-align: center;
+  color: var(--texto-4);
+}
+
+/*CONVERSA EM BALOES, COMO UM SMS: O SOLICITANTE DE UM LADO, A EQUIPE DO
+  OUTRO, CADA UM COM SEU AVATAR.*/
+.comentario {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4375rem;
+  max-width: 85%;
+}
+
+/*MENSAGEM DA EQUIPE: ENCOSTA NA DIREITA, AVATAR DEPOIS DO BALAO*/
+.comentario--equipe {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.comentario__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background-color: var(--avatar-fundo);
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  color: var(--avatar-texto);
+  overflow: hidden;
+}
+
+.comentario__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.comentario__balao {
+  min-width: 0;
+  padding: 0.4375rem 0.625rem 0.5rem;
+  border-radius: 10px;
+  background-color: var(--balao-deles);
+}
+
+.comentario--equipe .comentario__balao {
+  background-color: var(--balao-nosso);
+}
+
+/*MENSAGEM AUTOMATICA: E DO SISTEMA, NAO DE UMA PESSOA. ESTE BALAO USA
+  SUPERFICIE DO TEMA, ENTAO O TEXTO DELE VOLTA A SEGUIR O TEMA.*/
+.comentario--sistema .comentario__balao {
+  background-color: var(--superficie-2);
+  border: 1px dashed var(--borda);
+}
+
+.comentario--sistema .comentario__autor,
+.comentario--sistema .comentario__texto {
+  color: var(--texto);
+}
+
+.comentario--sistema .comentario__quando {
+  color: var(--texto-2);
+}
+
+.comentario__topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.625rem;
+  margin-bottom: 0.1875rem;
+}
+
+/*OS BALOES SAO CLAROS NOS DOIS TEMAS (SAO A COR DO SMS), ENTAO O TEXTO
+  DENTRO DELES TEM DE FICAR ESCURO SEMPRE — var(--texto) VIRARIA BRANCO
+  NO ESCURO E SUMIRIA DENTRO DO BALAO.*/
+.comentario__autor {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--balao-texto);
+}
+
+.comentario__quando {
+  flex-shrink: 0;
+  font-size: 0.5625rem;
+  color: rgba(26, 26, 26, 0.55);
+}
+
+.comentario__texto {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--balao-texto);
+  white-space: pre-wrap;
+}
+
+.conversa__vazia {
+  margin: 0;
+  padding: 0.75rem 0;
+  font-size: 0.75rem;
+  text-align: center;
+  color: var(--texto-4);
+}
+
+@media (max-width: 860px) {
+  .detalhe__corpo {
+    grid-template-columns: 1fr;
+  }
+
+  /*ANEXOS SOBEM PARA ANTES DO CONTEUDO PRINCIPAL NAO FICAR ESCONDIDO NO FIM*/
+  .detalhe__lateral {
+    order: -1;
+    border-left: 0;
+    border-bottom: 1px solid var(--borda-suave);
+    max-height: 12rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .portal {
+    padding: 1rem 0.875rem 0;
+  }
+
+  .fila {
+    width: 12rem;
+  }
+}
+
+/*QUEM PEDE MENOS MOVIMENTO NAO VE AS TRANSICOES*/
+@media (prefers-reduced-motion: reduce) {
+  .portal {
+    animation: none;
+  }
+
+  .card,
+  .fila {
+    transition: none;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+}
+
+/* ==========================================================================
+   TEXTOS RAPIDOS
+   Respostas prontas da equipe. O botao fica junto do Anexar e o painel
+   sobe por cima do campo de escrita, como no Hipporello.
+   ========================================================================== */
+
+.conversa__rapidos {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  /*margin-right: auto EMPURRA O "Responder" PARA A DIREITA*/
+  margin-right: auto;
+  padding: 0.25rem 0.4375rem;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  color: var(--texto-3);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.conversa__rapidos:hover,
+.conversa__rapidos[aria-expanded="true"] {
+  background-color: var(--superficie-2);
+  color: var(--texto);
+}
+
+/*O PAINEL ABRE PARA CIMA: o campo de escrita fica no pe do modal, e para
+  baixo a lista sairia da tela.*/
+.rapidos {
+  position: absolute;
+  bottom: calc(100% + 0.375rem);
+  left: 0;
+  z-index: 6;
+  width: min(22rem, 100%);
+  padding: 0.625rem;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background-color: var(--superficie);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+.rapidos__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.rapidos__titulo {
+  margin: 0;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.rapidos__fechar {
+  display: flex;
+  padding: 0.1875rem;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--texto-3);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.rapidos__fechar:hover {
+  background-color: var(--superficie-2);
+  color: var(--texto);
+}
+
+.rapidos__novo {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.4375rem;
+  border: 1px dashed var(--borda);
+  border-radius: 6px;
+  background: none;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--laranja);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.rapidos__novo:hover {
+  border-color: var(--laranja);
+  background-color: var(--realce);
+}
+
+.rapidos__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  background-color: var(--superficie-2);
+}
+
+/*DEPOIS DO display: flex ACIMA, SENAO ELE VENCE O hidden DO HTML E O
+  FORMULARIO DE CRIAR APARECE ABERTO DE SAIDA.*/
+.rapidos__form[hidden] {
+  display: none;
+}
+
+.rapidos__campo {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--borda);
+  border-radius: 5px;
+  background-color: var(--superficie);
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.75rem;
+  color: var(--texto);
+}
+
+.rapidos__campo:focus {
+  outline: none;
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 3px rgba(221, 91, 18, 0.15);
+}
+
+.rapidos__campo--corpo {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.rapidos__form-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+.rapidos__cancelar,
+.rapidos__salvar {
+  padding: 0.3125rem 0.625rem;
+  border: 0;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.rapidos__cancelar {
+  background: none;
+  color: var(--texto-3);
+}
+
+.rapidos__cancelar:hover {
+  background-color: var(--superficie);
+  color: var(--texto);
+}
+
+.rapidos__salvar {
+  background-color: var(--laranja);
+  color: #fff;
+}
+
+.rapidos__salvar:hover {
+  background-color: var(--laranja-forte);
+}
+
+.rapidos__busca {
+  margin-bottom: 0.5rem;
+}
+
+.rapidos__busca::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.rapidos__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3125rem;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+/*O ITEM INTEIRO INSERE O TEXTO; editar e excluir ficam dentro dele, e o
+  position: relative e o que prende os dois no canto.*/
+.rapidos__item {
+  position: relative;
+  padding: 0.4375rem 3.25rem 0.4375rem 0.5rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.rapidos__item:hover {
+  border-color: var(--realce-borda);
+  background-color: var(--realce);
+}
+
+.rapidos__item-titulo {
+  display: block;
+  margin-bottom: 0.0625rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+/*DUAS LINHAS DO CORPO BASTAM PARA RECONHECER O TEXTO NA LISTA*/
+.rapidos__item-corpo {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font-size: 0.625rem;
+  line-height: 1.45;
+  color: var(--texto-3);
+}
+
+.rapidos__acoes {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+  display: flex;
+  gap: 0.125rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+/*:focus-within MANTEM OS BOTOES VISIVEIS PARA QUEM NAVEGA POR TECLADO*/
+.rapidos__item:hover .rapidos__acoes,
+.rapidos__item:focus-within .rapidos__acoes {
+  opacity: 1;
+}
+
+.rapidos__acao {
+  display: flex;
+  padding: 0.1875rem;
+  border: 0;
+  border-radius: 4px;
+  background-color: var(--superficie);
+  color: var(--texto-3);
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.rapidos__acao:hover {
+  background-color: var(--superficie-2);
+  color: var(--texto);
+}
+
+.rapidos__acao--excluir:hover {
+  color: var(--erro-texto);
+}
+
+.rapidos__vazio {
+  margin: 0;
+  padding: 0.75rem 0.25rem;
+  font-size: 0.6875rem;
+  text-align: center;
+  color: var(--texto-4);
+}
+
+/* ==========================================================================
+   TOPO NO TEMA ESCURO
+   O topo vem de index.css e e compartilhado com as outras telas; como o
+   escuro e so do Portal, os ajustes ficam aqui, presos a .portal-pagina.
+   ========================================================================== */
+
+/*BOTAO DE TEMA: UM SO, ALTERNANDO. O ICONE MOSTRA PARA ONDE VAI, NAO
+  ONDE ESTA — NO CLARO APARECE A LUA (clique para escurecer).*/
+.topo__tema {
+  display: flex;
+  padding: 0.4375rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #8a8a8a;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease,
+              background-color 0.2s ease, transform 0.2s ease;
+}
+
+.topo__tema:hover {
+  color: #1a1a1a;
+  transform: scale(1.08);
+}
+
+.topo__tema:active {
+  transform: scale(0.94);
+}
+
+.topo__tema-icone--sol {
+  display: none;
+}
+
+[data-tema="escuro"] .topo__tema-icone--sol {
+  display: block;
+}
+
+[data-tema="escuro"] .topo__tema-icone--lua {
+  display: none;
+}
+
+/*LOGO: A VERSAO BRANCA SO APARECE NO ESCURO*/
+.portal-pagina .topo__logo--escuro {
+  display: none;
+}
+
+[data-tema="escuro"] .portal-pagina .topo__logo--claro {
+  display: none;
+}
+
+[data-tema="escuro"] .portal-pagina .topo__logo--escuro {
+  display: block;
+}
+
+[data-tema="escuro"] .portal-pagina .topo {
+  border-bottom-color: var(--borda-suave);
+  background-color: var(--superficie-2);
+}
+
+[data-tema="escuro"] .portal-pagina .topo__produto,
+[data-tema="escuro"] .portal-pagina .topo__usuario-nome,
+[data-tema="escuro"] .portal-pagina .topo__sair {
+  color: var(--texto);
+}
+
+[data-tema="escuro"] .portal-pagina .topo__divisor {
+  background-color: var(--borda);
+}
+
+[data-tema="escuro"] .portal-pagina .topo__tema {
+  border-color: var(--borda);
+  background-color: var(--superficie);
+  color: var(--texto-3);
+}
+
+[data-tema="escuro"] .portal-pagina .topo__tema:hover {
+  color: var(--texto);
+}
+
+[data-tema="escuro"] .portal-pagina .topo__usuario:hover,
+[data-tema="escuro"] .portal-pagina .topo__sair:hover {
+  background-color: var(--superficie);
+}
+
+/*MENU DO PERFIL*/
+[data-tema="escuro"] .portal-pagina .topo__menu {
+  border-color: var(--borda);
+  background-color: var(--superficie);
+}
+
+[data-tema="escuro"] .portal-pagina .topo__menu-item {
+  color: var(--texto);
+}
+
+[data-tema="escuro"] .portal-pagina .topo__menu-item:hover {
+  background-color: var(--realce);
+}

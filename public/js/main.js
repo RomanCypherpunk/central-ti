@@ -20,12 +20,19 @@ requestAnimationFrame(() => {
 });
 
 //USUARIO DO TOPO
-function iniciais(nome) {
-  const partes = nome.trim().split(/\s+/);
-  const primeira = partes[0] ?? "";
-  const ultima = partes.length > 1 ? partes[partes.length - 1] : "";
+//As iniciais vem do primeiro nome + sobrenome; o nome pode ser composto
+//("João Paulo"), e ai a inicial que vale e a da primeira palavra.
+function iniciais(nome, sobrenome) {
+  const primeira = (nome ?? "").trim().split(/\s+/)[0] ?? "";
+  const ultima = (sobrenome ?? "").trim().split(/\s+/).pop() ?? "";
 
   return (primeira[0] ?? "").concat(ultima[0] ?? "").toUpperCase();
+}
+
+function preencher(seletor, texto) {
+  const elemento = document.querySelector(seletor);
+
+  if (elemento) elemento.textContent = texto;
 }
 
 async function preencherUsuario() {
@@ -33,31 +40,39 @@ async function preencherUsuario() {
 
   if (!user) return;
 
-  const nome = user.user_metadata?.nome ?? user.email;
-
-  document.querySelector("[data-nome]").textContent = nome;
-  // O nome da saudacao e o mesmo gravado no cadastro.
-  document.querySelector("[data-saudacao-nome]").textContent = nome;
-  document.querySelector("[data-iniciais]").textContent = iniciais(nome);
-
-  const setorId = user.user_metadata?.setor_id;
-
-  if (!setorId) return;
-
-  const { data: setor } = await supabase
-    .from("setores")
-    .select("nome")
-    .eq("id", setorId)
+  // Le da tabela, e nao do user_metadata: o metadata e uma foto do momento do
+  // cadastro e nao acompanha quem edita o nome em "Dados pessoais".
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("nome, sobrenome, perfil, setores(nome)")
+    .eq("id", user.id)
     .single();
+
+  const nome = perfil?.nome ?? user.email;
+  const sobrenome = perfil?.sobrenome ?? "";
+
+  // O Portal e a tela de quem atende: so admin ve o atalho no menu. Quem
+  // nao for admin nem enxerga o item — e o portal.html barra na entrada,
+  // porque esconder link no menu nao e controle de acesso.
+  if (perfil?.perfil === "admin") {
+    document.querySelector("[data-menu-portal]")?.removeAttribute("hidden");
+  }
+
+  // main.js roda em toda pagina autenticada, e cada uma tem so parte destes
+  // campos — a saudacao, por exemplo, existe so na home.
+  // So o primeiro nome aparece no topo e na saudacao; o completo fica para
+  // as telas que precisam identificar a pessoa (detalhe do chamado).
+  preencher("[data-nome]", nome);
+  preencher("[data-saudacao-nome]", nome);
+  preencher("[data-iniciais]", iniciais(nome, sobrenome));
+
+  const setor = perfil?.setores?.nome;
 
   if (!setor) return;
 
-  document.querySelector("[data-setor]").textContent = setor.nome;
-
+  preencher("[data-setor]", setor);
   // A Base de Soluções mostra só o setor de quem está logado.
-  const marca = document.querySelector("[data-setor-marca]");
-
-  if (marca) marca.textContent = setor.nome;
+  preencher("[data-setor-marca]", setor);
 }
 
 preencherUsuario();
