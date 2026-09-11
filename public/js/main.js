@@ -83,6 +83,35 @@ async function preencherUsuario() {
 
 preencherUsuario();
 
+//MENU DO PERFIL
+const perfil = document.querySelector(".topo__perfil");
+const botaoPerfil = perfil.querySelector(".topo__usuario");
+const menuPerfil = perfil.querySelector(".topo__menu");
+
+function fecharMenuPerfil() {
+  menuPerfil.classList.remove("topo__menu--aberto");
+  botaoPerfil.setAttribute("aria-expanded", "false");
+}
+
+botaoPerfil.addEventListener("click", () => {
+  const aberto = menuPerfil.classList.toggle("topo__menu--aberto");
+  botaoPerfil.setAttribute("aria-expanded", aberto);
+});
+
+// Clique em qualquer lugar fora do perfil fecha o menu.
+document.addEventListener("click", (evento) => {
+  if (!perfil.contains(evento.target)) fecharMenuPerfil();
+});
+
+// Esc fecha e devolve o foco ao botao, senao o teclado fica perdido.
+document.addEventListener("keydown", (evento) => {
+  if (evento.key !== "Escape") return;
+  if (!menuPerfil.classList.contains("topo__menu--aberto")) return;
+
+  fecharMenuPerfil();
+  botaoPerfil.focus();
+});
+
 //SAIR
 const botaoSair = document.querySelector("[data-acao='sair']");
 const semMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;

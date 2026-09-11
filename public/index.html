@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Central Única de TI</title>
+  <title>Home - TI</title>
   <link rel="icon" href="assets/img/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Poppins:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/index.css">
   <script>
     // Antes da primeira pintura, senao a tela pisca no tema errado ao recarregar.
@@ -49,18 +49,48 @@
 
       <span class="topo__divisor" aria-hidden="true"></span>
 
-      <!--USUARIO: PREENCHIDO PELO main.js A PARTIR DA SESSAO-->
-      <button class="topo__usuario" type="button">
-        <span class="topo__avatar" data-iniciais></span>
-        <span class="topo__usuario-texto">
-          <span class="topo__usuario-nome" data-nome></span>
-          <span class="topo__usuario-setor" data-setor></span>
-        </span>
-        <svg class="topo__usuario-seta" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-          <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
+      <!--PERFIL: BOTAO E MENU-->
+      <div class="topo__perfil">
+        <!--USUARIO: PREENCHIDO PELO main.js A PARTIR DA SESSAO-->
+        <button class="topo__usuario" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="topo__avatar" data-iniciais></span>
+          <span class="topo__usuario-texto">
+            <span class="topo__usuario-nome" data-nome></span>
+            <span class="topo__usuario-setor" data-setor></span>
+          </span>
+          <svg class="topo__usuario-seta" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <div class="topo__menu">
+          <a class="topo__menu-item" href="perfil.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M5 20a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round"/>
+            </svg>
+            Dados pessoais
+          </a>
+          <a class="topo__menu-item" href="portal.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <rect x="3.5" y="5" width="17" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M7.5 9.5h9M7.5 13h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            Solicitações
+          </a>
+          <a class="topo__menu-item" href="base.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M3.5 5.2A1.7 1.7 0 0 1 5.2 3.5H10a2.5 2.5 0 0 1 2 1v14a2.5 2.5 0 0 0-2-1H5.2a1.7 1.7 0 0 1-1.7-1.7Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+              <path d="M20.5 5.2a1.7 1.7 0 0 0-1.7-1.7H14a2.5 2.5 0 0 0-2 1v14a2.5 2.5 0 0 1 2-1h4.8a1.7 1.7 0 0 0 1.7-1.7Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+            </svg>
+            Soluções
+          </a>
+        </div>
+      </div>
 
       <!--SAIR-->
       <button class="topo__sair" type="button" data-acao="sair">
@@ -160,42 +190,18 @@
 
         <ul class="artigos" data-destaques>
           <li><a class="artigo" href="base.html">
-            <span class="artigo__icone">
-              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                <rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
-                <path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10" fill="none" stroke="currentColor" stroke-width="1.8"/>
-              </svg>
-            </span>
-            <span class="artigo__texto">
-              <span class="artigo__titulo">Ativar VPN</span>
-              <span class="artigo__meta">TI · atualizado há 3 dias · 412 acessos</span>
-            </span>
+            <span class="artigo__titulo">Ativar VPN</span>
+            <span class="artigo__setor">TI</span>
           </a></li>
 
           <li><a class="artigo" href="base.html">
-            <span class="artigo__icone">
-              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                <rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
-                <path d="m3.5 7 8.5 6 8.5-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-              </svg>
-            </span>
-            <span class="artigo__texto">
-              <span class="artigo__titulo">Reembolso de Viagem</span>
-              <span class="artigo__meta">Financeiro · atualizado há 1 semana · 288 acessos</span>
-            </span>
+            <span class="artigo__titulo">Reembolso de Viagem</span>
+            <span class="artigo__setor">Financeiro</span>
           </a></li>
 
           <li><a class="artigo" href="base.html">
-            <span class="artigo__icone">
-              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                <path d="M6 3.5h8L18.5 8v12.5h-13z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                <path d="M9 12h6M9 15.5h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              </svg>
-            </span>
-            <span class="artigo__texto">
-              <span class="artigo__titulo">Emitir 2ª via do holerite</span>
-              <span class="artigo__meta">RH · atualizado há 2 semanas · 196 acessos</span>
-            </span>
+            <span class="artigo__titulo">Emitir 2ª via do holerite</span>
+            <span class="artigo__setor">RH</span>
           </a></li>
         </ul>
       </section>
@@ -215,7 +221,6 @@
             <tr>
               <th>Nº</th>
               <th>Assunto</th>
-              <th>Setor</th>
               <th>Status</th>
               <th>Data</th>
             </tr>
@@ -224,28 +229,24 @@
             <tr>
               <td class="tabela__numero">#1234</td>
               <td><a class="tabela__link" href="portal.html">Problema de acesso ao módulo de compras</a></td>
-              <td class="tabela__setor">TI</td>
               <td><span class="selo selo--andamento">Em andamento</span></td>
               <td class="tabela__data">10/09</td>
             </tr>
             <tr>
               <td class="tabela__numero">#1233</td>
               <td><a class="tabela__link" href="portal.html">Folha de pagamento com desconto indevido</a></td>
-              <td class="tabela__setor">RH</td>
               <td><span class="selo selo--resolvido">Resolvido</span></td>
               <td class="tabela__data">09/09</td>
             </tr>
             <tr>
               <td class="tabela__numero">#1231</td>
               <td><a class="tabela__link" href="portal.html">Impressora do setor fora da rede</a></td>
-              <td class="tabela__setor">TI</td>
               <td><span class="selo selo--aguardando">Aguardando você</span></td>
               <td class="tabela__data">08/09</td>
             </tr>
             <tr>
               <td class="tabela__numero">#1228</td>
               <td><a class="tabela__link" href="portal.html">Ar-condicionado da sala 12 pingando</a></td>
-              <td class="tabela__setor">Manutenção</td>
               <td><span class="selo selo--resolvido">Resolvido</span></td>
               <td class="tabela__data">05/09</td>
             </tr>
