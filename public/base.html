@@ -4,10 +4,150 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Base de soluções — Central Única de TI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
   <link rel="icon" href="assets/img/favicon.ico">
-  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // Antes da primeira pintura, senao o menu abre e fecha na frente do usuario.
+    document.documentElement.dataset.sidebar =
+      localStorage.getItem("sidebarColapsada") === "true" ? "colapsada" : "expandida";
+  </script>
+  <link rel="stylesheet" href="css/base.css">
 </head>
 <body style="visibility: hidden">
+  <nav class="sidebar">
+    <div class="sidebar__topo">
+      <a class="sidebar__logo-link" href="index.html"><img class="sidebar__logo" src="assets/img/logo-claro.svg" alt="Gasometro"></a>
+      <button class="sidebar__colapsar" type="button" id="sidebar-colapsar" aria-label="Recolher menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+    </div>
+
+    <div class="sidebar__menu">
+      <a class="sidebar__link sidebar__link--ativo" href="index.html">
+        <svg class="sidebar__link-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5c0-1.1.9-2 2-2h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H3z"/><path d="M21 5c0-1.1-.9-2-2-2h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h8z"/></svg>
+        <span class="sidebar__link-texto">Início</span>
+      </a>
+      <a class="sidebar__link" href="nova-solucao.html">
+        <svg class="sidebar__link-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.8 2.8-2.6-2.6z"/></svg>
+        <span class="sidebar__link-texto">Nova Solução</span>
+      </a>
+    </div>
+  </nav>
+  <header class="header"><p class="text-header">Base de soluções - Gasômetro madeiras</p></header>
+  <main class="conteudo">
+    <div class="busca-secao">
+      <p class="busca-contagem" id="busca-contagem"></p>
+
+      <div class="busca-linha">
+        <div class="busca-barra">
+          <svg class="busca-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input class="busca-input" type="text" id="busca-input" placeholder="Busque por erro, código, tabela, caminho...">
+        </div>
+
+        <div class="visualizacao-grupo">
+          <button class="visualizacao-btn visualizacao-btn--ativo" type="button" id="visualizacao-grade" aria-label="Ver em grade">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          </button>
+          <button class="visualizacao-btn" type="button" id="visualizacao-lista" aria-label="Ver em lista">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="filtros-barra">
+        <select class="filtro-select" id="filtro-tipo">
+          <option value="">Tipo</option>
+          <option value="erro">Erro</option>
+          <option value="script">Script</option>
+          <option value="procedimento">Procedimento</option>
+        </select>
+        <select class="filtro-select" id="filtro-categoria">
+          <option value="">Categoria</option>
+        </select>
+        <select class="filtro-select" id="filtro-criticidade">
+          <option value="">Prioridade</option>
+          <option value="baixa">Baixa</option>
+          <option value="media">Média</option>
+          <option value="alta">Alta</option>
+          <option value="critica">Crítica</option>
+        </select>
+        <select class="filtro-select" id="filtro-autor">
+          <option value="">Autor</option>
+        </select>
+        <select class="filtro-select" id="filtro-periodo">
+          <option value="">Período</option>
+          <option value="7">Últimos 7 dias</option>
+          <option value="30">Últimos 30 dias</option>
+          <option value="90">Últimos 90 dias</option>
+        </select>
+
+        <button class="ordenar-btn" type="button" id="ordenar-btn">
+          <svg class="ordenar-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M7 4l-3 3M7 4l3 3"/><path d="M17 20V4M17 20l-3-3M17 20l3-3"/></svg>
+          <span id="ordenar-texto">Mais recentes</span>
+        </button>
+      </div>
+
+      <div class="filtros-aplicados" id="filtros-aplicados" hidden>
+        <span class="filtros-aplicados__label">Filtros aplicados</span>
+        <div class="filtros-aplicados__chips" id="filtros-aplicados-chips"></div>
+        <button class="filtros-limpar" type="button" id="filtros-limpar">Limpar tudo</button>
+      </div>
+
+      <div class="busca-divisor"></div>
+
+      <p class="solucoes-vazio" id="solucoes-vazio" hidden></p>
+      <div class="solucoes-grade" id="solucoes-grade"></div>
+    </div>
+  </main>
+
+  <!--PAINEL DE DETALHE-->
+  <div class="painel-overlay" id="painel-overlay" hidden>
+    <aside class="painel" id="painel">
+      <div class="painel__topo">
+        <div class="painel__topo-selos">
+          <span class="tipo-pill" id="painel-tipo"></span>
+          <span class="painel__modulo" id="painel-modulo"></span>
+        </div>
+        <div class="painel__topo-acoes">
+          <button class="painel__icone-btn" type="button" id="painel-editar" aria-label="Editar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+          <button class="painel__icone-btn" type="button" id="painel-excluir" aria-label="Excluir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          </button>
+          <button class="painel__icone-btn" type="button" id="painel-expandir" aria-label="Expandir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </button>
+          <button class="painel__icone-btn" type="button" id="painel-fechar" aria-label="Fechar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <p class="painel__erro" id="painel-erro"></p>
+
+      <div class="painel__corpo" id="painel-corpo"></div>
+    </aside>
+  </div>
+
+  <!--IMAGEM DO PASSO EM TAMANHO GRANDE-->
+  <div class="lightbox" id="lightbox" hidden>
+    <img class="lightbox__imagem" id="lightbox-imagem" src="" alt="">
+  </div>
+
+  <!--CONFIRMACAO DE EXCLUSAO-->
+  <div class="confirmar-overlay" id="confirmar-overlay" hidden>
+    <div class="confirmar-modal">
+      <h3 class="confirmar-modal__titulo">Excluir solução</h3>
+      <p class="confirmar-modal__texto">Essa ação não pode ser desfeita. Tem certeza que deseja excluir esta solução?</p>
+      <div class="confirmar-modal__acoes">
+        <button class="confirmar-modal__cancelar" type="button" id="confirmar-cancelar">Cancelar</button>
+        <button class="confirmar-modal__confirmar" type="button" id="confirmar-excluir" disabled>Aguarde 5s...</button>
+      </div>
+    </div>
+  </div>
   <script type="module" src="js/auth-guard.js"></script>
   <script type="module" src="js/main.js"></script>
   <script type="module" src="js/pages/base.js"></script>

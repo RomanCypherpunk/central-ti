@@ -41,6 +41,12 @@ botoesTema.forEach((botao) => {
 aplicarTema(document.documentElement.dataset.tema);
 
 //USUARIO DO TOPO
+function escrever(seletor, texto) {
+  const elemento = document.querySelector(seletor);
+
+  if (elemento) elemento.textContent = texto;
+}
+
 function iniciais(nome) {
   const partes = nome.trim().split(/\s+/);
   const primeira = partes[0] ?? "";
@@ -56,10 +62,11 @@ async function preencherUsuario() {
 
   const nome = user.user_metadata?.nome ?? user.email;
 
-  document.querySelector("[data-nome]").textContent = nome;
+  // Nem toda pagina tem o cabecalho: escreve so onde o elemento existe.
+  escrever("[data-nome]", nome);
   // O nome da saudacao e o mesmo gravado no cadastro.
-  document.querySelector("[data-saudacao-nome]").textContent = nome;
-  document.querySelector("[data-iniciais]").textContent = iniciais(nome);
+  escrever("[data-saudacao-nome]", nome);
+  escrever("[data-iniciais]", iniciais(nome));
 
   const setorId = user.user_metadata?.setor_id;
 
@@ -73,40 +80,39 @@ async function preencherUsuario() {
 
   if (!setor) return;
 
-  document.querySelector("[data-setor]").textContent = setor.nome;
+  escrever("[data-setor]", setor.nome);
 
   // A Base de Soluções mostra só o setor de quem está logado.
-  const marca = document.querySelector("[data-setor-marca]");
-
-  if (marca) marca.textContent = setor.nome;
+  escrever("[data-setor-marca]", setor.nome);
 }
 
 preencherUsuario();
 
 //MENU DO PERFIL
+// Paginas sem o cabecalho (a base, por exemplo) nao tem nada disso.
 const perfil = document.querySelector(".topo__perfil");
-const botaoPerfil = perfil.querySelector(".topo__usuario");
-const menuPerfil = perfil.querySelector(".topo__menu");
+const botaoPerfil = perfil?.querySelector(".topo__usuario");
+const menuPerfil = perfil?.querySelector(".topo__menu");
 
 function fecharMenuPerfil() {
-  menuPerfil.classList.remove("topo__menu--aberto");
-  botaoPerfil.setAttribute("aria-expanded", "false");
+  menuPerfil?.classList.remove("topo__menu--aberto");
+  botaoPerfil?.setAttribute("aria-expanded", "false");
 }
 
-botaoPerfil.addEventListener("click", () => {
+botaoPerfil?.addEventListener("click", () => {
   const aberto = menuPerfil.classList.toggle("topo__menu--aberto");
   botaoPerfil.setAttribute("aria-expanded", aberto);
 });
 
 // Clique em qualquer lugar fora do perfil fecha o menu.
 document.addEventListener("click", (evento) => {
-  if (!perfil.contains(evento.target)) fecharMenuPerfil();
+  if (perfil && !perfil.contains(evento.target)) fecharMenuPerfil();
 });
 
 // Esc fecha e devolve o foco ao botao, senao o teclado fica perdido.
 document.addEventListener("keydown", (evento) => {
   if (evento.key !== "Escape") return;
-  if (!menuPerfil.classList.contains("topo__menu--aberto")) return;
+  if (!menuPerfil?.classList.contains("topo__menu--aberto")) return;
 
   fecharMenuPerfil();
   botaoPerfil.focus();
@@ -125,7 +131,7 @@ function esperarTransicao(elemento) {
   });
 }
 
-botaoSair.addEventListener("click", async () => {
+botaoSair?.addEventListener("click", async () => {
   botaoSair.disabled = true;
 
   if (!semMovimento) {
@@ -136,3 +142,36 @@ botaoSair.addEventListener("click", async () => {
   await supabase.auth.signOut();
   // O auth-guard escuta a queda da sessão e redireciona para o login.
 });
+
+//MENU LATERAL: RECOLHER E EXPANDIR
+// Só a base e a nova solução têm sidebar; nas outras telas isso não faz nada.
+const sidebarColapsarBtn = document.getElementById("sidebar-colapsar");
+const sidebarLogo = document.querySelector(".sidebar__logo");
+
+function sidebarColapsada() {
+  return document.documentElement.dataset.sidebar === "colapsada";
+}
+
+function aplicarColapso(colapsada) {
+  document.documentElement.dataset.sidebar = colapsada ? "colapsada" : "expandida";
+
+  if (sidebarColapsarBtn) {
+    sidebarColapsarBtn.setAttribute("aria-label", colapsada ? "Expandir menu" : "Recolher menu");
+  }
+
+  // Recolhida sobra um quadrado de 28px: a marca inteira não cabe, só o símbolo.
+  if (sidebarLogo) {
+    sidebarLogo.src = colapsada ? "assets/img/logo-icone.svg" : "assets/img/logo-claro.svg";
+  }
+}
+
+if (sidebarColapsarBtn) {
+  aplicarColapso(localStorage.getItem("sidebarColapsada") === "true");
+
+  sidebarColapsarBtn.addEventListener("click", () => {
+    const novoEstado = !sidebarColapsada();
+
+    localStorage.setItem("sidebarColapsada", String(novoEstado));
+    aplicarColapso(novoEstado);
+  });
+}

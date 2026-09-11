@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nova solução — Central Única de TI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
+  <link rel="icon" href="assets/img/favicon.ico">
+  <script>
+    // Antes da primeira pintura, senao o menu abre e fecha na frente do usuario.
+    document.documentElement.dataset.sidebar =
+      localStorage.getItem("sidebarColapsada") === "true" ? "colapsada" : "expandida";
+  </script>
+  <link rel="stylesheet" href="css/nova-solucao.css">
+</head>
+<body style="visibility: hidden">
+  <nav class="sidebar">
+    <div class="sidebar__topo">
+      <a class="sidebar__logo-link" href="index.html"><img class="sidebar__logo" src="assets/img/logo-claro.svg" alt="Gasometro"></a>
+      <button class="sidebar__colapsar" type="button" id="sidebar-colapsar" aria-label="Recolher menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+    </div>
+
+    <div class="sidebar__menu">
+      <a class="sidebar__link" href="base.html">
+        <svg class="sidebar__link-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5c0-1.1.9-2 2-2h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H3z"/><path d="M21 5c0-1.1-.9-2-2-2h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h8z"/></svg>
+        <span class="sidebar__link-texto">Início</span>
+      </a>
+      <a class="sidebar__link sidebar__link--ativo" href="nova-solucao.html">
+        <svg class="sidebar__link-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.8 2.8-2.6-2.6z"/></svg>
+        <span class="sidebar__link-texto">Nova Solução</span>
+      </a>
+    </div>
+  </nav>
+
+  <header class="header">
+    <p class="text-header" id="pagina-cabecalho">Nova solução - Gasômetro madeiras</p>
+  </header>
+
+  <main class="conteudo">
+    <div class="registro-layout">
+      <div class="registro-esquerda">
+        <div class="registro-secao-titulo">
+          <span class="registro-secao-titulo__texto">TIPO DE REGISTRO</span>
+          <span class="registro-secao-titulo__ajuda">define os campos abaixo</span>
+        </div>
+
+        <div class="tipo-cards">
+          <button class="tipo-card" type="button" data-tipo="erro">
+            <span class="tipo-card__icone tipo-card__icone--erro">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            </span>
+            <span class="tipo-card__titulo">Erro / Correção</span>
+            <span class="tipo-card__descricao">Um problema do ERP e como resolver</span>
+          </button>
+
+          <button class="tipo-card" type="button" data-tipo="procedimento">
+            <span class="tipo-card__icone tipo-card__icone--procedimento">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12l2 2 4-4"/></svg>
+            </span>
+            <span class="tipo-card__titulo">Procedimento</span>
+            <span class="tipo-card__descricao">Passo a passo ou configuração</span>
+          </button>
+        </div>
+
+        <div class="registro-vazio" id="registro-vazio">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+          <span>Escolha um tipo para abrir os campos do registro.</span>
+        </div>
+
+        <div class="registro-campos" id="registro-campos" hidden></div>
+      </div>
+
+      <aside class="registro-direita">
+        <div class="publicacao-cabecalho">
+          <span class="publicacao-titulo">PUBLICAÇÃO</span>
+        </div>
+
+        <div class="publicacao-divisor"></div>
+
+        <div id="caminho-secao">
+          <div class="publicacao-campo">
+            <label class="publicacao-label">Nº da página</label>
+            <input class="publicacao-input" type="text" id="caminho-pagina-input" placeholder="Ex: 12">
+          </div>
+          <div class="publicacao-campo">
+            <label class="publicacao-label">Caminho</label>
+            <input class="publicacao-input" type="text" id="caminho-texto-input" placeholder="Ex: Estoque &gt; Produtos (NL)">
+          </div>
+        </div>
+
+        <div class="publicacao-campo">
+          <label class="publicacao-label">Categoria</label>
+          <div class="publicacao-campo-linha">
+            <select class="publicacao-select" id="categoria-select">
+              <option>Faturamento / NF-e</option>
+            </select>
+            <button class="publicacao-add" type="button" id="categoria-add-btn" aria-label="Adicionar categoria">+</button>
+          </div>
+          <div class="publicacao-novo-item" id="categoria-novo-form" hidden>
+            <input class="publicacao-select" type="text" id="categoria-novo-input" placeholder="Nome da nova categoria">
+            <button class="btn-secundario-pequeno" type="button" id="categoria-novo-confirmar">Adicionar</button>
+            <button class="btn-secundario-pequeno" type="button" id="categoria-novo-cancelar">Cancelar</button>
+          </div>
+        </div>
+
+        <div class="publicacao-campo">
+          <label class="publicacao-label">Prioridade</label>
+          <div class="criticidade-grupo">
+            <button class="criticidade-btn criticidade-btn--baixa" data-criticidade="baixa" type="button">Baixa</button>
+            <button class="criticidade-btn criticidade-btn--media" data-criticidade="media" type="button">Média</button>
+            <button class="criticidade-btn criticidade-btn--alta criticidade-btn--ativo" data-criticidade="alta" type="button">Alta</button>
+            <button class="criticidade-btn criticidade-btn--critica" data-criticidade="critica" type="button">Crítica</button>
+          </div>
+        </div>
+
+        <div class="publicacao-campo">
+          <label class="publicacao-label">Autor</label>
+          <input class="publicacao-input" type="text" id="autor-input" placeholder="Nome de quem resolveu">
+        </div>
+
+        <div class="publicacao-divisor"></div>
+
+        <p class="publicacao-erro" id="publicacao-erro"></p>
+
+        <button class="publicacao-btn publicacao-btn--principal" type="button" id="salvar-btn">Salvar</button>
+      </aside>
+    </div>
+  </main>
+
+  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/pages/nova-solucao.js"></script>
+</body>
+</html>
