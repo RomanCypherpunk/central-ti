@@ -9,10 +9,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/index.css">
-  <script>
-    // Antes da primeira pintura, senao a tela pisca no tema errado ao recarregar.
-    document.documentElement.dataset.tema = localStorage.getItem("tema") ?? "claro";
-  </script>
 </head>
 <body style="visibility: hidden">
 
@@ -20,34 +16,13 @@
 
     <!--MARCA-->
     <div class="topo__marca">
-      <img class="topo__logo topo__logo--claro" src="assets/img/logo-claro.svg" alt="Gasômetro Madeiras">
-      <img class="topo__logo topo__logo--escuro" src="assets/img/logo-branco.svg" alt="Gasômetro Madeiras">
+      <img class="topo__logo" src="assets/img/logo-claro.svg" alt="Gasômetro Madeiras">
       <span class="topo__divisor" aria-hidden="true"></span>
       <span class="topo__produto">TI - Gasômetro Madeiras</span>
     </div>
 
     <!--ACOES DA DIREITA-->
     <div class="topo__acoes">
-
-      <!--TEMA-->
-      <div class="topo__tema" role="group" aria-label="Tema">
-        <button class="topo__tema-botao" type="button" data-tema="claro" aria-label="Tema claro">
-          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-            <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
-            <path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"
-                  stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-          </svg>
-        </button>
-        <button class="topo__tema-botao" type="button" data-tema="escuro" aria-label="Tema escuro">
-          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-            <path d="M20.5 14.4A8.6 8.6 0 0 1 9.6 3.5a8.6 8.6 0 1 0 10.9 10.9Z"
-                  fill="none" stroke="currentColor" stroke-width="1.7"
-                  stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-      </div>
-
-      <span class="topo__divisor" aria-hidden="true"></span>
 
       <!--PERFIL: BOTAO E MENU-->
       <div class="topo__perfil">
@@ -226,25 +201,25 @@
             </tr>
           </thead>
           <tbody data-chamados>
-            <tr>
+            <tr data-status="andamento">
               <td class="tabela__numero">#1234</td>
               <td><a class="tabela__link" href="portal.html">Problema de acesso ao módulo de compras</a></td>
               <td><span class="selo selo--andamento">Em andamento</span></td>
               <td class="tabela__data">10/09</td>
             </tr>
-            <tr>
+            <tr data-status="resolvido">
               <td class="tabela__numero">#1233</td>
               <td><a class="tabela__link" href="portal.html">Folha de pagamento com desconto indevido</a></td>
               <td><span class="selo selo--resolvido">Resolvido</span></td>
               <td class="tabela__data">09/09</td>
             </tr>
-            <tr>
+            <tr data-status="aguardando">
               <td class="tabela__numero">#1231</td>
               <td><a class="tabela__link" href="portal.html">Impressora do setor fora da rede</a></td>
               <td><span class="selo selo--aguardando">Aguardando você</span></td>
               <td class="tabela__data">08/09</td>
             </tr>
-            <tr>
+            <tr data-status="resolvido">
               <td class="tabela__numero">#1228</td>
               <td><a class="tabela__link" href="portal.html">Ar-condicionado da sala 12 pingando</a></td>
               <td><span class="selo selo--resolvido">Resolvido</span></td>
@@ -255,6 +230,84 @@
       </section>
 
     </div>
+
+    <!--EQUIPE DE TI: FOTO, NOME E CARGO. CLICAR ABRE UM E-MAIL PARA A PESSOA.-->
+    <section class="equipe">
+      <div class="equipe__cabecalho">
+        <h2 class="equipe__titulo">Equipe de TI</h2>
+        <p class="equipe__subtitulo">Quem responde pelo que você usa aqui.</p>
+      </div>
+
+      <ul class="equipe__lista">
+        <li class="equipe__item">
+          <a class="equipe__pessoa" href="mailto:bruno.nucci@madeirasgasometro.com.br">
+            <span class="equipe__foto" data-iniciais="BN">
+              <img src="assets/img/time-ti/bruno-nucci.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+            </span>
+            <span class="equipe__nome">Bruno Nucci</span>
+            <span class="equipe__cargo">Coordenador de Projetos</span>
+          </a>
+        </li>
+        <li class="equipe__item">
+          <a class="equipe__pessoa" href="mailto:daniel.oliveira@madeirasgasometro.com.br">
+            <span class="equipe__foto" data-iniciais="DO">
+              <img src="assets/img/time-ti/daniel-oliveira.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+            </span>
+            <span class="equipe__nome">Daniel Oliveira</span>
+            <span class="equipe__cargo">Coordenador de TI</span>
+          </a>
+        </li>
+        <li class="equipe__item">
+          <a class="equipe__pessoa" href="mailto:enzo.xavier@madeirasgasometro.com.br">
+            <span class="equipe__foto" data-iniciais="EX">
+              <img src="assets/img/time-ti/enzo-xavier.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+            </span>
+            <span class="equipe__nome">Enzo Xavier</span>
+            <span class="equipe__cargo">Analista de TI</span>
+          </a>
+        </li>
+        <li class="equipe__item">
+          <a class="equipe__pessoa" href="mailto:fabio.paiva@madeirasgasometro.com.br">
+            <span class="equipe__foto" data-iniciais="FP">
+              <img src="assets/img/time-ti/fabio-paiva.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+            </span>
+            <span class="equipe__nome">Fábio Paiva</span>
+            <span class="equipe__cargo">Gerente de Marketing e Inovação</span>
+          </a>
+        </li>
+      </ul>
+
+      <!--SEGUNDA LINHA: LISTA PROPRIA PRA CENTRALIZAR OS 3 SOB A LINHA DE CIMA-->
+      <ul class="equipe__lista equipe__lista--linha2">
+        <li class="equipe__item">
+          <a class="equipe__pessoa" href="mailto:joao.gabriel@madeirasgasometro.com.br">
+            <span class="equipe__foto" data-iniciais="JG">
+              <img src="assets/img/time-ti/joao-gabriel.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+            </span>
+            <span class="equipe__nome">João Gabriel</span>
+            <span class="equipe__cargo">Analista de TI</span>
+          </a>
+        </li>
+        <li class="equipe__item">
+          <a class="equipe__pessoa" href="mailto:joao.paulo@madeirasgasometro.com.br">
+            <span class="equipe__foto" data-iniciais="JP">
+              <img src="assets/img/time-ti/joao-paulo.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+            </span>
+            <span class="equipe__nome">João Paulo</span>
+            <span class="equipe__cargo">Analista de TI</span>
+          </a>
+        </li>
+        <li class="equipe__item">
+          <a class="equipe__pessoa" href="mailto:paulosilva@madeirasgasometro.com.br">
+            <span class="equipe__foto" data-iniciais="PS">
+              <img src="assets/img/time-ti/paulo-silva.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+            </span>
+            <span class="equipe__nome">Paulo Silva</span>
+            <span class="equipe__cargo">Analista de TI</span>
+          </a>
+        </li>
+      </ul>
+    </section>
   </main>
 
   <script type="module" src="js/auth-guard.js"></script>

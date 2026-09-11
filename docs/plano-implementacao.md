@@ -2,7 +2,7 @@
 
 **Organização:** Grupo Gasômetro Madeiras
 **Autor:** Enzo Xavier Santos — Analista e Desenvolvedor
-**Última atualização:** 2026-09-10
+**Última atualização:** 2026-09-11
 **Relação com outros documentos:** este arquivo acompanha a execução
 fase a fase. A visão de produto, arquitetura de alto nível e métricas de
 sucesso continuam em [central-unica-ti-plano.md](central-unica-ti-plano.md) —
@@ -245,6 +245,143 @@ ponta a ponta:
 - `auth-guard.js` bloqueia sem sessão e libera com sessão.
 - Casos de erro tratados: e-mail duplicado, senha fraca, credenciais
   erradas.
+
+---
+
+## Fase 1.8 — Home (index.html)
+
+**Status: concluída** (2026-09-10 a 2026-09-11).
+
+**Objetivo:** a tela que recebe o usuário logo após o login — duas portas
+de entrada (Base de Soluções e Portal de Chamados) e um resumo do que
+importa no dia a dia (artigos em destaque do setor da pessoa, chamados
+recentes dela).
+
+### O que existe (front-end)
+
+`public/index.html` + `public/css/index.css` + `public/js/main.js`,
+construído pelo João Gabriel em cima da mesma base de HTML/CSS/JS puro
+das outras telas:
+
+- **Barra do topo** (`.topo`): logo, nome do produto, avatar com iniciais
+  do usuário, menu de perfil (dados pessoais / solicitações / soluções) e
+  botão sair. `main.js` preenche nome/setor a partir de
+  `supabase.auth.getUser()` e da tabela `setores`.
+- **Seção de destaque** (`.destaque`): saudação personalizada com o nome
+  do usuário e duas "portas" (cards) — Base de Soluções (mostra o setor de
+  quem está logado) e Portal de Chamados (horário de atendimento, botão
+  novo chamado).
+- **Duas colunas inferiores** (`.colunas`): "Destaques da base" (lista de
+  artigos, hoje com dados de exemplo fixos no HTML) e "Meus chamados
+  recentes" (tabela, também com dados de exemplo) — ambos marcados no
+  HTML como "VEM DO SUPABASE", ainda não ligados de verdade a uma query.
+- **Entrada com fade em sequência** já implementada desde a criação
+  (`.entrada`/`.entrada--visivel` em `main.js`, mesmo padrão usado em
+  cadastro/login/recuperar-senha).
+
+### Dark mode removido (2026-09-11)
+
+A Home tinha nascido com um seletor de tema claro/escuro completo (dois
+botões sol/lua no topo, `data-tema` no `<html>`, `localStorage`, uma
+segunda logo branca para o tema escuro, e um bloco `[data-tema="escuro"]`
+inteiro em `index.css`). Removido a pedido — a plataforma passa a ser
+sempre clara, nas quatro telas que tinham algum resquício de tema:
+
+- `index.html`/`index.css`/`main.js`: removidos o toggle, o script de
+  aplicar tema antes da pintura, a segunda logo, e todo o bloco CSS de
+  tema escuro (inclusive dentro do `prefers-reduced-motion`).
+- `cadastro.css`, `login.css`, `recuperar-senha.css`: `color-scheme:
+  light dark` trocado para `color-scheme: light` (controla só a
+  aparência de elementos nativos do navegador, como scrollbar — essas
+  três telas nunca tiveram toggle próprio, só herdavam o tema do SO).
+
+### Redesign da seção de destaques/chamados (2026-09-11)
+
+A segunda seção (destaques da base + chamados recentes) foi redesenhada
+para sair do padrão genérico de "kit de cards" (chips de status com fundo
+colorido, títulos em caixa alta com letter-spacing, itens de lista como
+mini-cards com borda própria dentro de um card que já tem borda). Mudança
+só visual, em `index.css` — nenhum comportamento ou dado mudou:
+
+- **Títulos de seção** ("Destaques da base", "Meus chamados recentes"):
+  de rótulo em uppercase para título normal (Sora, peso 600).
+- **Lista de artigos**: de mini-cards com borda e sombra próprias para
+  lista tipográfica com divisores finos; hover desloca o item levemente
+  para a direita em vez de "levitar" com sombra.
+- **Status dos chamados**: de chip preenchido para texto colorido + ponto
+  (`.selo`), com uma barra de acento fina (`::before` em `td:first-child`)
+  na borda esquerda de cada linha da tabela, marcando o status pela cor
+  sem competir visualmente com o conteúdo. A cor da barra vem de
+  `data-status` na `<tr>` (`andamento` / `resolvido` / `aguardando`) —
+  hoje escrito à mão nas linhas de exemplo do HTML; quando a tabela passar
+  a vir do Supabase, esse atributo precisa ser gerado junto com a linha.
+- **Tabela**: cabeçalho mais discreto (peso 500, sem uppercase), coluna
+  "Assunto" com `width: 100%` para absorver o espaço sobrando e não
+  quebrar títulos longos em duas linhas.
+- Micro-interações adicionadas no mesmo espírito das telas de
+  login/cadastro: underline animado nos links "Ver tudo"/"Ver todos"
+  (`.secao__link::after`), e a barra de acento da tabela "acende"
+  (engrossa de 3px para 4px) no hover da linha.
+
+### Fundo animado ajustado (2026-09-11)
+
+A faixa laranja (`.destaque`) já tinha o mesmo efeito de "respiração" do
+fundo copiado do cadastro (`radial-gradient` + `background-position`
+animado), mas era quase imperceptível: o cadastro anima uma coluna
+estreita e alta (35% de largura, 100% de altura), enquanto a faixa da
+Home é larga e baixa — a mesma distância de deslocamento em porcentagem
+representa pixels muito diferentes nos dois formatos. Ajustado
+`background-size` de 160%/160% para 250%/500% (mais alcance no eixo
+vertical, que é o mais curto) e o ciclo de 16s para 7s, deixando o
+movimento visível sem ficar chamativo. Renomeado o keyframe de
+`cadastro-fundo-respira` (nome herdado da cópia, mas incorreto neste
+arquivo) para `destaque-fundo-respira`.
+
+### Seção "Equipe de TI" (2026-09-11)
+
+Nova seção no fim da Home, abaixo das duas colunas: quem é o time de TI e
+como falar com cada um. Sete pessoas, em ordem alfabética pelo primeiro
+nome, foto/iniciais + nome + cargo, cartão inteiro é um link `mailto:`
+para o e-mail da pessoa — sem botão de e-mail visível, a interação é só
+hover (a foto ganha um anel laranja, o nome muda de cor) e o cursor.
+
+- **HTML**: cada pessoa é um `<li class="equipe__item">` com um único
+  `<a class="equipe__pessoa" href="mailto:...">` envolvendo foto, nome e
+  cargo — área de clique generosa, sem botão separado dentro do card.
+- **Card**: cada pessoa é um card no padrão shadcn — superfície branca,
+  borda de 1px (`#e5e5e5`), radius de 14px e sombra discreta que ganha
+  profundidade no hover (`translateY(-2px)` + sombra maior + borda em tom
+  laranja). O avatar tem um anel fino permanente em vez de ganhar anel no
+  hover, para os dois efeitos não competirem. `.equipe__cargo` tem
+  `min-height` reservando duas linhas, então todos os cards ficam com a
+  mesma altura mesmo com cargos de comprimento diferente.
+- **Fotos**: `public/assets/img/time-ti/<nome-sobrenome>.jpg`, um arquivo
+  por pessoa — as sete já existem. Se alguma faltar,
+  `onerror="this.hidden=true"` no `<img>` esconde a imagem quebrada e as
+  iniciais em `.equipe__foto::before` (via `content: attr(data-iniciais)`)
+  aparecem no lugar.
+- **Layout**: duas listas `<ul>` separadas — a primeira com 4 pessoas
+  (grid de 4 colunas), a segunda com 3 (grid de 3 colunas), ambas com a
+  mesma largura de coluna e `justify-content: center`. São listas
+  separadas de propósito: numa grade única de 4 colunas, `grid-column`
+  não consegue centralizar 3 itens, porque isso exigiria deslocar meia
+  coluna e o grid só trabalha com colunas inteiras. Em telas ≤860px as
+  duas caem para 2 colunas.
+- **Time atual**: Bruno Nucci (Coordenador de Projetos de TI), Daniel
+  Oliveira (Coordenador de TI), Enzo Xavier (Analista de TI), Fábio Paiva
+  (Gerente de Marketing e Inovação), João Gabriel (Analista de TI), João
+  Paulo (Analista de TI), Paulo Silva (Analista de TI) — e-mails no
+  padrão `nome.sobrenome@madeirasgasometro.com.br`, exceto Paulo Silva
+  (`paulosilva@`, sem ponto, confirmado como correto).
+
+### Fora de escopo nesta fase
+
+- Ligar "Destaques da base" e "Meus chamados recentes" a queries reais no
+  Supabase — os dados de exemplo continuam fixos no HTML até a Base de
+  Soluções (Fase 2) e o Portal do TI (Fase 4) existirem de fato.
+- Páginas linkadas pelo menu de perfil e pelas portas (`perfil.html`,
+  `base.html`, `portal.html`, `triagem.html`) — ainda são esqueletos
+  vazios ou não existem.
 
 ---
 

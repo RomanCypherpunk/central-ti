@@ -19,27 +19,6 @@ requestAnimationFrame(() => {
     .forEach((elemento) => elemento.classList.add("entrada--visivel"));
 });
 
-//TEMA: SOL E LUA
-const botoesTema = document.querySelectorAll(".topo__tema-botao");
-
-function aplicarTema(tema) {
-  document.documentElement.dataset.tema = tema;
-  localStorage.setItem("tema", tema);
-
-  botoesTema.forEach((botao) => {
-    const ativo = botao.dataset.tema === tema;
-    botao.classList.toggle("topo__tema-botao--ativo", ativo);
-    botao.setAttribute("aria-pressed", ativo);
-  });
-}
-
-botoesTema.forEach((botao) => {
-  botao.addEventListener("click", () => aplicarTema(botao.dataset.tema));
-});
-
-// O <head> já aplicou o tema salvo antes da pintura; aqui só marca o botão certo.
-aplicarTema(document.documentElement.dataset.tema);
-
 //USUARIO DO TOPO
 function iniciais(nome) {
   const partes = nome.trim().split(/\s+/);
