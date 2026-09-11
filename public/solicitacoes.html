@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solicitações - TI</title>
+  <link rel="icon" href="assets/img/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/index.css">
+</head>
+<body style="visibility: hidden">
+
+  <header class="topo">
+
+    <!--MARCA-->
+    <div class="topo__marca">
+      <img class="topo__logo" src="assets/img/logo-claro.svg" alt="Gasômetro Madeiras">
+      <span class="topo__divisor" aria-hidden="true"></span>
+      <span class="topo__produto">TI - Gasômetro Madeiras</span>
+    </div>
+
+    <!--ACOES DA DIREITA-->
+    <div class="topo__acoes">
+
+      <div class="topo__perfil">
+        <button class="topo__usuario" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="topo__avatar" data-iniciais></span>
+          <span class="topo__usuario-texto">
+            <span class="topo__usuario-nome" data-nome></span>
+            <span class="topo__usuario-setor" data-setor></span>
+          </span>
+          <svg class="topo__usuario-seta" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <div class="topo__menu">
+          <a class="topo__menu-item" href="index.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M4 11.5 12 4.5l8 7" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6 10.5V19h12v-8.5" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Início
+          </a>
+          <a class="topo__menu-item" href="perfil.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M5 20a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round"/>
+            </svg>
+            Dados pessoais
+          </a>
+
+          <!--PORTAL: SO PARA ADMIN. NASCE ESCONDIDO E O main.js MOSTRA-->
+          <a class="topo__menu-item" href="portal.html" data-menu-portal hidden>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M3.5 9h17" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M8 13h3.5M8 16h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            Portal de Chamados
+          </a>
+
+          <a class="topo__menu-item" href="base.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M3.5 5.2A1.7 1.7 0 0 1 5.2 3.5H10a2.5 2.5 0 0 1 2 1v14a2.5 2.5 0 0 0-2-1H5.2a1.7 1.7 0 0 1-1.7-1.7Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+              <path d="M20.5 5.2a1.7 1.7 0 0 0-1.7-1.7H14a2.5 2.5 0 0 0-2 1v14a2.5 2.5 0 0 1 2-1h4.8a1.7 1.7 0 0 0 1.7-1.7Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+            </svg>
+            Soluções
+          </a>
+        </div>
+      </div>
+
+      <button class="topo__sair" type="button" data-acao="sair">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M14.5 4.5h3.2a1.8 1.8 0 0 1 1.8 1.8v11.4a1.8 1.8 0 0 1-1.8 1.8h-3.2"
+                fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9.5 15.5 5 12l4.5-3.5M5 12h9" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Sair</span>
+      </button>
+
+    </div>
+  </header>
+
+  <!--ESTRUTURA CRUA: A LISTA DOS CHAMADOS DO USUARIO ENTRA AQUI DEPOIS.
+      Falta: buscar em `chamados` por solicitante_id, mostrar numero,
+      titulo, status derivado e data, e abrir o detalhe ao clicar.-->
+  <main class="solicitacoes">
+    <h1>Solicitações</h1>
+    <p>Os chamados que você abriu aparecerão aqui.</p>
+  </main>
+
+  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

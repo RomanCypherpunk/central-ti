@@ -9,10 +9,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/index.css">
-  <script>
-    // Antes da primeira pintura, senao a tela pisca no tema errado ao recarregar.
-    document.documentElement.dataset.tema = localStorage.getItem("tema") ?? "claro";
-  </script>
 </head>
 <body style="visibility: hidden">
 
@@ -20,34 +16,13 @@
 
     <!--MARCA-->
     <div class="topo__marca">
-      <img class="topo__logo topo__logo--claro" src="assets/img/logo-claro.svg" alt="Gasômetro Madeiras">
-      <img class="topo__logo topo__logo--escuro" src="assets/img/logo-branco.svg" alt="Gasômetro Madeiras">
+      <img class="topo__logo" src="assets/img/logo-claro.svg" alt="Gasômetro Madeiras">
       <span class="topo__divisor" aria-hidden="true"></span>
       <span class="topo__produto">TI - Gasômetro Madeiras</span>
     </div>
 
     <!--ACOES DA DIREITA-->
     <div class="topo__acoes">
-
-      <!--TEMA-->
-      <div class="topo__tema" role="group" aria-label="Tema">
-        <button class="topo__tema-botao" type="button" data-tema="claro" aria-label="Tema claro">
-          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-            <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
-            <path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"
-                  stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-          </svg>
-        </button>
-        <button class="topo__tema-botao" type="button" data-tema="escuro" aria-label="Tema escuro">
-          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-            <path d="M20.5 14.4A8.6 8.6 0 0 1 9.6 3.5a8.6 8.6 0 1 0 10.9 10.9Z"
-                  fill="none" stroke="currentColor" stroke-width="1.7"
-                  stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-      </div>
-
-      <span class="topo__divisor" aria-hidden="true"></span>
 
       <!--PERFIL: BOTAO E MENU-->
       <div class="topo__perfil">
@@ -73,7 +48,17 @@
             </svg>
             Dados pessoais
           </a>
-          <a class="topo__menu-item" href="portal.html">
+          <!--PORTAL: SO PARA ADMIN. NASCE ESCONDIDO E O main.js MOSTRA-->
+          <a class="topo__menu-item" href="portal.html" data-menu-portal hidden>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M3.5 9h17" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M8 13h3.5M8 16h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            Portal de Chamados
+          </a>
+
+          <a class="topo__menu-item" href="solicitacoes.html">
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <rect x="3.5" y="5" width="17" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
               <path d="M7.5 9.5h9M7.5 13h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
@@ -184,7 +169,7 @@
       <!--DESTAQUES DA BASE: VEM DO SUPABASE-->
       <section class="coluna">
         <header class="secao__topo">
-          <h2 class="secao__titulo">Destaques da base</h2>
+          <h2 class="secao__titulo">Soluções em destaque</h2>
           <a class="secao__link" href="base.html">Ver tudo</a>
         </header>
 
@@ -210,7 +195,7 @@
       <section class="coluna coluna--chamados">
         <header class="secao__topo">
           <h2 class="secao__titulo">
-            Meus chamados recentes
+            Suas últimas solicitações
             <span class="secao__resumo" data-resumo-chamados>2 em andamento · 1 aguardando você</span>
           </h2>
           <a class="secao__link" href="portal.html">Ver todos</a>
@@ -226,25 +211,25 @@
             </tr>
           </thead>
           <tbody data-chamados>
-            <tr>
+            <tr data-status="andamento">
               <td class="tabela__numero">#1234</td>
               <td><a class="tabela__link" href="portal.html">Problema de acesso ao módulo de compras</a></td>
               <td><span class="selo selo--andamento">Em andamento</span></td>
               <td class="tabela__data">10/09</td>
             </tr>
-            <tr>
+            <tr data-status="resolvido">
               <td class="tabela__numero">#1233</td>
               <td><a class="tabela__link" href="portal.html">Folha de pagamento com desconto indevido</a></td>
               <td><span class="selo selo--resolvido">Resolvido</span></td>
               <td class="tabela__data">09/09</td>
             </tr>
-            <tr>
+            <tr data-status="aguardando">
               <td class="tabela__numero">#1231</td>
               <td><a class="tabela__link" href="portal.html">Impressora do setor fora da rede</a></td>
               <td><span class="selo selo--aguardando">Aguardando você</span></td>
               <td class="tabela__data">08/09</td>
             </tr>
-            <tr>
+            <tr data-status="resolvido">
               <td class="tabela__numero">#1228</td>
               <td><a class="tabela__link" href="portal.html">Ar-condicionado da sala 12 pingando</a></td>
               <td><span class="selo selo--resolvido">Resolvido</span></td>
@@ -255,6 +240,168 @@
       </section>
 
     </div>
+
+    <!--EQUIPE DE TI: FOTO, NOME E CARGO. CLICAR ABRE UM E-MAIL PARA A PESSOA.-->
+    <section class="equipe">
+      <div class="equipe__cabecalho">
+        <h2 class="equipe__titulo">Equipe de TI</h2>
+        <p class="equipe__subtitulo">Quem responde pelo que você usa aqui.</p>
+      </div>
+
+      <ul class="equipe__lista">
+        <li class="equipe__item">
+          <div class="equipe__pessoa">
+            <a class="equipe__link" href="mailto:bruno.nucci@madeirasgasometro.com.br">
+              <span class="equipe__foto" data-iniciais="BN">
+                <img src="assets/img/time-ti/bruno-nucci.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+              </span>
+              <span class="equipe__nome">Bruno Nucci</span>
+              <span class="equipe__cargo">Coordenador de Projetos</span>
+            </a>
+            <button class="equipe__copiar" type="button" data-email="bruno.nucci@madeirasgasometro.com.br" aria-label="Copiar e-mail de Bruno Nucci">
+              <span class="equipe__email">bruno.nucci@madeirasgasometro.com.br</span>
+              <svg class="equipe__copiar-icone" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="1.7" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M15.5 8.5V6.2A1.7 1.7 0 0 0 13.8 4.5H5.7A1.7 1.7 0 0 0 4 6.2v8.1a1.7 1.7 0 0 0 1.7 1.7h2.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg class="equipe__copiar-check" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path d="M5 12.5 10 17.5 19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </li>
+        <li class="equipe__item">
+          <div class="equipe__pessoa">
+            <a class="equipe__link" href="mailto:daniel.oliveira@madeirasgasometro.com.br">
+              <span class="equipe__foto" data-iniciais="DO">
+                <img src="assets/img/time-ti/daniel-oliveira.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+              </span>
+              <span class="equipe__nome">Daniel Oliveira</span>
+              <span class="equipe__cargo">Coordenador de TI</span>
+            </a>
+            <button class="equipe__copiar" type="button" data-email="daniel.oliveira@madeirasgasometro.com.br" aria-label="Copiar e-mail de Daniel Oliveira">
+              <span class="equipe__email">daniel.oliveira@madeirasgasometro.com.br</span>
+              <svg class="equipe__copiar-icone" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="1.7" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M15.5 8.5V6.2A1.7 1.7 0 0 0 13.8 4.5H5.7A1.7 1.7 0 0 0 4 6.2v8.1a1.7 1.7 0 0 0 1.7 1.7h2.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg class="equipe__copiar-check" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path d="M5 12.5 10 17.5 19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </li>
+        <li class="equipe__item">
+          <div class="equipe__pessoa">
+            <a class="equipe__link" href="mailto:enzo.xavier@madeirasgasometro.com.br">
+              <span class="equipe__foto" data-iniciais="EX">
+                <img src="assets/img/time-ti/enzo-xavier.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+              </span>
+              <span class="equipe__nome">Enzo Xavier</span>
+              <span class="equipe__cargo">Analista de TI</span>
+            </a>
+            <button class="equipe__copiar" type="button" data-email="enzo.xavier@madeirasgasometro.com.br" aria-label="Copiar e-mail de Enzo Xavier">
+              <span class="equipe__email">enzo.xavier@madeirasgasometro.com.br</span>
+              <svg class="equipe__copiar-icone" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="1.7" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M15.5 8.5V6.2A1.7 1.7 0 0 0 13.8 4.5H5.7A1.7 1.7 0 0 0 4 6.2v8.1a1.7 1.7 0 0 0 1.7 1.7h2.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg class="equipe__copiar-check" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path d="M5 12.5 10 17.5 19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </li>
+        <li class="equipe__item">
+          <div class="equipe__pessoa">
+            <a class="equipe__link" href="mailto:fabio.paiva@madeirasgasometro.com.br">
+              <span class="equipe__foto" data-iniciais="FP">
+                <img src="assets/img/time-ti/fabio-paiva.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+              </span>
+              <span class="equipe__nome">Fábio Paiva</span>
+              <span class="equipe__cargo">Gerente de Marketing e Inovação</span>
+            </a>
+            <button class="equipe__copiar" type="button" data-email="fabio.paiva@madeirasgasometro.com.br" aria-label="Copiar e-mail de Fábio Paiva">
+              <span class="equipe__email">fabio.paiva@madeirasgasometro.com.br</span>
+              <svg class="equipe__copiar-icone" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="1.7" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M15.5 8.5V6.2A1.7 1.7 0 0 0 13.8 4.5H5.7A1.7 1.7 0 0 0 4 6.2v8.1a1.7 1.7 0 0 0 1.7 1.7h2.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg class="equipe__copiar-check" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path d="M5 12.5 10 17.5 19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </li>
+      </ul>
+
+      <!--SEGUNDA LINHA: LISTA PROPRIA PRA CENTRALIZAR OS 3 SOB A LINHA DE CIMA-->
+      <ul class="equipe__lista equipe__lista--linha2">
+        <li class="equipe__item">
+          <div class="equipe__pessoa">
+            <a class="equipe__link" href="mailto:joao.gabriel@madeirasgasometro.com.br">
+              <span class="equipe__foto" data-iniciais="JG">
+                <img src="assets/img/time-ti/joao-gabriel.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+              </span>
+              <span class="equipe__nome">João Gabriel</span>
+              <span class="equipe__cargo">Analista de TI</span>
+            </a>
+            <button class="equipe__copiar" type="button" data-email="joao.gabriel@madeirasgasometro.com.br" aria-label="Copiar e-mail de João Gabriel">
+              <span class="equipe__email">joao.gabriel@madeirasgasometro.com.br</span>
+              <svg class="equipe__copiar-icone" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="1.7" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M15.5 8.5V6.2A1.7 1.7 0 0 0 13.8 4.5H5.7A1.7 1.7 0 0 0 4 6.2v8.1a1.7 1.7 0 0 0 1.7 1.7h2.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg class="equipe__copiar-check" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path d="M5 12.5 10 17.5 19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </li>
+        <li class="equipe__item">
+          <div class="equipe__pessoa">
+            <a class="equipe__link" href="mailto:joao.paulo@madeirasgasometro.com.br">
+              <span class="equipe__foto" data-iniciais="JP">
+                <img src="assets/img/time-ti/joao-paulo.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+              </span>
+              <span class="equipe__nome">João Paulo</span>
+              <span class="equipe__cargo">Analista de TI</span>
+            </a>
+            <button class="equipe__copiar" type="button" data-email="joao.paulo@madeirasgasometro.com.br" aria-label="Copiar e-mail de João Paulo">
+              <span class="equipe__email">joao.paulo@madeirasgasometro.com.br</span>
+              <svg class="equipe__copiar-icone" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="1.7" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M15.5 8.5V6.2A1.7 1.7 0 0 0 13.8 4.5H5.7A1.7 1.7 0 0 0 4 6.2v8.1a1.7 1.7 0 0 0 1.7 1.7h2.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg class="equipe__copiar-check" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path d="M5 12.5 10 17.5 19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </li>
+        <li class="equipe__item">
+          <div class="equipe__pessoa">
+            <a class="equipe__link" href="mailto:paulosilva@madeirasgasometro.com.br">
+              <span class="equipe__foto" data-iniciais="PS">
+                <img src="assets/img/time-ti/paulo-silva.jpg" alt="" loading="lazy" onerror="this.hidden=true">
+              </span>
+              <span class="equipe__nome">Paulo Silva</span>
+              <span class="equipe__cargo">Analista de TI</span>
+            </a>
+            <button class="equipe__copiar" type="button" data-email="paulosilva@madeirasgasometro.com.br" aria-label="Copiar e-mail de Paulo Silva">
+              <span class="equipe__email">paulosilva@madeirasgasometro.com.br</span>
+              <svg class="equipe__copiar-icone" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="1.7" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M15.5 8.5V6.2A1.7 1.7 0 0 0 13.8 4.5H5.7A1.7 1.7 0 0 0 4 6.2v8.1a1.7 1.7 0 0 0 1.7 1.7h2.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg class="equipe__copiar-check" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path d="M5 12.5 10 17.5 19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </li>
+      </ul>
+    </section>
   </main>
 
   <script type="module" src="js/auth-guard.js"></script>

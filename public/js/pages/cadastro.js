@@ -91,6 +91,7 @@ function esconderErro(elemento) {
 
 //CAMPOS
 const campoNome = document.getElementById("nome");
+const campoSobrenome = document.getElementById("sobrenome");
 const campoSetor = document.getElementById("setor");
 const campoUnidade = document.getElementById("unidade");
 const campoEmail = document.getElementById("email");
@@ -124,7 +125,11 @@ popularSelect(campoUnidade, "unidades");
 //VALIDACAO DA ETAPA 1
 function validarEtapa1() {
   if (!campoNome.value.trim()) {
-    mostrarErro(erroEtapa1, "Informe seu nome completo.");
+    mostrarErro(erroEtapa1, "Informe seu nome.");
+    return false;
+  }
+  if (!campoSobrenome.value.trim()) {
+    mostrarErro(erroEtapa1, "Informe seu sobrenome.");
     return false;
   }
   if (!campoSetor.value) {
@@ -194,6 +199,7 @@ formulario.addEventListener("submit", async (evento) => {
     options: {
       data: {
         nome: campoNome.value.trim(),
+        sobrenome: campoSobrenome.value.trim(),
         setor_id: campoSetor.value,
         unidade_id: campoUnidade.value,
       },

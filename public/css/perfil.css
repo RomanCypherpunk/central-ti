@@ -1,0 +1,290 @@
+/* ==========================================================================
+   DADOS PESSOAIS
+   O topo vem de index.css; aqui fica so o cartao de perfil. As cores e o
+   ritmo seguem as telas de cadastro e login.
+   ========================================================================== */
+
+.perfil {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 2.5rem 1.5rem 3.5rem;
+  background-color: #fafafa;
+}
+
+.perfil__cartao {
+  width: 100%;
+  max-width: 34rem;
+  padding: 1.75rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.05);
+}
+
+.perfil__cabecalho {
+  margin-bottom: 1.5rem;
+}
+
+.perfil__titulo {
+  margin: 0 0 0.25rem;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.perfil__subtitulo {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #8a8a8a;
+}
+
+/*CONFIRMACAO DE QUE SALVOU (OU DE QUE FALHOU)*/
+.perfil__aviso {
+  display: none;
+  margin: 0 0 1.125rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 6px;
+  background-color: #ecf8ee;
+  font-size: 0.75rem;
+  color: #1b7a33;
+}
+
+.perfil__aviso--visivel {
+  display: block;
+}
+
+.perfil__aviso--erro {
+  background-color: #fdeceb;
+  color: #b02a2a;
+}
+
+/* ==========================================================================
+   FOTO
+   ========================================================================== */
+
+.perfil__foto-bloco {
+  display: flex;
+  align-items: center;
+  gap: 1.125rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #ececec;
+}
+
+.perfil__foto {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 5rem;
+  height: 5rem;
+  border-radius: 50%;
+  background-color: #f0dcce;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(26, 26, 26, 0.06);
+}
+
+.perfil__foto-iniciais {
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: #a8794f;
+}
+
+.perfil__foto img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.perfil__foto-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.perfil__remover {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: #8a8a8a;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.perfil__remover:hover {
+  color: #b02a2a;
+}
+
+.perfil__ajuda {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.6875rem;
+  color: #a1a1aa;
+}
+
+.perfil__ajuda--bloco {
+  margin: -0.375rem 0 1.5rem;
+}
+
+/* ==========================================================================
+   CAMPOS
+   ========================================================================== */
+
+.perfil__campo {
+  margin-bottom: 1.125rem;
+}
+
+.perfil__linha {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.perfil__label {
+  display: block;
+  margin-bottom: 0.4375rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #55606e;
+}
+
+.perfil__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6875rem 0.8125rem;
+  border: 1px solid #d7dce3;
+  border-radius: 5px;
+  background-color: #fff;
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.8125rem;
+  color: #14181f;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.perfil__input:focus {
+  outline: none;
+  border-color: #f87800;
+  box-shadow: 0 0 0 3px rgba(248, 120, 0, 0.18);
+}
+
+/*CAMPO QUE SO O TI MUDA: PARECE INFORMACAO, NAO FORMULARIO*/
+.perfil__input:disabled {
+  border-color: #ececec;
+  background-color: #fafafa;
+  color: #8a8a8a;
+}
+
+/* ==========================================================================
+   ACOES
+   ========================================================================== */
+
+.perfil__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #ececec;
+}
+
+.perfil__botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6875rem 1.25rem;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background-color: #dd5b12;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.perfil__botao:hover {
+  background-color: #c24f00;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(221, 91, 18, 0.28);
+}
+
+.perfil__botao:active {
+  transform: translateY(0);
+}
+
+.perfil__botao:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+/*TROCAR FOTO: MESMA FORMA, PESO MENOR — NAO COMPETE COM O SALVAR*/
+.perfil__botao--suave {
+  background-color: #fff;
+  border-color: #d7dce3;
+  color: #55606e;
+}
+
+.perfil__botao--suave:hover {
+  background-color: #f4f6f9;
+  border-color: #94a3b8;
+  color: #14181f;
+  box-shadow: none;
+}
+
+.perfil__senha {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: #c24f00;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.perfil__senha:hover {
+  color: #9a3e00;
+}
+
+@media (max-width: 560px) {
+  .perfil {
+    padding: 1.5rem 1rem 2.5rem;
+  }
+
+  .perfil__cartao {
+    padding: 1.25rem;
+  }
+
+  .perfil__linha {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .perfil__botao,
+  .perfil__input {
+    transition: none;
+  }
+
+  .perfil__botao:hover,
+  .perfil__botao:active {
+    transform: none;
+  }
+}

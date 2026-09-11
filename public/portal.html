@@ -3,11 +3,296 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portal do TI — Central Única de TI</title>
+  <title>Portal de Chamados - TI</title>
   <link rel="icon" href="assets/img/favicon.ico">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/portal.css">
+  <script>
+    // Antes da primeira pintura, senao a tela pisca no tema errado ao recarregar.
+    document.documentElement.dataset.tema =
+      localStorage.getItem("tema-portal") ?? "claro";
+  </script>
 </head>
-<body style="visibility: hidden">
+<body class="portal-pagina" style="visibility: hidden">
+
+  <header class="topo">
+
+    <!--MARCA-->
+    <div class="topo__marca">
+      <img class="topo__logo topo__logo--claro" src="assets/img/logo-claro.svg" alt="Gasômetro Madeiras">
+      <img class="topo__logo topo__logo--escuro" src="assets/img/logo-branco.svg" alt="Gasômetro Madeiras">
+      <span class="topo__divisor" aria-hidden="true"></span>
+      <span class="topo__produto">TI - Gasômetro Madeiras</span>
+    </div>
+
+    <!--ACOES DA DIREITA-->
+    <div class="topo__acoes">
+
+      <!--TEMA: SO NESTA TELA. UM BOTAO SO, QUE ALTERNA ENTRE OS DOIS-->
+      <button class="topo__tema" type="button" data-tema-alternar
+              aria-pressed="false" aria-label="Ativar tema escuro">
+        <svg class="topo__tema-icone topo__tema-icone--sol" viewBox="0 0 24 24"
+             width="17" height="17" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"
+                stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <svg class="topo__tema-icone topo__tema-icone--lua" viewBox="0 0 24 24"
+             width="17" height="17" aria-hidden="true">
+          <path d="M20.5 14.4A8.6 8.6 0 0 1 9.6 3.5a8.6 8.6 0 1 0 10.9 10.9Z"
+                fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <span class="topo__divisor" aria-hidden="true"></span>
+
+      <!--PERFIL: BOTAO E MENU-->
+      <div class="topo__perfil">
+        <!--USUARIO: PREENCHIDO PELO main.js A PARTIR DA SESSAO-->
+        <button class="topo__usuario" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="topo__avatar" data-iniciais></span>
+          <span class="topo__usuario-texto">
+            <span class="topo__usuario-nome" data-nome></span>
+            <span class="topo__usuario-setor" data-setor></span>
+          </span>
+          <svg class="topo__usuario-seta" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <div class="topo__menu">
+          <a class="topo__menu-item" href="index.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M4 11.5 12 4.5l8 7" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6 10.5V19h12v-8.5" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Início
+          </a>
+          <a class="topo__menu-item" href="perfil.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M5 20a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round"/>
+            </svg>
+            Dados pessoais
+          </a>
+          <a class="topo__menu-item" href="solicitacoes.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <rect x="3.5" y="5" width="17" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M7.5 9.5h9M7.5 13h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            Solicitações
+          </a>
+          <a class="topo__menu-item" href="base.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M3.5 5.2A1.7 1.7 0 0 1 5.2 3.5H10a2.5 2.5 0 0 1 2 1v14a2.5 2.5 0 0 0-2-1H5.2a1.7 1.7 0 0 1-1.7-1.7Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+              <path d="M20.5 5.2a1.7 1.7 0 0 0-1.7-1.7H14a2.5 2.5 0 0 0-2 1v14a2.5 2.5 0 0 1 2-1h4.8a1.7 1.7 0 0 0 1.7-1.7Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+            </svg>
+            Soluções
+          </a>
+        </div>
+      </div>
+
+      <!--SAIR-->
+      <button class="topo__sair" type="button" data-acao="sair">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M14.5 4.5h3.2a1.8 1.8 0 0 1 1.8 1.8v11.4a1.8 1.8 0 0 1-1.8 1.8h-3.2"
+                fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9.5 15.5 5 12l4.5-3.5M5 12h9" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Sair</span>
+      </button>
+
+    </div>
+  </header>
+
+  <main class="portal">
+
+    <div class="portal__cabecalho">
+      <div class="portal__identificacao">
+        <h1 class="portal__titulo">Portal de Chamados</h1>
+        <p class="portal__subtitulo" data-resumo>Carregando o quadro…</p>
+      </div>
+
+      <!--BUSCA: NUMERO DO TICKET, SOLICITANTE, UNIDADE, CATEGORIA OU DESCRICAO-->
+      <div class="busca">
+        <svg class="busca__icone" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+          <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+          <path d="m15.5 15.5 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input class="busca__campo" type="search" data-busca
+               placeholder="Buscar por ticket, pessoa, unidade…"
+               autocomplete="off" aria-label="Buscar chamados">
+
+        <!--RESULTADOS: LISTA SUSPENSA, PREENCHIDA PELO portal.js-->
+        <div class="busca__resultados" data-resultados hidden></div>
+      </div>
+    </div>
+
+    <!--AVISO DE ERRO: APARECE NO LUGAR DO QUADRO SE A CARGA FALHAR-->
+    <p class="portal__erro" data-erro role="alert"></p>
+
+    <!--QUADRO: UMA COLUNA POR FILA, MONTADO PELO portal.js-->
+    <div class="portal__quadro" data-quadro></div>
+
+    <!--BARRA DE ROLAGEM PROPRIA DO QUADRO, COLADA NO RODAPE-->
+    <div class="portal__barra" data-barra>
+      <div class="portal__barra-trilho">
+        <div class="portal__barra-alca" data-alca></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!--DETALHE DO CHAMADO: ABRE AO CLICAR NUM CARD, MONTADO PELO portal.js-->
+  <dialog class="detalhe" data-detalhe>
+    <div class="detalhe__conteudo">
+
+      <header class="detalhe__topo">
+        <span class="detalhe__fila" data-detalhe-fila></span>
+        <button class="detalhe__fechar" type="button" data-detalhe-fechar aria-label="Fechar">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </header>
+
+      <div class="detalhe__corpo">
+
+        <!--COLUNA ESQUERDA: TITULO, ETIQUETAS, MEMBROS, DESCRICAO-->
+        <div class="detalhe__principal">
+          <h2 class="detalhe__titulo" data-detalhe-titulo
+              contenteditable="true" role="textbox" aria-label="Título do chamado"></h2>
+
+          <!--DADOS DO CHAMADO: O QUE O ANALISTA PRECISA SABER DE RELANCE-->
+          <dl class="dados" data-detalhe-dados></dl>
+
+          <div class="detalhe__lado-a-lado">
+            <div class="detalhe__bloco">
+              <h3 class="detalhe__rotulo">Prioridade</h3>
+              <div class="detalhe__etiquetas" data-detalhe-etiquetas></div>
+            </div>
+
+            <div class="detalhe__bloco">
+              <h3 class="detalhe__rotulo">Membros</h3>
+              <div class="detalhe__membros" data-detalhe-membros></div>
+            </div>
+          </div>
+
+          <div class="detalhe__bloco">
+            <h3 class="detalhe__rotulo">Descrição</h3>
+            <div class="detalhe__descricao" data-detalhe-descricao
+                 contenteditable="true" role="textbox" aria-label="Descrição do chamado"></div>
+          </div>
+
+          <p class="detalhe__aviso" data-detalhe-aviso role="status"></p>
+
+          <!--CORRESPONDENCIA COM O USUARIO: O CANAL DE ATENDIMENTO-->
+          <section class="conversa">
+            <h3 class="detalhe__rotulo">Correspondência</h3>
+
+            <div class="conversa__mensagens" data-detalhe-conversa></div>
+
+            <div class="conversa__escrever">
+              <textarea class="conversa__campo" data-conversa-campo rows="3"
+                        placeholder="Escrever para o solicitante…"
+                        aria-label="Mensagem para o solicitante"></textarea>
+
+              <div class="conversa__acoes">
+                <label class="conversa__anexar">
+                  <input type="file" data-conversa-arquivo hidden
+                         accept="image/*,application/pdf">
+                  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                    <path d="M16.5 8.5 9.7 15.3a2.4 2.4 0 0 0 3.4 3.4l7.3-7.3a4 4 0 0 0-5.7-5.7l-7.3 7.3a5.7 5.7 0 0 0 8 8l6.4-6.4"
+                          fill="none" stroke="currentColor" stroke-width="1.7"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span data-conversa-arquivo-nome>Anexar</span>
+                </label>
+
+                <!--TEXTOS RAPIDOS: RESPOSTAS PRONTAS DA EQUIPE-->
+                <button class="conversa__rapidos" type="button" data-rapidos-abrir
+                        aria-haspopup="true" aria-expanded="false">
+                  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                    <path d="M20 4.5H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3v3.5l4-3.5h9a1 1 0 0 0 1-1v-10a1 1 0 0 0-1-1Z"
+                          fill="none" stroke="currentColor" stroke-width="1.7"
+                          stroke-linejoin="round"/>
+                    <path d="M7.5 8.5h9M7.5 12h5" stroke="currentColor" stroke-width="1.7"
+                          stroke-linecap="round"/>
+                  </svg>
+                  <span>Textos rápidos</span>
+                </button>
+
+                <button class="conversa__enviar" type="button" data-conversa-enviar>
+                  Responder
+                </button>
+              </div>
+
+              <!--PAINEL DE TEXTOS RAPIDOS: LISTA, BUSCA E O FORMULARIO DE
+                  CRIAR/EDITAR. MONTADO PELO portal.js-->
+              <div class="rapidos" data-rapidos hidden>
+                <header class="rapidos__topo">
+                  <h4 class="rapidos__titulo">Textos rápidos</h4>
+                  <button class="rapidos__fechar" type="button" data-rapidos-fechar
+                          aria-label="Fechar textos rápidos">
+                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                      <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                </header>
+
+                <button class="rapidos__novo" type="button" data-rapidos-novo>
+                  + Adicionar novo texto rápido
+                </button>
+
+                <!--FORMULARIO: SERVE PARA CRIAR E PARA EDITAR-->
+                <form class="rapidos__form" data-rapidos-form hidden>
+                  <input class="rapidos__campo" type="text" data-rapidos-titulo
+                         placeholder="Título (ex.: Falta de informações)"
+                         aria-label="Título do texto rápido" required>
+                  <textarea class="rapidos__campo rapidos__campo--corpo" rows="4"
+                            data-rapidos-corpo placeholder="Texto da resposta…"
+                            aria-label="Texto da resposta" required></textarea>
+                  <div class="rapidos__form-acoes">
+                    <button class="rapidos__cancelar" type="button" data-rapidos-cancelar>
+                      Cancelar
+                    </button>
+                    <button class="rapidos__salvar" type="submit">Salvar</button>
+                  </div>
+                </form>
+
+                <input class="rapidos__campo rapidos__busca" type="search"
+                       data-rapidos-busca placeholder="Pesquisar textos rápidos"
+                       autocomplete="off" aria-label="Pesquisar textos rápidos">
+
+                <div class="rapidos__lista" data-rapidos-lista></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!--COLUNA DIREITA: ANEXOS DO CHAMADO-->
+        <aside class="detalhe__lateral">
+          <h3 class="detalhe__rotulo">Anexos</h3>
+          <div class="anexos" data-detalhe-anexos></div>
+        </aside>
+
+      </div>
+    </div>
+  </dialog>
+
   <script type="module" src="js/auth-guard.js"></script>
   <script type="module" src="js/main.js"></script>
   <script type="module" src="js/pages/portal.js"></script>

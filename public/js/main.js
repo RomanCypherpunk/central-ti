@@ -19,40 +19,20 @@ requestAnimationFrame(() => {
     .forEach((elemento) => elemento.classList.add("entrada--visivel"));
 });
 
-//TEMA: SOL E LUA
-const botoesTema = document.querySelectorAll(".topo__tema-botao");
+//USUARIO DO TOPO
+//As iniciais vem do primeiro nome + sobrenome; o nome pode ser composto
+//("João Paulo"), e ai a inicial que vale e a da primeira palavra.
+function iniciais(nome, sobrenome) {
+  const primeira = (nome ?? "").trim().split(/\s+/)[0] ?? "";
+  const ultima = (sobrenome ?? "").trim().split(/\s+/).pop() ?? "";
 
-function aplicarTema(tema) {
-  document.documentElement.dataset.tema = tema;
-  localStorage.setItem("tema", tema);
-
-  botoesTema.forEach((botao) => {
-    const ativo = botao.dataset.tema === tema;
-    botao.classList.toggle("topo__tema-botao--ativo", ativo);
-    botao.setAttribute("aria-pressed", ativo);
-  });
+  return (primeira[0] ?? "").concat(ultima[0] ?? "").toUpperCase();
 }
 
-botoesTema.forEach((botao) => {
-  botao.addEventListener("click", () => aplicarTema(botao.dataset.tema));
-});
-
-// O <head> já aplicou o tema salvo antes da pintura; aqui só marca o botão certo.
-aplicarTema(document.documentElement.dataset.tema);
-
-//USUARIO DO TOPO
-function escrever(seletor, texto) {
+function preencher(seletor, texto) {
   const elemento = document.querySelector(seletor);
 
   if (elemento) elemento.textContent = texto;
-}
-
-function iniciais(nome) {
-  const partes = nome.trim().split(/\s+/);
-  const primeira = partes[0] ?? "";
-  const ultima = partes.length > 1 ? partes[partes.length - 1] : "";
-
-  return (primeira[0] ?? "").concat(ultima[0] ?? "").toUpperCase();
 }
 
 async function preencherUsuario() {
@@ -60,36 +40,46 @@ async function preencherUsuario() {
 
   if (!user) return;
 
-  const nome = user.user_metadata?.nome ?? user.email;
-
-  // Nem toda pagina tem o cabecalho: escreve so onde o elemento existe.
-  escrever("[data-nome]", nome);
-  // O nome da saudacao e o mesmo gravado no cadastro.
-  escrever("[data-saudacao-nome]", nome);
-  escrever("[data-iniciais]", iniciais(nome));
-
-  const setorId = user.user_metadata?.setor_id;
-
-  if (!setorId) return;
-
-  const { data: setor } = await supabase
-    .from("setores")
-    .select("nome")
-    .eq("id", setorId)
+  // Le da tabela, e nao do user_metadata: o metadata e uma foto do momento do
+  // cadastro e nao acompanha quem edita o nome em "Dados pessoais".
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("nome, sobrenome, perfil, setores(nome)")
+    .eq("id", user.id)
     .single();
+
+  const nome = perfil?.nome ?? user.email;
+  const sobrenome = perfil?.sobrenome ?? "";
+
+  // O Portal e a tela de quem atende: so admin ve o atalho no menu. Quem
+  // nao for admin nem enxerga o item — e o portal.html barra na entrada,
+  // porque esconder link no menu nao e controle de acesso.
+  if (perfil?.perfil === "admin") {
+    document.querySelector("[data-menu-portal]")?.removeAttribute("hidden");
+  }
+
+  // main.js roda em toda pagina autenticada, e cada uma tem so parte destes
+  // campos — a saudacao, por exemplo, existe so na home.
+  // So o primeiro nome aparece no topo e na saudacao; o completo fica para
+  // as telas que precisam identificar a pessoa (detalhe do chamado).
+  preencher("[data-nome]", nome);
+  preencher("[data-saudacao-nome]", nome);
+  preencher("[data-iniciais]", iniciais(nome, sobrenome));
+
+  const setor = perfil?.setores?.nome;
 
   if (!setor) return;
 
-  escrever("[data-setor]", setor.nome);
-
+  preencher("[data-setor]", setor);
   // A Base de Soluções mostra só o setor de quem está logado.
-  escrever("[data-setor-marca]", setor.nome);
+  preencher("[data-setor-marca]", setor);
 }
 
 preencherUsuario();
 
 //MENU DO PERFIL
-// Paginas sem o cabecalho (a base, por exemplo) nao tem nada disso.
+// A base e a nova solução não têm cabeçalho: sem as guardas, o erro aqui
+// interrompe o arquivo e o menu lateral lá embaixo nunca chega a rodar.
 const perfil = document.querySelector(".topo__perfil");
 const botaoPerfil = perfil?.querySelector(".topo__usuario");
 const menuPerfil = perfil?.querySelector(".topo__menu");
@@ -141,6 +131,27 @@ botaoSair?.addEventListener("click", async () => {
 
   await supabase.auth.signOut();
   // O auth-guard escuta a queda da sessão e redireciona para o login.
+});
+
+//COPIAR E-MAIL DA EQUIPE
+document.querySelectorAll(".equipe__copiar").forEach((botao) => {
+  const rotuloOriginal = botao.getAttribute("aria-label");
+
+  botao.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(botao.dataset.email);
+    } catch {
+      return; // Sem permissão de clipboard: não finge que copiou.
+    }
+
+    botao.classList.add("equipe__copiar--copiado");
+    botao.setAttribute("aria-label", "E-mail copiado");
+
+    setTimeout(() => {
+      botao.classList.remove("equipe__copiar--copiado");
+      botao.setAttribute("aria-label", rotuloOriginal);
+    }, 1500);
+  });
 });
 
 //MENU LATERAL: RECOLHER E EXPANDIR

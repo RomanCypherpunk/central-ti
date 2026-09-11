@@ -44,11 +44,22 @@
 
             <p class="cadastro__erro" data-erro="etapa1" role="alert"></p>
 
-            <div class="cadastro__campo">
-              <label class="cadastro__label" for="nome">Nome completo</label>
-              <input class="cadastro__input" type="text" id="nome" name="nome"
-                     placeholder="Digite seu nome completo"
-                     autocomplete="name" required>
+            <!--NOME SEPARADO: O PRIMEIRO NOME E O QUE APARECE NA SAUDACAO
+                DA HOME E NOS CARDS DO PORTAL-->
+            <div class="cadastro__linha">
+              <div class="cadastro__campo">
+                <label class="cadastro__label" for="nome">Nome</label>
+                <input class="cadastro__input" type="text" id="nome" name="nome"
+                       placeholder="Digite seu nome"
+                       autocomplete="given-name" required>
+              </div>
+
+              <div class="cadastro__campo">
+                <label class="cadastro__label" for="sobrenome">Sobrenome</label>
+                <input class="cadastro__input" type="text" id="sobrenome" name="sobrenome"
+                       placeholder="Digite seu sobrenome"
+                       autocomplete="family-name" required>
+              </div>
             </div>
 
             <!--SETOR E UNIDADE: OPCOES VEM DO SUPABASE-->
