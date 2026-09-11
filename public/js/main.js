@@ -115,3 +115,24 @@ botaoSair.addEventListener("click", async () => {
   await supabase.auth.signOut();
   // O auth-guard escuta a queda da sessão e redireciona para o login.
 });
+
+//COPIAR E-MAIL DA EQUIPE
+document.querySelectorAll(".equipe__copiar").forEach((botao) => {
+  const rotuloOriginal = botao.getAttribute("aria-label");
+
+  botao.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(botao.dataset.email);
+    } catch {
+      return; // Sem permissão de clipboard: não finge que copiou.
+    }
+
+    botao.classList.add("equipe__copiar--copiado");
+    botao.setAttribute("aria-label", "E-mail copiado");
+
+    setTimeout(() => {
+      botao.classList.remove("equipe__copiar--copiado");
+      botao.setAttribute("aria-label", rotuloOriginal);
+    }, 1500);
+  });
+});

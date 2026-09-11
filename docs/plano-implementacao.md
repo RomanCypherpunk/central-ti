@@ -341,13 +341,21 @@ arquivo) para `destaque-fundo-respira`.
 
 Nova seção no fim da Home, abaixo das duas colunas: quem é o time de TI e
 como falar com cada um. Sete pessoas, em ordem alfabética pelo primeiro
-nome, foto/iniciais + nome + cargo, cartão inteiro é um link `mailto:`
-para o e-mail da pessoa — sem botão de e-mail visível, a interação é só
-hover (a foto ganha um anel laranja, o nome muda de cor) e o cursor.
+nome, foto/iniciais + nome + cargo + e-mail, cada card no padrão shadcn.
 
-- **HTML**: cada pessoa é um `<li class="equipe__item">` com um único
-  `<a class="equipe__pessoa" href="mailto:...">` envolvendo foto, nome e
-  cargo — área de clique generosa, sem botão separado dentro do card.
+- **HTML**: cada pessoa é um `<li class="equipe__item">` contendo uma
+  `<div class="equipe__pessoa">` (o card) com duas áreas clicáveis dentro
+  — um `<a class="equipe__link" href="mailto:...">` envolvendo foto, nome
+  e cargo (abre o e-mail), e um `<button class="equipe__copiar">`
+  separado, com o endereço de e-mail visível e um ícone de copiar. Um
+  `<a>` não pode conter um `<button>` focável de forma válida, por isso o
+  card virou uma `<div>` em vez do link único que era antes.
+- **Copiar e-mail**: `main.js` usa `navigator.clipboard.writeText()` no
+  clique do botão; por 1,5s o ícone de copiar vira um check verde
+  (`.equipe__copiar--copiado`, dois SVGs sobrepostos alternados via CSS)
+  e o `aria-label` muda para "E-mail copiado", depois volta ao normal. Se
+  a API de clipboard falhar (sem permissão), não finge que copiou — só
+  não faz nada.
 - **Card**: cada pessoa é um card no padrão shadcn — superfície branca,
   borda de 1px (`#e5e5e5`), radius de 14px e sombra discreta que ganha
   profundidade no hover (`translateY(-2px)` + sombra maior + borda em tom
