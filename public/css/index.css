@@ -51,7 +51,11 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  padding: 0.875rem 1.5rem;
+  /*84px E A ALTURA DO CABECALHO DA BASE E DA NOVA SOLUCAO: TODAS AS TELAS
+    PRECISAM BATER. O box-sizing faz a borda de baixo caber dentro.*/
+  height: 84px;
+  box-sizing: border-box;
+  padding: 0 1.5rem;
   border-bottom: 1px solid #e5e5e5;
   background-color: #fff;
 }
@@ -888,7 +892,8 @@ body {
 /*CELULAR: O NOME E O SETOR SAEM DO TOPO, SOBRA O AVATAR*/
 @media (max-width: 720px) {
   .topo {
-    padding: 0.75rem 1rem;
+    /*A ALTURA CONTINUA 84px NO CELULAR: SO O RECUO LATERAL DIMINUI*/
+    padding: 0 1rem;
     gap: 0.75rem;
   }
 

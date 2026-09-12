@@ -32,26 +32,28 @@ const visualizacaoListaBtn = document.getElementById("visualizacao-lista");
 let artigosTodos = [];
 let ordenacao = "recentes";
 
+// As cores ficam aqui em hex, e nao em var(--), porque o CSS do projeto
+// nao usa variaveis de cor.
 const TIPO_INFO = {
   erro: {
     label: "Erro",
-    cor: "var(--tipo-erro-cor)",
-    fundo: "var(--tipo-erro-fundo)",
+    cor: "#b02a2a",
+    fundo: "#fdeceb",
     icone: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>'
   },
   procedimento: {
     label: "Procedimento",
-    cor: "var(--tipo-procedimento-cor)",
-    fundo: "var(--tipo-procedimento-fundo)",
+    cor: "#2f9e44",
+    fundo: "#eaf7ee",
     icone: '<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12l2 2 4-4"/>'
   }
 };
 
 const CRITICIDADE_INFO = {
-  baixa: { label: "Baixa", cor: "var(--prioridade-baixa)" },
-  media: { label: "Média", cor: "var(--prioridade-media)" },
-  alta: { label: "Alta", cor: "var(--prioridade-alta)" },
-  critica: { label: "Crítica", cor: "var(--prioridade-critica)" }
+  baixa: { label: "Baixa", cor: "#8a8a8a" },
+  media: { label: "Média", cor: "#9a5b00" },
+  alta: { label: "Alta", cor: "#c24f00" },
+  critica: { label: "Crítica", cor: "#b02a2a" }
 };
 
 const ICONE_TAG_CATEGORIA = '<path d="M3 21h18"/><path d="M5 21V10M9 21V10M15 21V10M19 21V10"/><path d="M3 10l9-6 9 6"/>';
