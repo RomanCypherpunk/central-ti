@@ -16,12 +16,10 @@ function ligarTema() {
     document.documentElement.dataset.tema = tema;
     localStorage.setItem("tema-portal", tema);
 
-    const escuro = tema === "escuro";
-    botao.setAttribute("aria-pressed", escuro);
-    botao.setAttribute(
-      "aria-label",
-      escuro ? "Ativar tema claro" : "Ativar tema escuro",
-    );
+    // O item do menu diz para onde vai, nao onde esta: no escuro oferece o
+    // claro, e vice-versa. Os icones (sol/lua) sao trocados pelo CSS.
+    botao.querySelector("[data-tema-texto]").textContent =
+      tema === "escuro" ? "Tema claro" : "Tema escuro";
   }
 
   botao.addEventListener("click", () => {
@@ -45,10 +43,9 @@ const ZOOM_PASSO_BOTAO = 0.1;
 // eventos seguidos: passo menor para o zoom andar suave, sem saltos.
 const ZOOM_PASSO_RODA = 0.05;
 
+//Os controles moram no menu de 3 pontinhos (que fica aberto enquanto se mexe
+//neles); aqui nao ha painel proprio para abrir ou fechar.
 function ligarZoom() {
-  const caixa = document.querySelector("[data-zoom]");
-  const abrir = document.querySelector("[data-zoom-abrir]");
-  const painel = document.querySelector("[data-zoom-painel]");
   const valor = document.querySelector("[data-zoom-valor]");
   const slider = document.querySelector("[data-zoom-slider]");
   const menos = document.querySelector("[data-zoom-menos]");
@@ -82,32 +79,11 @@ function ligarZoom() {
     window.dispatchEvent(new Event("resize"));
   }
 
-  function mostrarPainel(aberto) {
-    painel.classList.toggle("zoom__painel--aberto", aberto);
-    abrir.setAttribute("aria-expanded", String(aberto));
-  }
-
-  abrir.addEventListener("click", () => {
-    mostrarPainel(!painel.classList.contains("zoom__painel--aberto"));
-  });
-
   // input, e nao change: o quadro acompanha a bolinha enquanto ela e arrastada.
   slider.addEventListener("input", () => aplicar(Number(slider.value) / 100));
   menos.addEventListener("click", () => aplicar(atual() - ZOOM_PASSO_BOTAO));
   mais.addEventListener("click", () => aplicar(atual() + ZOOM_PASSO_BOTAO));
   redefinir.addEventListener("click", () => aplicar(1));
-
-  // Clique fora fecha, como o menu do perfil.
-  document.addEventListener("click", (evento) => {
-    if (!caixa.contains(evento.target)) mostrarPainel(false);
-  });
-
-  document.addEventListener("keydown", (evento) => {
-    if (evento.key !== "Escape" || !painel.classList.contains("zoom__painel--aberto")) return;
-
-    mostrarPainel(false);
-    abrir.focus();
-  });
 
   // CTRL + RODA SOBRE O QUADRO: o preventDefault segura o zoom do navegador
   // (que aumentaria o topo junto) e aplica so no quadro. passive: false e o
@@ -135,6 +111,98 @@ function zoomDoQuadro() {
 function mostrarErro(mensagem) {
   erro.textContent = mensagem;
   erro.classList.add("portal__erro--visivel");
+}
+
+//AVISO DO SITE: NO LUGAR DO alert() DO NAVEGADOR. Aparece no canto de baixo,
+//some sozinho e pode trazer uma acao (ex.: "Desfazer").
+//tipo: "info" | "sucesso" | "erro". Erro fica mais tempo na tela.
+const avisoSite = document.querySelector("[data-aviso-site]");
+const avisoSiteIcone = document.querySelector("[data-aviso-site-icone]");
+const avisoSiteTexto = document.querySelector("[data-aviso-site-texto]");
+const avisoSiteAcao = document.querySelector("[data-aviso-site-acao]");
+
+const ICONES_AVISO = {
+  info: '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  sucesso: '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m8.5 12.2 2.4 2.4 4.6-4.9" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  erro: '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5v5.5M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+};
+
+let avisoSiteTimer = null;
+let avisoSiteDuracao = 0;
+
+function esconderAvisoSite() {
+  clearTimeout(avisoSiteTimer);
+
+  if (avisoSite.matches(":popover-open")) avisoSite.hidePopover();
+}
+
+function avisarNoSite(texto, { tipo = "info", acao = null } = {}) {
+  clearTimeout(avisoSiteTimer);
+
+  avisoSite.dataset.tipo = tipo;
+  avisoSiteIcone.innerHTML = ICONES_AVISO[tipo] ?? ICONES_AVISO.info;
+  avisoSiteTexto.textContent = texto;
+
+  avisoSiteAcao.hidden = !acao;
+  avisoSiteAcao.onclick = null;
+
+  if (acao) {
+    avisoSiteAcao.textContent = acao.rotulo;
+    avisoSiteAcao.onclick = () => {
+      esconderAvisoSite();
+      acao.aoClicar();
+    };
+  }
+
+  // Esconde e mostra de novo: um popover aberto antes de um <dialog> ficaria
+  // por baixo dele; reabrir traz o aviso para a frente.
+  if (avisoSite.matches(":popover-open")) avisoSite.hidePopover();
+  avisoSite.showPopover();
+
+  // Com botao de acao, mais tempo para a pessoa conseguir clicar.
+  avisoSiteDuracao = tipo === "erro" ? 7000 : acao ? 6500 : 4000;
+  avisoSiteTimer = setTimeout(esconderAvisoSite, avisoSiteDuracao);
+}
+
+document.querySelector("[data-aviso-site-fechar]").addEventListener("click", esconderAvisoSite);
+
+// Mouse em cima segura o aviso na tela; saiu, volta a contar.
+avisoSite.addEventListener("mouseenter", () => clearTimeout(avisoSiteTimer));
+avisoSite.addEventListener("mouseleave", () => {
+  if (!avisoSite.matches(":popover-open")) return;
+
+  avisoSiteTimer = setTimeout(esconderAvisoSite, 2500);
+});
+
+//CONFIRMACAO DO SITE: NO LUGAR DO confirm() DO NAVEGADOR. Devolve uma
+//Promise com true (confirmou) ou false (cancelou, Esc ou clique fora).
+//So para o que nao da para desfazer — o que e reversivel usa aviso com
+//"Desfazer" em vez de perguntar antes.
+const janelaConfirmacao = document.querySelector("[data-confirmacao]");
+
+janelaConfirmacao.addEventListener("click", (evento) => {
+  if (evento.target === janelaConfirmacao) janelaConfirmacao.close("cancelar");
+});
+
+function confirmarNoSite({ titulo, mensagem, confirmar = "Confirmar", perigo = false }) {
+  document.querySelector("[data-confirmacao-titulo]").textContent = titulo;
+  document.querySelector("[data-confirmacao-mensagem]").textContent = mensagem;
+
+  const botao = document.querySelector("[data-confirmacao-confirmar]");
+  botao.textContent = confirmar;
+  botao.classList.toggle("confirmacao__botao--perigo", perigo);
+
+  janelaConfirmacao.returnValue = "";
+  // O foco cai no primeiro botao (Cancelar): Enter sem querer nao apaga nada.
+  janelaConfirmacao.showModal();
+
+  return new Promise((resolver) => {
+    janelaConfirmacao.addEventListener(
+      "close",
+      () => resolver(janelaConfirmacao.returnValue === "confirmar"),
+      { once: true },
+    );
+  });
 }
 
 //SO A EQUIPE DE TI ATENDE CHAMADOS. O RLS JA PROTEGE OS DADOS; ISSO EVITA
@@ -297,6 +365,80 @@ function desenharMembrosDoCard(container, chamadoMembros) {
   });
 }
 
+//FILTROS DO QUADRO: MEMBROS, PRIORIDADE, UNIDADE E CATEGORIA.
+//Dentro de um grupo vale qualquer opcao marcada (unidade A ou B); entre
+//grupos, todas precisam bater (membro X e categoria Y). Grupo sem nada
+//marcado nao filtra. Fica salvo neste navegador.
+const GRUPOS_FILTRO = ["membros", "prioridade", "unidade", "categoria"];
+const SEM_MEMBRO = "__sem-membro";
+const CHAVE_FILTROS = "filtros-portal";
+
+function filtrosVazios() {
+  return Object.fromEntries(GRUPOS_FILTRO.map((grupo) => [grupo, []]));
+}
+
+function lerFiltrosSalvos() {
+  const filtros = filtrosVazios();
+
+  try {
+    const salvos = JSON.parse(localStorage.getItem(CHAVE_FILTROS) ?? "null");
+
+    GRUPOS_FILTRO.forEach((grupo) => {
+      if (Array.isArray(salvos?.[grupo])) {
+        filtros[grupo] = salvos[grupo].filter((valor) => typeof valor === "string");
+      }
+    });
+  } catch {
+    // Salvo corrompido ou localStorage bloqueado: comeca sem filtro.
+  }
+
+  return filtros;
+}
+
+let filtrosDoQuadro = lerFiltrosSalvos();
+
+function totalDeFiltros() {
+  return GRUPOS_FILTRO.reduce((soma, grupo) => soma + filtrosDoQuadro[grupo].length, 0);
+}
+
+// Mesma regra das etiquetas do card: sem flag marcada, e Normal.
+function prioridadesDoChamado(chamado) {
+  const marcadas = [
+    chamado.eh_urgente && "urgente",
+    chamado.eh_prioridade && "prioridade",
+  ].filter(Boolean);
+
+  return marcadas.length ? marcadas : ["normal"];
+}
+
+function unidadeDoChamado(chamado) {
+  return chamado.unidades?.nome ?? "Sem unidade";
+}
+
+function categoriaDoChamado(chamado) {
+  return chamado.categorias?.nome ?? "Sem categoria";
+}
+
+function chamadoPassaNosFiltros(chamado) {
+  const { membros, prioridade, unidade, categoria } = filtrosDoQuadro;
+
+  if (membros.length) {
+    const ids = chamado.chamado_membros.map((membro) => membro.usuario_id);
+    const bate = membros.some((id) => (id === SEM_MEMBRO ? ids.length === 0 : ids.includes(id)));
+
+    if (!bate) return false;
+  }
+
+  if (prioridade.length && !prioridadesDoChamado(chamado).some((chave) => prioridade.includes(chave))) {
+    return false;
+  }
+
+  if (unidade.length && !unidade.includes(unidadeDoChamado(chamado))) return false;
+  if (categoria.length && !categoria.includes(categoriaDoChamado(chamado))) return false;
+
+  return true;
+}
+
 function montarCard(chamado) {
   const card = document.createElement("li");
   card.className = "card";
@@ -352,6 +494,10 @@ function montarCard(chamado) {
   desenharMembrosDoCard(membros, chamado.chamado_membros);
   card.appendChild(membros);
 
+  // Ja nasce escondido se nao passa no filtro: vale para a carga, para o
+  // chamado que chega pelo tempo real e para o reaberto.
+  card.classList.toggle("card--filtrado", !chamadoPassaNosFiltros(chamado));
+
   return card;
 }
 
@@ -388,27 +534,40 @@ function montarFila(fila, chamados) {
 
   coluna.appendChild(lista);
 
+  // Contador e aviso de vazio ja levando em conta o filtro salvo.
+  sincronizarColuna(coluna);
+
   return coluna;
 }
 
-//ATUALIZA O CONTADOR E O AVISO DE VAZIO DE UMA COLUNA DEPOIS DE MOVER UM CARD
+//ATUALIZA O CONTADOR E O AVISO DE VAZIO DE UMA COLUNA DEPOIS DE MOVER UM
+//CARD. Conta so o que esta aparecendo: com filtro ligado, o numero bate com
+//os cards que a pessoa ve.
 function sincronizarColuna(coluna) {
   const lista = coluna.querySelector(".fila__cards");
   const cards = lista.querySelectorAll(".card");
+  const visiveis = lista.querySelectorAll(".card:not(.card--filtrado)");
   const vazia = lista.querySelector(".fila__vazia");
 
-  coluna.querySelector(".fila__contador").textContent = cards.length;
+  coluna.querySelector(".fila__contador").textContent = visiveis.length;
 
-  if (cards.length && vazia) {
-    vazia.remove();
+  if (visiveis.length) {
+    vazia?.remove();
+    return;
   }
 
-  if (!cards.length && !vazia) {
-    const aviso = document.createElement("li");
-    aviso.className = "fila__vazia";
-    aviso.textContent = "Nenhum chamado";
-    lista.appendChild(aviso);
+  // Coluna sem nada na tela: diz se esta vazia de verdade ou se foi o filtro.
+  const texto = cards.length ? "Nenhum chamado com esses filtros" : "Nenhum chamado";
+
+  if (vazia) {
+    vazia.textContent = texto;
+    return;
   }
+
+  const aviso = document.createElement("li");
+  aviso.className = "fila__vazia";
+  aviso.textContent = texto;
+  lista.appendChild(aviso);
 }
 
 //ARRASTAR PERTO DA BORDA PUXA O QUADRO: SEM ISSO NAO DA PRA LEVAR UM CARD
@@ -667,8 +826,12 @@ function ligarBusca(chamados, filas, detalhe) {
   }
 
   function montarResultado(chamado) {
+    const fechado = Boolean(chamado.fechamento_em);
     const item = document.createElement("button");
     item.className = "busca__item";
+    // Fechado aparece tambem, mas em outra cor: da para achar um ticket
+    // antigo sem confundir com o que ainda esta em atendimento.
+    item.classList.toggle("busca__item--fechado", fechado);
     item.type = "button";
 
     const icone = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -681,32 +844,45 @@ function ligarBusca(chamados, filas, detalhe) {
     const texto = document.createElement("span");
     texto.className = "busca__item-texto";
 
+    const linhaTitulo = document.createElement("span");
+    linhaTitulo.className = "busca__item-linha";
+
     const titulo = document.createElement("span");
     titulo.className = "busca__item-titulo";
-    titulo.textContent = `${chamado.categorias?.nome ?? "Sem categoria"} | Ticket-${chamado.numero}`;
+    // O mesmo titulo do card, para a pessoa reconhecer o que esta procurando.
+    titulo.textContent = tituloDoChamado(chamado);
+
+    linhaTitulo.appendChild(titulo);
+
+    if (fechado) {
+      const selo = document.createElement("span");
+      selo.className = "busca__item-selo";
+      selo.textContent = "Finalizado";
+      linhaTitulo.appendChild(selo);
+    }
 
     const contexto = document.createElement("span");
     contexto.className = "busca__item-contexto";
     contexto.textContent = [
-      // Finalizado nao esta em nenhuma fila do quadro; dizer isso aqui
-      // evita a pessoa estranhar o clique nao rolar ate lugar nenhum.
-      chamado.fechamento_em ? "Finalizado" : nomeDaFila.get(chamado.fila_id),
+      fechado
+        ? `Fechado em ${formatarData(chamado.fechamento_em)}`
+        : nomeDaFila.get(chamado.fila_id),
       nomeCompleto(chamado.usuarios),
       chamado.unidades?.nome,
     ].filter(Boolean).join(" • ");
 
-    texto.append(titulo, contexto);
+    texto.append(linhaTitulo, contexto);
     item.append(icone, texto);
 
+    //CLICAR ABRE O CHAMADO, IGUAL A CLICAR NO CARD. Se ele esta no quadro, o
+    //card tambem e destacado por tras, para quem fechar o detalhe ver onde ele fica.
     item.addEventListener("click", () => {
-      // Fechado nao tem card no quadro pra rolar ate — abre o detalhe direto.
-      if (chamado.fechamento_em) {
-        detalhe.abrir(chamado);
-      } else {
-        irAteOCard(chamado);
-      }
       fechar();
       campo.value = "";
+
+      if (!fechado) irAteOCard(chamado);
+
+      detalhe.abrir(chamado);
     });
 
     return item;
@@ -723,6 +899,9 @@ function ligarBusca(chamados, filas, detalhe) {
     const achados = chamados.filter((chamado) => [
       `ticket-${chamado.numero}`,
       String(chamado.numero),
+      // O titulo pode ter sido editado ("SJC SR VALTER - Equipamentos"):
+      // procurar pelo que aparece no card tem de achar.
+      chamado.titulo,
       chamado.categorias?.nome,
       // Busca pelo nome completo: procurar pelo sobrenome tem de achar.
       nomeCompleto(chamado.usuarios),
@@ -746,7 +925,12 @@ function ligarBusca(chamados, filas, detalhe) {
     titulo.textContent = "Chamados";
     painel.appendChild(titulo);
 
-    achados.slice(0, 8).forEach((chamado) => painel.appendChild(montarResultado(chamado)));
+    // Em atendimento primeiro, finalizados depois; a busca continua
+    // mostrando no maximo 8.
+    [...achados]
+      .sort((a, b) => Boolean(a.fechamento_em) - Boolean(b.fechamento_em))
+      .slice(0, 8)
+      .forEach((chamado) => painel.appendChild(montarResultado(chamado)));
     painel.hidden = false;
   }
 
@@ -780,6 +964,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
   const campoMensagem = document.querySelector("[data-conversa-campo]");
   const campoArquivo = document.querySelector("[data-conversa-arquivo]");
   const nomeDoArquivo = document.querySelector("[data-conversa-arquivo-nome]");
+  const campoPendentes = document.querySelector("[data-conversa-pendentes]");
   const botaoEnviar = document.querySelector("[data-conversa-enviar]");
   const aviso = document.querySelector("[data-detalhe-aviso]");
   const botaoFecharChamado = document.querySelector("[data-detalhe-fechar-chamado]");
@@ -912,6 +1097,49 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
     avisar("Salvo");
     desenharMembros();
     atualizarCard();
+  }
+
+  //QUEM RESPONDE ASSUME O CHAMADO: responder ja vincula a pessoa como membro,
+  //sem precisar passar pelo +. Quem ja e membro nao muda nada.
+  async function vincularComoMembro(chamado) {
+    if (chamado.chamado_membros.some((membro) => membro.usuario_id === atendente)) return;
+
+    const { error } = await supabase
+      .from("chamado_membros")
+      .insert({ chamado_id: chamado.id, usuario_id: atendente });
+
+    // 23505 (chave duplicada): outra aba ja vinculou no meio tempo — o
+    // resultado e o mesmo, segue em frente.
+    if (error && error.code !== "23505") {
+      console.error("Não foi possível vincular quem respondeu como membro:", error);
+      return;
+    }
+
+    if (!chamado.chamado_membros.some((membro) => membro.usuario_id === atendente)) {
+      const eu = equipe.find((pessoa) => pessoa.id === atendente);
+
+      chamado.chamado_membros.push({
+        usuario_id: atendente,
+        usuarios: {
+          id: atendente,
+          nome: eu?.nome,
+          sobrenome: eu?.sobrenome,
+          foto_path: eu?.foto_path,
+          cor_destaque: eu?.cor_destaque ?? null,
+        },
+      });
+    }
+
+    if (aberto === chamado) {
+      desenharMembros();
+      atualizarCard();
+      return;
+    }
+
+    // Ja trocou de ticket: atualiza so o rodape do card deste.
+    const card = quadro.querySelector(`.card[data-chamado="${chamado.id}"]`);
+
+    if (card) desenharMembrosDoCard(card.querySelector(".card__membros"), chamado.chamado_membros);
   }
 
   async function adicionarMembro(pessoa) {
@@ -1179,12 +1407,139 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
 
       topo.append(autor, quando);
       balao.append(topo, texto);
+
+      // Imagens que foram junto com esta mensagem aparecem dentro do balao.
+      const imagens = (aberto.anexos ?? [])
+        .filter((anexo) => anexo.comentario_id === comentario.id && ehImagem(anexo.nome_arquivo));
+
+      if (imagens.length) balao.appendChild(montarImagensDoComentario(imagens));
+
       bloco.appendChild(balao);
       campoConversa.appendChild(bloco);
     });
 
-    // A conversa comeca no comentario mais recente.
+    // A conversa comeca no comentario mais recente. As miniaturas tem
+    // tamanho fixo, entao a rolagem nao pula quando as imagens carregam.
     campoConversa.scrollTop = campoConversa.scrollHeight;
+
+    const imagensDaConversa = [...campoConversa.querySelectorAll("img[data-caminho]")];
+
+    if (imagensDaConversa.length) preencherImagens(imagensDaConversa);
+  }
+
+  //IMAGEM DENTRO DO BALAO DO CHAT: o anexo que foi junto com uma mensagem
+  //aparece nela, e nao so na coluna da direita. O bucket e privado, entao a
+  //<img> precisa de URL assinada: pede todas de uma vez (createSignedUrls) e
+  //guarda por uma hora — o tempo real redesenha a conversa a cada evento, e
+  //sem o cache cada redesenho pediria as URLs de novo.
+  const EXTENSOES_IMAGEM = /\.(png|jpe?g|gif|webp|bmp|avif)$/i;
+  const VALIDADE_URL_IMAGEM = 60 * 60; // segundos
+  const urlsDeImagem = new Map(); // storage_path -> { url, expiraEm }
+
+  function ehImagem(nomeArquivo) {
+    return EXTENSOES_IMAGEM.test(nomeArquivo ?? "");
+  }
+
+  function urlGuardada(caminho) {
+    const guardada = urlsDeImagem.get(caminho);
+
+    // Margem de um minuto: URL quase vencendo e tratada como vencida.
+    return guardada && guardada.expiraEm > Date.now() + 60_000 ? guardada.url : null;
+  }
+
+  async function preencherImagens(imagens) {
+    const faltam = [...new Set(imagens.map((imagem) => imagem.dataset.caminho))]
+      .filter((caminho) => !urlGuardada(caminho));
+
+    if (faltam.length) {
+      const { data, error } = await supabase.storage
+        .from("anexos")
+        .createSignedUrls(faltam, VALIDADE_URL_IMAGEM);
+
+      if (error) console.warn("Não foi possível carregar as imagens da conversa:", error);
+
+      const expiraEm = Date.now() + VALIDADE_URL_IMAGEM * 1000;
+
+      (data ?? []).forEach((item) => {
+        if (item.signedUrl && item.path) urlsDeImagem.set(item.path, { url: item.signedUrl, expiraEm });
+      });
+    }
+
+    imagens.forEach((imagem) => {
+      const url = urlGuardada(imagem.dataset.caminho);
+
+      if (url) {
+        imagem.src = url;
+      } else {
+        imagem.closest(".comentario__imagem")?.classList.add("comentario__imagem--falhou");
+      }
+    });
+  }
+
+  //VISUALIZADOR: A IMAGEM ABRE NA PROPRIA TELA, POR CIMA DO CHAMADO, e nao
+  //numa aba nova. Clicar fora dela (ou no x, ou Esc) fecha e volta para o
+  //chamado, que continua aberto por baixo.
+  const visualizador = document.querySelector("[data-visualizador]");
+  const imagemDoVisualizador = document.querySelector("[data-visualizador-imagem]");
+  const nomeDoVisualizador = document.querySelector("[data-visualizador-nome]");
+
+  async function abrirImagemNaTela(anexo) {
+    let url = urlGuardada(anexo.storage_path);
+
+    if (!url) {
+      const { data, error } = await supabase.storage
+        .from("anexos")
+        .createSignedUrl(anexo.storage_path, VALIDADE_URL_IMAGEM);
+
+      if (error) {
+        avisar("Não foi possível abrir a imagem.", true);
+        return;
+      }
+
+      url = data.signedUrl;
+      urlsDeImagem.set(anexo.storage_path, { url, expiraEm: Date.now() + VALIDADE_URL_IMAGEM * 1000 });
+    }
+
+    imagemDoVisualizador.src = url;
+    imagemDoVisualizador.alt = anexo.nome_arquivo;
+    nomeDoVisualizador.textContent = anexo.nome_arquivo;
+    visualizador.showModal();
+  }
+
+  // Qualquer clique que nao seja na propria imagem fecha: o fundo escuro, o
+  // espaco em volta, o nome e o x.
+  visualizador.addEventListener("click", (evento) => {
+    if (evento.target !== imagemDoVisualizador) visualizador.close();
+  });
+
+  // Sem a imagem anterior presa: a proxima abre limpa, sem piscar a antiga.
+  visualizador.addEventListener("close", () => {
+    imagemDoVisualizador.removeAttribute("src");
+  });
+
+  function montarImagensDoComentario(anexos) {
+    const galeria = document.createElement("div");
+    galeria.className = "comentario__imagens";
+
+    anexos.forEach((anexo) => {
+      const botao = document.createElement("button");
+      botao.type = "button";
+      botao.className = "comentario__imagem";
+      botao.title = anexo.nome_arquivo;
+      botao.setAttribute("aria-label", `Abrir ${anexo.nome_arquivo}`);
+
+      const imagem = document.createElement("img");
+      imagem.alt = anexo.nome_arquivo;
+      imagem.loading = "lazy";
+      imagem.dataset.caminho = anexo.storage_path;
+      imagem.addEventListener("error", () => botao.classList.add("comentario__imagem--falhou"));
+
+      botao.appendChild(imagem);
+      botao.addEventListener("click", () => abrirImagemNaTela(anexo));
+      galeria.appendChild(botao);
+    });
+
+    return galeria;
   }
 
   //ANEXOS: O BUCKET E PRIVADO, ENTAO O LINK E ASSINADO NA HORA DO CLIQUE —
@@ -1230,6 +1585,13 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
         botao.append(icone, texto);
 
         botao.addEventListener("click", async () => {
+          // Imagem abre no visualizador, na propria tela. PDF e o resto
+          // continuam numa aba nova, que e onde o navegador sabe mostrar.
+          if (ehImagem(anexo.nome_arquivo)) {
+            abrirImagemNaTela(anexo);
+            return;
+          }
+
           const { data, error } = await supabase.storage
             .from("anexos")
             .createSignedUrl(anexo.storage_path, 60);
@@ -1250,19 +1612,27 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
   //nota interna nao existe nesta tela.
   async function responder() {
     const texto = campoMensagem.value.trim();
-    const arquivo = campoArquivo.files[0];
+    const arquivos = anexosPendentes.map((pendente) => pendente.arquivo);
 
-    if (!texto && !arquivo) return;
+    if (!texto && !arquivos.length) return;
+
+    // O envio leva alguns segundos com varias imagens: se a pessoa abrir
+    // outro ticket no meio, tudo continua indo para este chamado.
+    const chamado = aberto;
 
     botaoEnviar.disabled = true;
-    botaoEnviar.textContent = "Enviando…";
+    botaoEnviar.textContent = arquivos.length ? "Enviando anexos…" : "Enviando…";
+
+    const textoPadrao = arquivos.length === 1
+      ? `Enviou o anexo ${arquivos[0].name}`
+      : `Enviou ${arquivos.length} anexos`;
 
     const { data: comentario, error: erroComentario } = await supabase
       .from("comentarios")
       .insert({
-        chamado_id: aberto.id,
+        chamado_id: chamado.id,
         autor_id: atendente,
-        texto: texto || `Enviou o anexo ${arquivo.name}`,
+        texto: texto || textoPadrao,
         visibilidade: "publico",
         tipo: "humano",
       })
@@ -1276,45 +1646,75 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
       return;
     }
 
-    aberto.comentarios.push(comentario);
+    chamado.comentarios.push(comentario);
 
-    if (arquivo) {
-      // O caminho comeca pelo id do chamado: e assim que a policy do bucket
-      // amarra a permissao do arquivo a permissao do chamado.
-      const caminho = `${aberto.id}/${Date.now()}-${arquivo.name}`;
-      const { error: erroUpload } = await supabase.storage
-        .from("anexos")
-        .upload(caminho, arquivo);
+    // Respondeu, assumiu: entra como membro antes mesmo dos anexos subirem.
+    await vincularComoMembro(chamado);
 
-      if (erroUpload) {
-        avisar("A mensagem foi enviada, mas o anexo falhou.", true);
-      } else {
-        const { data: anexo } = await supabase
-          .from("anexos")
-          .insert({
-            chamado_id: aberto.id,
-            comentario_id: comentario.id,
-            usuario_id: atendente,
-            storage_path: caminho,
-            nome_arquivo: arquivo.name,
-          })
-          .select("id, nome_arquivo, storage_path, criado_em")
-          .single();
+    if (arquivos.length) {
+      const inicio = Date.now();
 
-        if (anexo) {
-          aberto.anexos = [...(aberto.anexos ?? []), anexo];
-          desenharAnexos();
+      // Sobe todos ao mesmo tempo. O caminho comeca pelo id do chamado: e
+      // assim que a policy do bucket amarra a permissao do arquivo a do
+      // chamado. O indice no nome evita dois arquivos no mesmo caminho.
+      const enviados = await Promise.all(arquivos.map(async (arquivo, indice) => {
+        const caminho = `${chamado.id}/${inicio}-${indice + 1}-${arquivo.name}`;
+        const { error } = await supabase.storage.from("anexos").upload(caminho, arquivo);
+
+        if (error) {
+          console.error("Falha ao enviar anexo:", arquivo.name, error);
+          return null;
         }
+
+        return {
+          chamado_id: chamado.id,
+          comentario_id: comentario.id,
+          usuario_id: atendente,
+          storage_path: caminho,
+          nome_arquivo: arquivo.name,
+        };
+      }));
+
+      const linhas = enviados.filter(Boolean);
+      let gravados = [];
+
+      // Uma ida so ao banco para registrar todos os que subiram.
+      if (linhas.length) {
+        const { data, error } = await supabase
+          .from("anexos")
+          .insert(linhas)
+          .select("id, comentario_id, nome_arquivo, storage_path, criado_em");
+
+        if (error) console.error("Falha ao registrar anexos:", error);
+
+        gravados = data ?? [];
+      }
+
+      if (gravados.length) {
+        chamado.anexos = [...(chamado.anexos ?? []), ...gravados];
+        if (aberto === chamado) desenharAnexos();
+      }
+
+      const falharam = arquivos.length - gravados.length;
+
+      if (falharam) {
+        avisar(
+          falharam === arquivos.length
+            ? "A mensagem foi enviada, mas os anexos falharam."
+            : `A mensagem foi enviada, mas ${falharam} de ${arquivos.length} anexos falharam.`,
+          true,
+        );
       }
     }
 
-    campoMensagem.value = "";
-    campoArquivo.value = "";
-    nomeDoArquivo.textContent = "Anexar";
-    nomeDoArquivo.parentElement.classList.remove("conversa__anexar--escolhido");
     botaoEnviar.disabled = false;
     botaoEnviar.textContent = "Responder";
 
+    // Se a pessoa ja esta em outro ticket, nao apaga o que ela esta escrevendo la.
+    if (aberto !== chamado) return;
+
+    campoMensagem.value = "";
+    limparPendentes();
     desenharConversa();
     // O status do card vem de quem falou por ultimo: agora fomos nos.
     atualizarStatusDoCard();
@@ -1332,15 +1732,127 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
     selo.textContent = status.rotulo;
   }
 
-  campoArquivo.addEventListener("change", () => {
-    const arquivo = campoArquivo.files[0];
+  //ANEXOS PENDENTES: O QUE VAI JUNTO COM A PROXIMA RESPOSTA. Entra pelo
+  //botao Anexar (varios de uma vez) ou colando imagem no campo (Ctrl+V),
+  //quantas a pessoa quiser. Cada um tem miniatura e um x para tirar.
+  let anexosPendentes = []; // { arquivo, previa: URL local da imagem, ou null }
 
-    nomeDoArquivo.textContent = arquivo ? arquivo.name : "Anexar";
-    nomeDoArquivo.parentElement
-      .classList.toggle("conversa__anexar--escolhido", Boolean(arquivo));
+  function desenharPendentes() {
+    campoPendentes.replaceChildren();
+    campoPendentes.hidden = !anexosPendentes.length;
+
+    anexosPendentes.forEach((pendente, indice) => {
+      const item = document.createElement("div");
+      item.className = "conversa__pendente";
+      item.title = pendente.arquivo.name;
+
+      if (pendente.previa) {
+        const imagem = document.createElement("img");
+        imagem.src = pendente.previa;
+        imagem.alt = pendente.arquivo.name;
+        item.appendChild(imagem);
+      } else {
+        // PDF e afins: sem miniatura, mostra o nome.
+        item.classList.add("conversa__pendente--arquivo");
+
+        const nome = document.createElement("span");
+        nome.className = "conversa__pendente-nome";
+        nome.textContent = pendente.arquivo.name;
+        item.appendChild(nome);
+      }
+
+      const remover = document.createElement("button");
+      remover.type = "button";
+      remover.className = "conversa__pendente-remover";
+      remover.textContent = "×";
+      remover.setAttribute("aria-label", `Remover ${pendente.arquivo.name}`);
+      remover.addEventListener("click", () => {
+        if (pendente.previa) URL.revokeObjectURL(pendente.previa);
+
+        anexosPendentes.splice(indice, 1);
+        desenharPendentes();
+        campoMensagem.focus();
+      });
+
+      item.appendChild(remover);
+      campoPendentes.appendChild(item);
+    });
+
+    const total = anexosPendentes.length;
+
+    nomeDoArquivo.textContent = total ? `${total} ${total === 1 ? "anexo" : "anexos"}` : "Anexar";
+    nomeDoArquivo.parentElement.classList.toggle("conversa__anexar--escolhido", total > 0);
+  }
+
+  function adicionarPendentes(arquivos) {
+    arquivos.forEach((arquivo) => {
+      anexosPendentes.push({
+        arquivo,
+        previa: arquivo.type.startsWith("image/") ? URL.createObjectURL(arquivo) : null,
+      });
+    });
+
+    desenharPendentes();
+  }
+
+  function limparPendentes() {
+    // Libera a memoria das miniaturas.
+    anexosPendentes.forEach((pendente) => {
+      if (pendente.previa) URL.revokeObjectURL(pendente.previa);
+    });
+
+    anexosPendentes = [];
+    campoArquivo.value = "";
+    desenharPendentes();
+  }
+
+  campoArquivo.addEventListener("change", () => {
+    adicionarPendentes([...campoArquivo.files]);
+    // Limpa o input: escolher o mesmo arquivo de novo tambem precisa disparar.
+    campoArquivo.value = "";
+  });
+
+  //CTRL+V NO CAMPO: imagem colada (print, recorte de tela) vira anexo, quantas
+  //vezes quiser. Texto continua colando normal.
+  campoMensagem.addEventListener("paste", (evento) => {
+    const itens = [...(evento.clipboardData?.items ?? [])];
+    const imagens = itens
+      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter(Boolean);
+
+    if (!imagens.length) return;
+
+    // So imagem na area de transferencia: segura o colar, que no campo de
+    // texto nao faria nada. Veio texto junto (planilha, por exemplo): deixa
+    // o texto entrar e so adiciona as imagens.
+    const temTexto = itens.some((item) => item.kind === "string" && item.type === "text/plain");
+
+    if (!temTexto) evento.preventDefault();
+
+    // Print colado chega sempre como "image.png": nome unico para nao virar
+    // uma lista de anexos todos iguais.
+    const agora = Date.now();
+
+    adicionarPendentes(imagens.map((imagem, indice) => {
+      const extensao = (imagem.type.split("/")[1] ?? "png").replace("jpeg", "jpg");
+
+      return new File([imagem], `imagem-colada-${agora}-${indice + 1}.${extensao}`, { type: imagem.type });
+    }));
   });
 
   botaoEnviar.addEventListener("click", responder);
+
+  //ENTER ENVIA; SHIFT+ENTER PULA LINHA, como nos chats. isComposing: no meio
+  //de um acento (´ + a) o Enter pertence ao teclado, nao ao envio. Com um
+  //envio em andamento o botao esta desativado, e o Enter tambem nao manda de novo.
+  campoMensagem.addEventListener("keydown", (evento) => {
+    if (evento.key !== "Enter" || evento.shiftKey || evento.isComposing) return;
+
+    evento.preventDefault();
+
+    if (!botaoEnviar.disabled) responder();
+  });
 
   //TEXTOS RAPIDOS: RESPOSTAS PRONTAS DA EQUIPE. ESCOLHER UM POE O TEXTO NO
   //CAMPO DE RESPOSTA — sem enviar, porque quase sempre falta ajustar algo
@@ -1526,7 +2038,14 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
 
     //Desativa em vez de apagar: o texto some da lista sem sumir do banco.
     async function excluir(texto) {
-      if (!window.confirm(`Excluir o texto "${texto.titulo}"?`)) return;
+      const confirmou = await confirmarNoSite({
+        titulo: "Excluir texto rápido?",
+        mensagem: `"${texto.titulo}" sai da lista de textos rápidos de toda a equipe.`,
+        confirmar: "Excluir",
+        perigo: true,
+      });
+
+      if (!confirmou) return;
 
       const { error } = await supabase
         .from("textos_rapidos")
@@ -1614,6 +2133,11 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
       });
 
     desenharMembrosDoCard(card.querySelector(".card__membros"), aberto.chamado_membros);
+
+    // Mudou etiqueta ou membro: o card pode ter entrado ou saido do filtro.
+    card.classList.toggle("card--filtrado", !chamadoPassaNosFiltros(aberto));
+    sincronizarColuna(card.closest(".fila"));
+    atualizarResumo(chamados, filas.length);
   }
 
   //SALVA AO SAIR DO CAMPO, SE MUDOU
@@ -1710,9 +2234,8 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
     campoTitulo.textContent = tituloDoChamado(chamado);
     campoDescricao.textContent = chamado.descricao ?? "";
     campoMensagem.value = "";
-    campoArquivo.value = "";
-    nomeDoArquivo.textContent = "Anexar";
-    nomeDoArquivo.parentElement.classList.remove("conversa__anexar--escolhido");
+    // Anexo colado num ticket nao pode ir parar na resposta de outro.
+    limparPendentes();
     aviso.textContent = "";
     // Sem isto o painel continuaria aberto por cima do chamado seguinte.
     textosRapidos.fechar();
@@ -1738,34 +2261,67 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
 
   //FECHAR: SOME DO QUADRO E VAI PARA TICKETS FINALIZADOS. REABRIR: O
   //INVERSO — fila_id nunca muda, entao o card volta pra onde estava.
-  async function alternarFechamento() {
-    const fechando = !aberto.fechamento_em;
-    const pergunta = fechando
-      ? "Fechar este chamado? Ele sai do quadro e vai para Tickets finalizados."
-      : "Reabrir este chamado? Ele volta a aparecer no quadro.";
+  //Recebe o chamado, e nao usa `aberto`: o "Desfazer" do aviso roda quando o
+  //detalhe ja foi fechado. Tickets finalizados usa a mesma funcao.
+  async function definirFechamento(chamado, fechar) {
+    const fechamentoEm = fechar ? new Date().toISOString() : null;
 
-    if (!window.confirm(pergunta)) return;
+    const { error } = await supabase
+      .from("chamados")
+      .update({ fechamento_em: fechamentoEm })
+      .eq("id", chamado.id);
 
-    const ok = await gravar({ fechamento_em: fechando ? new Date().toISOString() : null });
+    if (error) {
+      avisarNoSite(
+        fechar ? "Não foi possível fechar o chamado. Tente de novo." : "Não foi possível reabrir o chamado. Tente de novo.",
+        { tipo: "erro" },
+      );
+      return false;
+    }
 
-    if (!ok) return;
+    chamado.fechamento_em = fechamentoEm;
 
-    atualizarBotaoFechar();
+    const cardAtual = quadro.querySelector(`.card[data-chamado="${chamado.id}"]`);
+    const colunaDoCard = cardAtual?.closest(".fila");
 
-    if (fechando) {
-      quadro.querySelector(`[data-chamado="${aberto.id}"]`)?.closest("li")?.remove();
-      const coluna = quadro.querySelector(`[data-fila="${aberto.fila_id}"]`);
-      if (coluna) sincronizarColuna(coluna);
-    } else {
-      const coluna = quadro.querySelector(`[data-fila="${aberto.fila_id}"]`);
+    cardAtual?.remove();
+    if (colunaDoCard) sincronizarColuna(colunaDoCard);
+
+    if (!fechar) {
+      const coluna = quadro.querySelector(`.fila[data-fila="${chamado.fila_id}"]`);
+
       if (coluna) {
-        coluna.querySelector(".fila__cards").appendChild(montarCard(aberto));
+        coluna.querySelector(".fila__cards").appendChild(montarCard(chamado));
         sincronizarColuna(coluna);
       }
     }
 
     atualizarResumo(chamados, filas.length);
+
+    if (janela.open && aberto?.id === chamado.id) atualizarBotaoFechar();
+
+    return true;
+  }
+
+  //SEM PERGUNTA ANTES: fechar e reabrir sao reversiveis, e o aviso que
+  //aparece depois ja traz o "Desfazer".
+  async function alternarFechamento() {
+    const chamado = aberto;
+    const fechando = !chamado.fechamento_em;
+
+    if (!(await definirFechamento(chamado, fechando))) return;
+
     janela.close();
+
+    avisarNoSite(
+      fechando
+        ? `${tituloDoChamado(chamado)} foi fechado e está em Tickets finalizados.`
+        : `${tituloDoChamado(chamado)} foi reaberto e voltou para o quadro.`,
+      {
+        tipo: "sucesso",
+        acao: { rotulo: "Desfazer", aoClicar: () => definirFechamento(chamado, !fechando) },
+      },
+    );
   }
 
   botaoFecharChamado.addEventListener("click", alternarFechamento);
@@ -1837,11 +2393,326 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
 
   // abrir: Tickets finalizados e a busca abrem o mesmo modal.
   // atualizarSeAberto / fecharSeRemovido: usados pelo tempo real.
-  return { abrir, atualizarSeAberto, fecharSeRemovido };
+  // definirFechamento: Tickets finalizados reabre pelo mesmo caminho.
+  return { abrir, atualizarSeAberto, fecharSeRemovido, definirFechamento };
+}
+
+//PAINEL DE FILTROS: MONTA AS OPCOES COM O QUE EXISTE AGORA NOS CHAMADOS
+//(unidades e categorias que aparecem, a equipe para membros) e esconde os
+//cards que nao passam. Refeito toda vez que abre, para incluir o que chegou
+//pelo tempo real.
+function ligarFiltros(chamados, equipe, filas) {
+  const caixa = document.querySelector("[data-quadro-filtro]");
+  const botao = document.querySelector("[data-filtros-abrir]");
+  const painel = document.querySelector("[data-filtros-painel]");
+  const grupos = document.querySelector("[data-filtros-grupos]");
+  const contador = document.querySelector("[data-filtros-contador]");
+  const limpar = document.querySelector("[data-filtros-limpar]");
+
+  const TITULOS = {
+    membros: "Membros",
+    prioridade: "Prioridade",
+    unidade: "Unidade",
+    categoria: "Categoria",
+  };
+
+  function salvar() {
+    try {
+      localStorage.setItem(CHAVE_FILTROS, JSON.stringify(filtrosDoQuadro));
+    } catch {
+      // Sem localStorage o filtro so nao sobrevive ao recarregar.
+    }
+  }
+
+  //ESCONDE/MOSTRA OS CARDS E ACERTA CONTADORES, RESUMO E O BOTAO
+  function aplicar() {
+    quadro.querySelectorAll(".card").forEach((card) => {
+      const chamado = chamados.find((item) => item.id === card.dataset.chamado);
+
+      card.classList.toggle("card--filtrado", Boolean(chamado) && !chamadoPassaNosFiltros(chamado));
+    });
+
+    quadro.querySelectorAll(".fila").forEach(sincronizarColuna);
+    atualizarResumo(chamados, filas.length);
+
+    const total = totalDeFiltros();
+
+    contador.hidden = !total;
+    contador.textContent = total;
+    botao.classList.toggle("quadro-filtro__botao--ativo", total > 0);
+    botao.setAttribute("aria-label", total ? `Filtrar chamados (${total} ativos)` : "Filtrar chamados");
+    limpar.disabled = !total;
+  }
+
+  function opcoesDisponiveis() {
+    const unicos = (lista) => [...new Set(lista)].sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+    return {
+      membros: [
+        { valor: SEM_MEMBRO, rotulo: "Sem membro" },
+        // Nome completo: aqui da para confundir dois "João".
+        ...equipe.map((pessoa) => ({ valor: pessoa.id, rotulo: nomeCompleto(pessoa) ?? "Alguém", pessoa })),
+      ],
+      prioridade: [
+        { valor: "urgente", rotulo: "Urgente" },
+        { valor: "prioridade", rotulo: "Prioridade" },
+        { valor: "normal", rotulo: "Normal" },
+      ],
+      unidade: unicos(chamados.map(unidadeDoChamado)).map((nome) => ({ valor: nome, rotulo: nome })),
+      categoria: unicos(chamados.map(categoriaDoChamado)).map((nome) => ({ valor: nome, rotulo: nome })),
+    };
+  }
+
+  //UNIDADE EM DROPDOWN: sao muitas lojas e CDs, e como botoes elas ocupavam o
+  //painel inteiro. Tem busca e caixa de marcar. Marcar nao redesenha o painel
+  //(senao a busca perderia o foco a cada clique); so aplica e atualiza o resumo.
+  let dropdownUnidadeAberto = false;
+  let fecharDropdownUnidade = null;
+
+  function resumoDasUnidades() {
+    const marcadas = filtrosDoQuadro.unidade;
+
+    if (!marcadas.length) return "Todas as unidades";
+    if (marcadas.length === 1) return marcadas[0];
+
+    return `${marcadas.length} unidades`;
+  }
+
+  function montarDropdownUnidade(opcoes) {
+    const dropdown = document.createElement("div");
+    dropdown.className = "quadro-filtro__dropdown";
+
+    const gatilho = document.createElement("button");
+    gatilho.type = "button";
+    gatilho.className = "quadro-filtro__dropdown-botao";
+    gatilho.setAttribute("aria-expanded", String(dropdownUnidadeAberto));
+
+    const textoGatilho = document.createElement("span");
+    textoGatilho.className = "quadro-filtro__dropdown-texto";
+
+    const seta = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    seta.setAttribute("class", "quadro-filtro__dropdown-seta");
+    seta.setAttribute("viewBox", "0 0 24 24");
+    seta.setAttribute("width", "14");
+    seta.setAttribute("height", "14");
+    seta.setAttribute("aria-hidden", "true");
+    seta.innerHTML = '<path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+
+    gatilho.append(textoGatilho, seta);
+
+    function atualizarGatilho() {
+      textoGatilho.textContent = resumoDasUnidades();
+      gatilho.classList.toggle("quadro-filtro__dropdown-botao--marcado", filtrosDoQuadro.unidade.length > 0);
+    }
+
+    const conteudo = document.createElement("div");
+    conteudo.className = "quadro-filtro__dropdown-painel";
+    conteudo.hidden = !dropdownUnidadeAberto;
+
+    const busca = document.createElement("input");
+    busca.type = "search";
+    busca.className = "quadro-filtro__dropdown-busca";
+    busca.placeholder = "Buscar unidade…";
+    busca.autocomplete = "off";
+    busca.setAttribute("aria-label", "Buscar unidade");
+
+    const lista = document.createElement("div");
+    lista.className = "quadro-filtro__dropdown-lista";
+
+    const vazio = document.createElement("p");
+    vazio.className = "quadro-filtro__dropdown-vazio";
+    vazio.textContent = "Nenhuma unidade encontrada";
+    vazio.hidden = true;
+
+    opcoes.forEach((opcao) => {
+      const item = document.createElement("label");
+      item.className = "quadro-filtro__dropdown-item";
+      item.dataset.nome = opcao.rotulo.toLowerCase();
+
+      const caixaMarcar = document.createElement("input");
+      caixaMarcar.type = "checkbox";
+      caixaMarcar.checked = filtrosDoQuadro.unidade.includes(opcao.valor);
+
+      caixaMarcar.addEventListener("change", () => {
+        const atuais = filtrosDoQuadro.unidade.filter((valor) => valor !== opcao.valor);
+
+        filtrosDoQuadro.unidade = caixaMarcar.checked ? [...atuais, opcao.valor] : atuais;
+
+        salvar();
+        aplicar();
+        atualizarGatilho();
+      });
+
+      const nome = document.createElement("span");
+      nome.textContent = opcao.rotulo;
+
+      item.append(caixaMarcar, nome);
+      lista.appendChild(item);
+    });
+
+    busca.addEventListener("input", () => {
+      const termo = busca.value.trim().toLowerCase();
+      let algumaAparece = false;
+
+      lista.querySelectorAll(".quadro-filtro__dropdown-item").forEach((item) => {
+        const aparece = item.dataset.nome.includes(termo);
+
+        item.hidden = !aparece;
+        if (aparece) algumaAparece = true;
+      });
+
+      vazio.hidden = algumaAparece;
+    });
+
+    function mostrarDropdown(aberto) {
+      dropdownUnidadeAberto = aberto;
+      conteudo.hidden = !aberto;
+      gatilho.setAttribute("aria-expanded", String(aberto));
+
+      if (aberto) busca.focus();
+    }
+
+    gatilho.addEventListener("click", () => mostrarDropdown(!dropdownUnidadeAberto));
+
+    // O Esc do painel fecha primeiro o dropdown, e so depois o painel.
+    fecharDropdownUnidade = () => {
+      mostrarDropdown(false);
+      gatilho.focus();
+    };
+
+    conteudo.append(busca, lista, vazio);
+    dropdown.append(gatilho, conteudo);
+    atualizarGatilho();
+
+    return dropdown;
+  }
+
+  function desenharPainel(focarEm = null) {
+    grupos.replaceChildren();
+
+    const todas = opcoesDisponiveis();
+
+    GRUPOS_FILTRO.forEach((grupo) => {
+      const opcoes = [...todas[grupo]];
+
+      // Filtro salvo que nao existe mais nos chamados (unidade sem chamado,
+      // pessoa que saiu da equipe) continua listado para dar para desmarcar.
+      filtrosDoQuadro[grupo].forEach((valor) => {
+        if (opcoes.some((opcao) => opcao.valor === valor)) return;
+
+        opcoes.push({ valor, rotulo: grupo === "membros" ? "Pessoa fora da equipe" : valor });
+      });
+
+      if (!opcoes.length) return;
+
+      const secao = document.createElement("section");
+      secao.className = "quadro-filtro__grupo";
+
+      const titulo = document.createElement("h3");
+      titulo.className = "quadro-filtro__titulo";
+      titulo.textContent = TITULOS[grupo];
+
+      if (grupo === "unidade") {
+        secao.append(titulo, montarDropdownUnidade(opcoes));
+        grupos.appendChild(secao);
+        return;
+      }
+
+      const lista = document.createElement("div");
+      lista.className = "quadro-filtro__opcoes";
+
+      opcoes.forEach((opcao) => {
+        const marcada = filtrosDoQuadro[grupo].includes(opcao.valor);
+        const chip = document.createElement("button");
+
+        chip.type = "button";
+        chip.className = "quadro-filtro__opcao";
+        chip.classList.toggle("quadro-filtro__opcao--marcada", marcada);
+        chip.dataset.grupo = grupo;
+        chip.dataset.valor = opcao.valor;
+        chip.setAttribute("aria-pressed", String(marcada));
+
+        if (grupo === "prioridade") chip.classList.add(`quadro-filtro__opcao--${opcao.valor}`);
+
+        if (opcao.pessoa) {
+          chip.appendChild(montarAvatar(opcao.pessoa, opcao.pessoa.foto_path, "quadro-filtro__avatar"));
+        }
+
+        chip.append(document.createTextNode(opcao.rotulo));
+
+        chip.addEventListener("click", () => {
+          const atuais = filtrosDoQuadro[grupo];
+
+          filtrosDoQuadro[grupo] = marcada
+            ? atuais.filter((valor) => valor !== opcao.valor)
+            : [...atuais, opcao.valor];
+
+          salvar();
+          aplicar();
+          // Redesenhar troca os botoes: devolve o foco para quem foi clicado.
+          desenharPainel({ grupo, valor: opcao.valor });
+        });
+
+        lista.appendChild(chip);
+      });
+
+      secao.append(titulo, lista);
+      grupos.appendChild(secao);
+    });
+
+    if (focarEm) {
+      [...grupos.querySelectorAll(".quadro-filtro__opcao")]
+        .find((chip) => chip.dataset.grupo === focarEm.grupo && chip.dataset.valor === focarEm.valor)
+        ?.focus();
+    }
+  }
+
+  function mostrarPainel(aberto) {
+    painel.hidden = !aberto;
+    botao.setAttribute("aria-expanded", String(aberto));
+
+    // Reabrir o painel mostra o dropdown de unidade fechado de novo.
+    if (!aberto) dropdownUnidadeAberto = false;
+
+    if (aberto) desenharPainel();
+  }
+
+  botao.addEventListener("click", () => mostrarPainel(painel.hidden));
+
+  limpar.addEventListener("click", () => {
+    filtrosDoQuadro = filtrosVazios();
+    salvar();
+    aplicar();
+    desenharPainel();
+  });
+
+  // Clique fora fecha, como o menu de 3 pontinhos. composedPath, e nao
+  // caixa.contains(target): clicar numa opcao redesenha o painel e tira o
+  // botao clicado da pagina antes deste listener rodar — contains daria
+  // falso e o painel fecharia a cada clique. O caminho e guardado no inicio
+  // do clique, com o botao ainda dentro da caixa.
+  document.addEventListener("click", (evento) => {
+    if (!painel.hidden && !evento.composedPath().includes(caixa)) mostrarPainel(false);
+  });
+
+  document.addEventListener("keydown", (evento) => {
+    if (evento.key !== "Escape" || painel.hidden) return;
+
+    if (dropdownUnidadeAberto && fecharDropdownUnidade) {
+      fecharDropdownUnidade();
+      return;
+    }
+
+    mostrarPainel(false);
+    botao.focus();
+  });
+
+  // Os cards ja nasceram filtrados; aqui acerta botao, contador e resumo.
+  aplicar();
 }
 
 //MENU DO QUADRO: BOTAO DE 3 PONTINHOS. EXPORTAR, FUNDO, FINALIZADOS.
-function ligarQuadroMenu() {
+function ligarQuadroMenu(exportar) {
   const botao = document.querySelector("[data-quadro-menu-abrir]");
   const painel = document.querySelector("[data-quadro-menu-painel]");
 
@@ -1866,10 +2737,10 @@ function ligarQuadroMenu() {
     if (evento.key === "Escape" && !painel.hidden) fechar();
   });
 
-  //EXPORTAR: SO JSON/CSV/EXCEL FICAM PARA DEPOIS, POR ENQUANTO E UM AVISO.
+  //EXPORTAR: ABRE A JANELA DE PERIODO (ligarExportar monta o CSV).
   document.querySelector("[data-acao-exportar]").addEventListener("click", () => {
     fechar();
-    window.alert("Exportar chamados: em breve.");
+    exportar.abrir();
   });
 
   document.querySelector("[data-acao-fundo]").addEventListener("click", () => {
@@ -1881,6 +2752,237 @@ function ligarQuadroMenu() {
     fechar();
     document.querySelector("[data-finalizados]").showModal();
   });
+}
+
+//EXPORTAR: PLANILHA CSV COM OS CHAMADOS CRIADOS NUM PERIODO (em aberto e
+//finalizados). Usa os chamados que ja estao em memoria — os mesmos do
+//quadro, atualizados pelo tempo real —, sem ir de novo ao banco.
+//O periodo e pela data de criacao (abertura_em), no fuso do computador.
+function ligarExportar(chamados, filas) {
+  const janela = document.querySelector("[data-exportar]");
+  const campoDe = document.querySelector("[data-exportar-de]");
+  const campoAte = document.querySelector("[data-exportar-ate]");
+  const resumoPeriodo = document.querySelector("[data-exportar-resumo]");
+  const botaoBaixar = document.querySelector("[data-exportar-baixar]");
+  const atalhos = document.querySelectorAll("[data-periodo]");
+  const nomeDaFila = new Map(filas.map((fila) => [fila.id, fila.nome]));
+
+  const ROTULOS_PRIORIDADE = { urgente: "Urgente", prioridade: "Prioridade", normal: "Normal" };
+
+  // "14/09/2026 10:30" — o toLocaleString poe uma virgula entre data e hora.
+  function dataHoraPlanilha(iso) {
+    if (!iso) return "";
+
+    return new Date(iso)
+      .toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+      .replace(",", "");
+  }
+
+  //AS COLUNAS, NA ORDEM DA PLANILHA: titulo e como tirar o valor do chamado.
+  const COLUNAS = [
+    ["Nome do Ticket", (chamado) => tituloDoChamado(chamado)],
+    ["Lista", (chamado) => nomeDaFila.get(chamado.fila_id) ?? ""],
+    ["Número do Ticket", (chamado) => chamado.numero],
+    ["Solicitante", (chamado) => nomeCompleto(chamado.usuarios) ?? ""],
+    ["E-mail", (chamado) => chamado.usuarios?.email ?? ""],
+    ["Unidade", (chamado) => chamado.unidades?.nome ?? ""],
+    ["Categoria", (chamado) => chamado.categorias?.nome ?? ""],
+    ["Prioridade", (chamado) => prioridadesDoChamado(chamado).map((chave) => ROTULOS_PRIORIDADE[chave]).join(", ")],
+    ["Descrição", (chamado) => chamado.descricao ?? ""],
+    ["Data de Criação", (chamado) => dataHoraPlanilha(chamado.abertura_em)],
+    ["Data de Fechamento", (chamado) => dataHoraPlanilha(chamado.fechamento_em)],
+    ["Atendentes", (chamado) => chamado.chamado_membros
+      .map((membro) => nomeCompleto(membro.usuarios))
+      .filter(Boolean)
+      .join(", ")],
+    ["Respostas", (chamado) => respostasDoChamado(chamado)],
+  ];
+
+  // O Excel nao aceita mais que 32.767 caracteres numa celula: conversa maior
+  // que isso quebraria as colunas seguintes. Corta com aviso.
+  const LIMITE_CELULA_EXCEL = 32767;
+  const AVISO_CORTE = "\n… (conversa cortada: limite de caracteres do Excel)";
+
+  //RESPOSTAS: AS MENSAGENS TROCADAS NO CHAMADO, DA MAIS ANTIGA PARA A MAIS
+  //NOVA, UMA POR LINHA DENTRO DA MESMA CELULA — "[14/09/2026 10:30] Nome: texto".
+  //A mensagem automatica (de abertura) fica de fora: nao e conversa.
+  function respostasDoChamado(chamado) {
+    const texto = (chamado.comentarios ?? [])
+      .filter((comentario) => comentario.tipo !== "sistema")
+      .sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em))
+      .map((comentario) => {
+        const autor = nomeCompleto(comentario.usuarios) ?? "Alguém";
+
+        return `[${dataHoraPlanilha(comentario.criado_em)}] ${autor}: ${comentario.texto ?? ""}`;
+      })
+      .join("\n");
+
+    if (texto.length <= LIMITE_CELULA_EXCEL) return texto;
+
+    return texto.slice(0, LIMITE_CELULA_EXCEL - AVISO_CORTE.length) + AVISO_CORTE;
+  }
+
+  // Date -> "aaaa-mm-dd" no fuso local (toISOString usaria UTC e, a noite,
+  // mostraria o dia seguinte).
+  function paraCampo(data) {
+    const mes = String(data.getMonth() + 1).padStart(2, "0");
+    const dia = String(data.getDate()).padStart(2, "0");
+
+    return `${data.getFullYear()}-${mes}-${dia}`;
+  }
+
+  function doCampo(valor, fimDoDia) {
+    const [ano, mes, dia] = valor.split("-").map(Number);
+
+    return fimDoDia
+      ? new Date(ano, mes - 1, dia, 23, 59, 59, 999)
+      : new Date(ano, mes - 1, dia, 0, 0, 0, 0);
+  }
+
+  // Chamados do periodo, do mais antigo para o mais novo; null se as datas
+  // estao incompletas ou invertidas.
+  function chamadosDoPeriodo() {
+    if (!campoDe.value || !campoAte.value) return null;
+
+    const de = doCampo(campoDe.value, false);
+    const ate = doCampo(campoAte.value, true);
+
+    if (de > ate) return null;
+
+    return chamados
+      .filter((chamado) => {
+        const criadoEm = new Date(chamado.abertura_em);
+
+        return criadoEm >= de && criadoEm <= ate;
+      })
+      .sort((a, b) => new Date(a.abertura_em) - new Date(b.abertura_em));
+  }
+
+  //CONTAGEM AO VIVO: a pessoa ve quantos vao sair antes de baixar.
+  function atualizarContagem() {
+    const lista = chamadosDoPeriodo();
+
+    resumoPeriodo.classList.toggle("exportar__resumo--erro", lista === null);
+
+    if (lista === null) {
+      resumoPeriodo.textContent = campoDe.value && campoAte.value
+        ? "A data inicial precisa ser anterior ou igual à final."
+        : "Escolha a data inicial e a final.";
+      botaoBaixar.disabled = true;
+      return;
+    }
+
+    const finalizados = lista.filter((chamado) => chamado.fechamento_em).length;
+
+    resumoPeriodo.textContent = lista.length
+      ? `${lista.length} ${lista.length === 1 ? "chamado" : "chamados"} no período `
+        + `(${lista.length - finalizados} em aberto, ${finalizados} ${finalizados === 1 ? "finalizado" : "finalizados"})`
+      : "Nenhum chamado criado nesse período.";
+
+    botaoBaixar.disabled = !lista.length;
+  }
+
+  function aplicarPeriodo(periodo) {
+    const hoje = new Date();
+    let de = new Date(hoje);
+
+    if (periodo === "7") de.setDate(hoje.getDate() - 6);
+    if (periodo === "30") de.setDate(hoje.getDate() - 29);
+    if (periodo === "mes") de = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
+    if (periodo === "tudo") {
+      // Desde o chamado mais antigo que existe.
+      const maisAntigo = chamados.reduce(
+        (menor, chamado) => Math.min(menor, new Date(chamado.abertura_em).getTime()),
+        hoje.getTime(),
+      );
+      de = new Date(maisAntigo);
+    }
+
+    campoDe.value = paraCampo(de);
+    campoAte.value = paraCampo(hoje);
+
+    atalhos.forEach((atalho) => {
+      atalho.classList.toggle("exportar__atalho--ativo", atalho.dataset.periodo === periodo);
+    });
+
+    atualizarContagem();
+  }
+
+  //UMA CELULA DO CSV. Texto com ; aspas ou quebra de linha vai entre aspas
+  //(aspas internas dobradas). Texto que comeca com = + - @ ganha um apostrofo
+  //na frente: sem isso uma descricao escrita pelo solicitante poderia virar
+  //formula executada ao abrir a planilha no Excel.
+  function celula(valor) {
+    let texto = String(valor ?? "");
+
+    if (/^[=+\-@\t\r]/.test(texto)) texto = `'${texto}`;
+
+    return /[";\r\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
+  }
+
+  function baixar() {
+    const lista = chamadosDoPeriodo();
+
+    if (!lista?.length) return;
+
+    // Separador ; — e o que o Excel em portugues espera para abrir ja em colunas.
+    const linhas = [
+      COLUNAS.map(([titulo]) => celula(titulo)).join(";"),
+      ...lista.map((chamado) => COLUNAS.map(([, valorDe]) => celula(valorDe(chamado))).join(";")),
+    ];
+
+    // \uFEFF no inicio (BOM): sem ele o Excel le o arquivo em outra
+    // codificacao e os acentos viram simbolos estranhos.
+    const arquivo = new Blob([`\uFEFF${linhas.join("\r\n")}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(arquivo);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `chamados_${campoDe.value}_a_${campoAte.value}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    // Da tempo do navegador comecar o download antes de liberar a memoria.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    janela.close();
+    avisarNoSite(`${lista.length} ${lista.length === 1 ? "chamado exportado" : "chamados exportados"}.`, { tipo: "sucesso" });
+  }
+
+  atalhos.forEach((atalho) => {
+    atalho.addEventListener("click", () => aplicarPeriodo(atalho.dataset.periodo));
+  });
+
+  // Data digitada a mao: nenhum atalho fica marcado.
+  [campoDe, campoAte].forEach((campo) => {
+    campo.addEventListener("input", () => {
+      atalhos.forEach((atalho) => atalho.classList.remove("exportar__atalho--ativo"));
+      atualizarContagem();
+    });
+  });
+
+  botaoBaixar.addEventListener("click", baixar);
+  document.querySelector("[data-exportar-cancelar]").addEventListener("click", () => janela.close());
+  document.querySelector("[data-exportar-fechar]").addEventListener("click", () => janela.close());
+  janela.addEventListener("click", (evento) => {
+    if (evento.target === janela) janela.close();
+  });
+
+  return {
+    // Primeira vez: ultimos 30 dias. Depois, mantem o periodo escolhido e so
+    // recalcula a contagem (chegaram chamados novos pelo tempo real).
+    abrir() {
+      if (!campoDe.value || !campoAte.value) {
+        aplicarPeriodo("30");
+      } else {
+        atualizarContagem();
+      }
+
+      janela.showModal();
+    },
+  };
 }
 
 //TICKETS FINALIZADOS: LISTA OS CHAMADOS COM fechamento_em PREENCHIDO.
@@ -1951,26 +3053,23 @@ function ligarFinalizados(chamados, filas, detalhe) {
     return item;
   }
 
+  //REABRIR PELA LISTA: mesmo caminho do botao do detalhe (grava, devolve o
+  //card ao quadro e atualiza o resumo). Sem pergunta — o aviso traz "Desfazer";
+  //o erro, se houver, ja aparece como aviso do site.
   async function reabrirChamado(chamado) {
-    const { error } = await supabase
-      .from("chamados")
-      .update({ fechamento_em: null })
-      .eq("id", chamado.id);
+    if (!(await detalhe.definirFechamento(chamado, false))) return;
 
-    if (error) {
-      window.alert("Não foi possível reabrir o chamado. Tente de novo.");
-      return;
-    }
-
-    chamado.fechamento_em = null;
     desenhar();
-    atualizarResumo(chamados, filas.length);
 
-    const coluna = quadro.querySelector(`[data-fila="${chamado.fila_id}"]`);
-    if (coluna) {
-      coluna.querySelector(".fila__cards").appendChild(montarCard(chamado));
-      sincronizarColuna(coluna);
-    }
+    avisarNoSite(`${tituloDoChamado(chamado)} foi reaberto e voltou para o quadro.`, {
+      tipo: "sucesso",
+      acao: {
+        rotulo: "Desfazer",
+        aoClicar: async () => {
+          if (await detalhe.definirFechamento(chamado, true) && janela.open) desenhar();
+        },
+      },
+    });
   }
 
   document.querySelector("[data-finalizados-fechar]")
@@ -1998,80 +3097,141 @@ function ligarFinalizados(chamados, filas, detalhe) {
 function ligarFundo() {
   const janela = document.querySelector("[data-fundo-modal]");
   const campoArquivo = document.querySelector("[data-fundo-arquivo]");
+  const areaSoltar = document.querySelector("[data-fundo-soltar]");
+  const previa = document.querySelector("[data-fundo-previa]");
+  const seloPrevia = document.querySelector("[data-fundo-previa-selo]");
+  const resolucao = document.querySelector("[data-fundo-resolucao]");
+  const rodape = document.querySelector("[data-fundo-rodape]");
+  const botaoAplicar = document.querySelector("[data-fundo-aplicar]");
+  const botaoCancelar = document.querySelector("[data-fundo-cancelar]");
   const botaoRestaurar = document.querySelector("[data-fundo-restaurar]");
   const aviso = document.querySelector("[data-fundo-aviso]");
-  const TAMANHO_MAXIMO = 5 * 1024 * 1024;
+  const camadaFundo = document.querySelector("[data-portal-fundo]");
+  const painelPortal = document.querySelector(".portal");
 
-  //CACHE DO FUNDO: a URL assinada fica no localStorage por um dia.
-  //
-  //Sem isso o fundo so comeca a baixar ~1,6s depois da pagina abrir, porque
-  //espera tres idas ao servidor em fila (getUser -> ler fundo_path ->
-  //assinar a URL) — e e esse tempo, nao o download, que deixa o quadro
-  //branco. Com o cache a foto e aplicada no primeiro quadro, sem rede.
-  const CACHE_CHAVE = "portal:fundo";
-  const CACHE_VALIDADE = 24 * 60 * 60 * 1000;
-  //A URL precisa durar mais que o cache; se expirasse antes, o cache
-  //devolveria um link morto e o fundo sumiria ate a revalidacao.
-  const URL_VALIDADE = 7 * 24 * 60 * 60;
+  // Foto de celular ou print de monitor grande passa facil de 5 MB. O limite
+  // antigo obrigava a comprimir antes, e a imagem chegava borrada.
+  const TAMANHO_MAXIMO = 15 * 1024 * 1024;
 
   let usuarioId = null;
+  let fundoAtualUrl = null; // URL assinada do fundo salvo; null = degrade padrao
+  let escolhido = null; // { arquivo, url, largura, altura } — escolhida, ainda nao aplicada
 
   function avisar(texto, erro = false) {
     aviso.textContent = texto;
     aviso.classList.toggle("fundo-modal__aviso--erro", erro);
   }
 
-  function lerCache() {
-    try {
-      const bruto = localStorage.getItem(CACHE_CHAVE);
-
-      if (!bruto) return null;
-
-      const guardado = JSON.parse(bruto);
-
-      if (Date.now() - guardado.em > CACHE_VALIDADE) return null;
-
-      return guardado;
-    } catch {
-      // localStorage bloqueado (aba anonima) ou JSON corrompido: sem cache,
-      // a pagina segue pelo caminho normal.
-      return null;
+  //APLICA NO QUADRO. So troca depois que a imagem inteira carregou — nunca
+  //aparece desenhando em pedacos — e entra com fade. Sem url, volta o degrade.
+  function mostrarNoQuadro(url) {
+    if (!url) {
+      camadaFundo.classList.remove("portal-fundo--visivel");
+      painelPortal.classList.remove("portal--fundo-proprio");
+      return Promise.resolve(true);
     }
+
+    return new Promise((resolver) => {
+      const imagem = new Image();
+
+      imagem.onload = () => {
+        camadaFundo.style.backgroundImage = `url("${url}")`;
+        camadaFundo.classList.add("portal-fundo--visivel");
+        painelPortal.classList.add("portal--fundo-proprio");
+        resolver(true);
+      };
+
+      imagem.onerror = () => resolver(false);
+      imagem.src = url;
+    });
   }
 
-  function gravarCache(url, caminho) {
-    try {
-      localStorage.setItem(CACHE_CHAVE,
-        JSON.stringify({ url, caminho, em: Date.now() }));
-    } catch {
-      // Cota estourada ou escrita bloqueada: o cache e um atalho, nao um
-      // requisito — falhar aqui nao pode derrubar o fundo.
+  //PREVIA E ESTADO DOS BOTOES: a miniatura mostra a imagem escolhida (se ha),
+  //senao o fundo em uso, senao o degrade.
+  function desenharPrevia() {
+    const url = escolhido?.url ?? fundoAtualUrl;
+
+    previa.style.backgroundImage = url ? `url("${url}")` : "";
+    previa.classList.toggle("fundo-modal__previa--padrao", !url);
+
+    seloPrevia.textContent = escolhido ? "Prévia" : fundoAtualUrl ? "Atual" : "Padrão";
+    seloPrevia.classList.toggle("fundo-modal__previa-selo--nova", Boolean(escolhido));
+
+    rodape.hidden = !escolhido;
+
+    const padraoEmUso = !fundoAtualUrl && !escolhido;
+
+    botaoRestaurar.disabled = padraoEmUso;
+    botaoRestaurar.classList.toggle("fundo-modal__padrao--ativo", padraoEmUso);
+  }
+
+  function descartarEscolhido() {
+    if (escolhido) URL.revokeObjectURL(escolhido.url);
+
+    escolhido = null;
+    resolucao.hidden = true;
+    campoArquivo.value = "";
+  }
+
+  //RESOLUCAO: compara com os pixels reais da tela (tamanho x densidade — um
+  //notebook "1920" com zoom de 150% tem 2880 px de verdade). Como o fundo usa
+  //cover, a imagem precisa cobrir as duas dimensoes; se vai ser esticada
+  //demais, avisa antes de aplicar que pode ficar desfocada.
+  function avaliarResolucao(largura, altura) {
+    const densidade = window.devicePixelRatio || 1;
+    const larguraTela = Math.round(window.screen.width * densidade);
+    const alturaTela = Math.round(window.screen.height * densidade);
+    const esticada = Math.max(larguraTela / largura, alturaTela / altura);
+    const medidas = `${largura} × ${altura} px`;
+
+    resolucao.hidden = false;
+
+    if (esticada > 1.25) {
+      resolucao.textContent =
+        `${medidas} — menor que a sua tela (${larguraTela} × ${alturaTela} px). Pode ficar desfocada; prefira uma imagem maior.`;
+      resolucao.classList.add("fundo-modal__resolucao--baixa");
+      return;
     }
+
+    resolucao.textContent = `${medidas} — fica nítida na sua tela.`;
+    resolucao.classList.remove("fundo-modal__resolucao--baixa");
   }
 
-  function limparCache() {
-    try {
-      localStorage.removeItem(CACHE_CHAVE);
-    } catch {
-      // Ver gravarCache.
+  //ESCOLHER NAO APLICA: vira previa, com Cancelar e Aplicar.
+  function escolher(arquivo) {
+    if (!arquivo) return;
+
+    if (!arquivo.type.startsWith("image/")) {
+      avisar("Escolha um arquivo de imagem (JPG, PNG ou WebP).", true);
+      return;
     }
+
+    if (arquivo.size > TAMANHO_MAXIMO) {
+      avisar("A imagem precisa ter até 15 MB.", true);
+      return;
+    }
+
+    descartarEscolhido();
+
+    const url = URL.createObjectURL(arquivo);
+    const imagem = new Image();
+
+    imagem.onload = () => {
+      escolhido = { arquivo, url, largura: imagem.naturalWidth, altura: imagem.naturalHeight };
+      avisar("");
+      avaliarResolucao(imagem.naturalWidth, imagem.naturalHeight);
+      desenharPrevia();
+    };
+
+    imagem.onerror = () => {
+      URL.revokeObjectURL(url);
+      avisar("Não foi possível ler essa imagem.", true);
+    };
+
+    imagem.src = url;
   }
 
-  function pintar(url) {
-    const painelPortal = document.querySelector(".portal");
-    painelPortal.style.backgroundImage = `url("${url}")`;
-    // O tamanho/animacao do degrade nao serve para foto: distorceria.
-    painelPortal.classList.add("portal--fundo-proprio");
-  }
-
-  function despintar() {
-    const painelPortal = document.querySelector(".portal");
-    painelPortal.style.backgroundImage = "";
-    painelPortal.classList.remove("portal--fundo-proprio");
-  }
-
-  //Le o banco e reassina a URL. Devolve o caminho salvo (ou null).
-  async function buscarFundo() {
+  async function carregarFundoSalvo() {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return null;
@@ -2084,87 +3244,84 @@ function ligarFundo() {
       .eq("id", user.id)
       .single();
 
-    if (!data?.fundo_path) return null;
+    fundoAtualUrl = null;
 
-    // Bucket privado: precisa de URL assinada, diferente do avatar (publico).
-    const { data: assinada } = await supabase.storage
-      .from("fundos-portal")
-      .createSignedUrl(data.fundo_path, URL_VALIDADE);
+    if (data?.fundo_path) {
+      // Bucket privado: precisa de URL assinada, diferente do avatar (publico).
+      const { data: assinada } = await supabase.storage
+        .from("fundos-portal")
+        .createSignedUrl(data.fundo_path, 3600);
 
-    if (!assinada?.signedUrl) return null;
-
-    return { url: assinada.signedUrl, caminho: data.fundo_path };
-  }
-
-  async function aplicarFundoSalvo() {
-    const cache = lerCache();
-
-    // Com cache, a foto entra ja no primeiro quadro; a conferencia com o
-    // banco vem depois, sem segurar a tela.
-    if (cache) pintar(cache.url);
-
-    const atual = await buscarFundo();
-
-    if (!atual) {
-      // O fundo foi removido em outro navegador: o cache esta velho.
-      if (cache) { limparCache(); despintar(); }
-      return;
+      fundoAtualUrl = assinada?.signedUrl ?? null;
     }
 
-    gravarCache(atual.url, atual.caminho);
+    const carregou = await mostrarNoQuadro(fundoAtualUrl);
 
-    // So repinta se mudou — repintar com a mesma URL faria a foto piscar.
-    if (!cache || cache.caminho !== atual.caminho) pintar(atual.url);
-  }
-
-  campoArquivo.addEventListener("change", async () => {
-    const arquivo = campoArquivo.files[0];
-
-    if (!arquivo || !usuarioId) return;
-
-    if (arquivo.size > TAMANHO_MAXIMO) {
-      avisar("A imagem precisa ter até 5 MB.", true);
-      campoArquivo.value = "";
-      return;
+    if (!carregou) {
+      fundoAtualUrl = null;
+      await mostrarNoQuadro(null);
     }
 
-    avisar("Enviando…");
+    desenharPrevia();
+  }
 
-    const extensao = arquivo.name.split(".").pop().toLowerCase();
+  async function aplicar() {
+    if (!escolhido || !usuarioId) return;
+
+    botaoAplicar.disabled = true;
+    botaoCancelar.disabled = true;
+    botaoAplicar.textContent = "Aplicando…";
+    avisar("");
+
+    const { arquivo } = escolhido;
+    const extensao = (arquivo.name.split(".").pop() || "jpg").toLowerCase();
     const caminho = `${usuarioId}.${extensao}`;
 
+    // Sem compressao nem redimensionar: o arquivo vai exatamente como saiu do
+    // computador, na resolucao original. contentType explicito para a imagem
+    // colada (Ctrl+V) nao ir como arquivo generico.
     const { error: erroUpload } = await supabase.storage
       .from("fundos-portal")
-      .upload(caminho, arquivo, { upsert: true });
+      .upload(caminho, arquivo, { upsert: true, contentType: arquivo.type, cacheControl: "3600" });
 
-    if (erroUpload) {
-      avisar("Não foi possível enviar a imagem.", true);
-      campoArquivo.value = "";
+    let erro = erroUpload ? "Não foi possível enviar a imagem." : null;
+
+    if (erroUpload) console.error("Falha ao enviar o plano de fundo:", erroUpload);
+
+    if (!erro) {
+      const { error: erroPerfil } = await supabase
+        .from("usuarios")
+        .update({ fundo_path: caminho })
+        .eq("id", usuarioId);
+
+      if (erroPerfil) erro = "A imagem subiu, mas não foi possível salvá-la.";
+    }
+
+    botaoAplicar.disabled = false;
+    botaoCancelar.disabled = false;
+    botaoAplicar.textContent = "Aplicar fundo";
+
+    if (erro) {
+      avisar(erro, true);
       return;
     }
 
-    const { error: erroPerfil } = await supabase
-      .from("usuarios")
-      .update({ fundo_path: caminho })
-      .eq("id", usuarioId);
-
-    if (erroPerfil) {
-      avisar("A imagem subiu, mas não foi possível salvá-la.", true);
-      return;
-    }
-
-    // Trocar a foto mantendo a extensao devolve o mesmo caminho
-    // ("<id>.jpg"), entao a comparacao de caminho nao veria a troca:
-    // limpar o cache aqui e o que garante a repintura.
-    limparCache();
-
-    await aplicarFundoSalvo();
-    campoArquivo.value = "";
-    avisar("Fundo atualizado");
-  });
+    descartarEscolhido();
+    await carregarFundoSalvo();
+    janela.close();
+    avisarNoSite("Plano de fundo aplicado.", { tipo: "sucesso" });
+  }
 
   botaoRestaurar.addEventListener("click", async () => {
     if (!usuarioId) return;
+
+    // Ainda com o degrade salvo, e so havia uma imagem escolhida: o clique
+    // so descarta a escolha, sem ir ao banco.
+    if (!fundoAtualUrl) {
+      descartarEscolhido();
+      desenharPrevia();
+      return;
+    }
 
     const { error } = await supabase
       .from("usuarios")
@@ -2176,9 +3333,59 @@ function ligarFundo() {
       return;
     }
 
-    limparCache();
-    despintar();
-    avisar("Fundo padrão restaurado");
+    descartarEscolhido();
+    fundoAtualUrl = null;
+    await mostrarNoQuadro(null);
+    desenharPrevia();
+    janela.close();
+    avisarNoSite("Degradê padrão restaurado.", { tipo: "sucesso" });
+  });
+
+  campoArquivo.addEventListener("change", () => escolher(campoArquivo.files[0]));
+
+  //ARRASTAR E SOLTAR NA AREA
+  ["dragenter", "dragover"].forEach((tipo) => {
+    areaSoltar.addEventListener(tipo, (evento) => {
+      evento.preventDefault();
+      areaSoltar.classList.add("fundo-modal__soltar--sobre");
+    });
+  });
+
+  ["dragleave", "drop"].forEach((tipo) => {
+    areaSoltar.addEventListener(tipo, (evento) => {
+      evento.preventDefault();
+      areaSoltar.classList.remove("fundo-modal__soltar--sobre");
+    });
+  });
+
+  areaSoltar.addEventListener("drop", (evento) => escolher(evento.dataTransfer?.files?.[0]));
+
+  //CTRL+V COM A JANELA ABERTA: um print copiado vira a previa.
+  document.addEventListener("paste", (evento) => {
+    if (!janela.open) return;
+
+    const imagem = [...(evento.clipboardData?.files ?? [])]
+      .find((arquivo) => arquivo.type.startsWith("image/"));
+
+    if (!imagem) return;
+
+    evento.preventDefault();
+    escolher(imagem);
+  });
+
+  botaoAplicar.addEventListener("click", aplicar);
+
+  botaoCancelar.addEventListener("click", () => {
+    descartarEscolhido();
+    avisar("");
+    desenharPrevia();
+  });
+
+  // Fechou sem aplicar (x, Esc, clique fora): a escolha nao fica pendurada.
+  janela.addEventListener("close", () => {
+    descartarEscolhido();
+    avisar("");
+    desenharPrevia();
   });
 
   document.querySelector("[data-fundo-fechar]")
@@ -2187,15 +3394,24 @@ function ligarFundo() {
     if (evento.target === janela) janela.close();
   });
 
-  aplicarFundoSalvo();
+  carregarFundoSalvo();
 }
 
 //RESUMO NO CABECALHO: SO CONTA O QUE ESTA ABERTO. Chamado fechado nao
 //esta escondido por engano — foi fechado por decisao de quem atende.
 function atualizarResumo(chamados, totalFilas) {
-  const abertos = chamados.filter((chamado) => !chamado.fechamento_em).length;
-  resumo.textContent =
-    `${abertos} ${abertos === 1 ? "chamado aberto" : "chamados abertos"} em ${totalFilas} filas`;
+  const abertos = chamados.filter((chamado) => !chamado.fechamento_em);
+  const texto =
+    `${abertos.length} ${abertos.length === 1 ? "chamado aberto" : "chamados abertos"} em ${totalFilas} filas`;
+
+  if (!totalDeFiltros()) {
+    resumo.textContent = texto;
+    return;
+  }
+
+  // Com filtro: quantos aparecem de quantos existem.
+  const visiveis = abertos.filter(chamadoPassaNosFiltros).length;
+  resumo.textContent = `${visiveis} de ${texto} · com filtro`;
 }
 
 //CAMPOS DE UM CHAMADO: A MESMA SELECAO NA CARGA DO QUADRO E NO TEMPO REAL,
@@ -2209,7 +3425,7 @@ const CAMPOS_CHAMADO = `
   usuarios!chamados_solicitante_id_fkey(nome, sobrenome, email),
   chamado_membros(usuario_id, usuarios(id, nome, sobrenome, foto_path)),
   comentarios(id, autor_id, texto, visibilidade, tipo, criado_em, usuarios(nome, sobrenome, foto_path)),
-  anexos(id, nome_arquivo, storage_path, criado_em)
+  anexos(id, comentario_id, nome_arquivo, storage_path, criado_em)
 `;
 
 //TEMPO REAL (Supabase Realtime): O QUADRO ACOMPANHA O BANCO SEM RECARREGAR.
@@ -2536,7 +3752,9 @@ async function montarQuadro() {
   // A busca abre o modal (via detalhe.abrir) quando o achado e um chamado
   // finalizado — esse nao tem card no quadro para rolar ate.
   ligarBusca(chamados.data, filas.data, detalhe);
-  ligarQuadroMenu();
+  const exportar = ligarExportar(chamados.data, filas.data);
+  ligarQuadroMenu(exportar);
+  ligarFiltros(chamados.data, equipe.data ?? [], filas.data);
   const finalizados = ligarFinalizados(chamados.data, filas.data, detalhe);
   ligarFundo();
 

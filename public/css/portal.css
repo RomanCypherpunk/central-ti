@@ -130,23 +130,77 @@ body.portal-pagina {
 /*FUNDO PROPRIO: O JS poe backgroundImage inline quando ha fundo_path. O
   tamanho/animacao do degrade (feitos para um gradiente, nao para uma foto)
   tem que sair, senao a imagem do usuario fica zunindo e distorcida.*/
-.portal--fundo-proprio {
-  background-size: cover;
+/*PLANO DE FUNDO PROPRIO: CAMADA FIXA ATRAS DO QUADRO, FORA DO .portal.
+  Assim o zoom do quadro nao mexe nela, e a imagem cobre toda a area abaixo
+  do topo (84px) na resolucao em que foi enviada — cover preenche sem
+  distorcer, cortando so o que sobra. Entra com fade depois de carregada
+  inteira, para nunca aparecer desenhando em pedacos.*/
+.portal-fundo {
+  position: fixed;
+  inset: 84px 0 0 0;
+  z-index: 0;
+  background-color: #1a1a1a;
   background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.portal-fundo--visivel {
+  opacity: 1;
+}
+
+/*COM FUNDO PROPRIO O QUADRO FICA TRANSPARENTE E POR CIMA DA CAMADA*/
+.portal--fundo-proprio {
+  position: relative;
+  z-index: 1;
+  background: transparent;
   animation: none;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .portal-fundo {
+    transition: none;
+  }
+}
+
+/*BARRA DO QUADRO (titulo, busca, filtros, menu): FAIXA ESCURA TRANSLUCIDA
+  DE PONTA A PONTA, COMO NO TRELLO. O plano de fundo pode ser qualquer foto,
+  clara ou escura; o texto e os botoes sao brancos, entao a faixa garante
+  contraste sem esconder o fundo. As margens negativas anulam o padding do
+  .portal para a faixa encostar nas bordas.*/
 .portal__cabecalho {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
   flex-shrink: 0;
-  margin-bottom: 0.875rem;
+  /*backdrop-filter cria uma camada propria: sem position + z-index, a busca,
+    os filtros e o menu que abrem daqui poderiam ficar atras de um card do
+    quadro (o card sobe com transform no hover).*/
+  position: relative;
+  z-index: 6;
+  margin: -1.25rem -1.25rem 0.875rem;
+  padding: 0.625rem 1.25rem;
+  background-color: rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  /*O texto branco ganha uma sombra leve: em foto muito clara, ainda le.*/
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .portal__identificacao {
   min-width: 0;
+}
+
+/*A SOMBRA DO TEXTO E SO PARA O BRANCO SOBRE O FUNDO: os paineis que abrem
+  do cabecalho sao claros, com texto escuro, e herdariam a sombra.*/
+.busca__resultados,
+.quadro-filtro__painel,
+.quadro-menu__painel {
+  text-shadow: none;
 }
 
 /*BUSCA E MENU ENCOSTADOS, O PAR INTEIRO NA BORDA DIREITA*/
@@ -292,6 +346,57 @@ body.portal-pagina {
   text-overflow: ellipsis;
 }
 
+/*TITULO E SELO "FINALIZADO" NA MESMA LINHA*/
+.busca__item-linha {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.busca__item-linha .busca__item-titulo {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/*CHAMADO FECHADO NA BUSCA: CINZA, COM SELO. Continua clicavel — abre o
+  detalhe, de onde da para reabrir.*/
+.busca__item--fechado {
+  background-color: var(--superficie-2);
+}
+
+.busca__item--fechado .busca__item-titulo {
+  color: var(--texto-3);
+}
+
+.busca__item--fechado .busca__item-icone {
+  color: var(--status-fechado);
+}
+
+.busca__item--fechado:hover,
+.busca__item--fechado:focus-visible {
+  background-color: var(--borda-suave);
+}
+
+.busca__item-selo {
+  flex-shrink: 0;
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 3px;
+  background-color: var(--status-fechado);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+/*ENTRE OS DOIS GRUPOS UM RESPIRO, PARA O PRIMEIRO FECHADO NAO GRUDAR*/
+.busca__item:not(.busca__item--fechado) + .busca__item--fechado {
+  margin-top: 0.25rem;
+}
+
 .busca__vazio {
   padding: 0.75rem 0.4375rem;
   font-size: 0.75rem;
@@ -371,11 +476,12 @@ body.portal-pagina {
   display: block;
 }
 
+/*TRILHO ESCURO TRANSLUCIDO: branco sumia em plano de fundo claro*/
 .portal__barra-trilho {
   position: relative;
   height: 100%;
   border-radius: 999px;
-  background-color: rgba(255, 255, 255, 0.14);
+  background-color: rgba(0, 0, 0, 0.24);
 }
 
 .portal__barra-alca {
@@ -385,13 +491,13 @@ body.portal-pagina {
   height: 100%;
   min-width: 2.5rem;
   border-radius: 999px;
-  background-color: rgba(255, 255, 255, 0.4);
+  background-color: rgba(255, 255, 255, 0.6);
   transition: background-color 0.2s ease;
 }
 
 .portal__barra:hover .portal__barra-alca,
 .portal__barra-alca--arrastando {
-  background-color: rgba(255, 255, 255, 0.65);
+  background-color: rgba(255, 255, 255, 0.85);
 }
 
 .fila {
@@ -1247,6 +1353,214 @@ body.portal-pagina {
 /*QUANDO UM ARQUIVO ESTA ESCOLHIDO, O ROTULO MOSTRA O NOME DELE*/
 .conversa__anexar--escolhido {
   color: var(--laranja-forte);
+}
+
+/*ANEXOS PENDENTES: MINIATURAS DO QUE VAI COM A PROXIMA RESPOSTA, ENTRE O
+  CAMPO DE TEXTO E OS BOTOES. Quebra de linha quando sao muitas.*/
+.conversa__pendentes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4375rem;
+  max-height: 9rem;
+  padding: 0.25rem 0.75rem 0.375rem;
+  overflow-y: auto;
+}
+
+.conversa__pendentes[hidden] {
+  display: none;
+}
+
+.conversa__pendente {
+  position: relative;
+  flex-shrink: 0;
+  width: 3.75rem;
+  height: 3.75rem;
+  box-sizing: border-box;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background-color: var(--superficie-2);
+  overflow: hidden;
+}
+
+.conversa__pendente img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*PDF E AFINS: SEM MINIATURA, O NOME DO ARQUIVO NO LUGAR*/
+.conversa__pendente--arquivo {
+  display: flex;
+  align-items: center;
+  width: auto;
+  max-width: 10rem;
+  padding: 0 1.625rem 0 0.5rem;
+}
+
+.conversa__pendente-nome {
+  font-size: 0.625rem;
+  color: var(--texto-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conversa__pendente-remover {
+  position: absolute;
+  top: 0.1875rem;
+  right: 0.1875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: rgba(16, 10, 8, 0.72);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  line-height: 1;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.conversa__pendente-remover:hover {
+  background-color: #b02a2a;
+}
+
+/*IMAGENS DENTRO DO BALAO DO CHAT. Tamanho fixo: a conversa nao pula quando
+  a imagem termina de carregar. O balao e claro nos dois temas, entao as
+  bordas aqui sao escuras fixas, e nao tokens.*/
+.comentario__imagens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.4375rem;
+}
+
+.comentario__imagem {
+  display: block;
+  width: 9rem;
+  height: 6.75rem;
+  padding: 0;
+  border: 1px solid rgba(26, 26, 26, 0.1);
+  border-radius: 6px;
+  background-color: rgba(26, 26, 26, 0.06);
+  overflow: hidden;
+  cursor: zoom-in;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.comentario__imagem:hover {
+  border-color: rgba(26, 26, 26, 0.28);
+  transform: scale(1.02);
+}
+
+.comentario__imagem img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*SEM URL AINDA (carregando) A IMAGEM FICA INVISIVEL, SO O FUNDO CINZA*/
+.comentario__imagem img:not([src]) {
+  visibility: hidden;
+}
+
+/*IMAGEM QUE NAO CARREGOU: SO O FUNDO, AINDA CLICAVEL PARA TENTAR ABRIR*/
+.comentario__imagem--falhou img {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comentario__imagem:hover {
+    transform: none;
+  }
+}
+
+/*VISUALIZADOR DE IMAGEM: TELA INTEIRA, FUNDO ESCURO, IMAGEM NO MEIO.
+  O <dialog> em si e transparente e ocupa a tela toda: assim qualquer clique
+  fora da imagem cai nele e fecha. Cores fixas — fundo escuro nos dois temas.*/
+.visualizador {
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 3.5rem 2rem 2.5rem;
+  border: 0;
+  background: transparent;
+  cursor: zoom-out;
+}
+
+.visualizador[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  animation: visualizador-entra 0.18s ease-out;
+}
+
+.visualizador::backdrop {
+  background-color: rgba(10, 8, 7, 0.88);
+}
+
+@keyframes visualizador-entra {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+/*A IMAGEM CABE INTEIRA NA TELA, SEM CORTAR NEM DISTORCER*/
+.visualizador__imagem {
+  max-width: 100%;
+  max-height: calc(100dvh - 8rem);
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+
+.visualizador__nome {
+  max-width: 100%;
+  margin: 0;
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.visualizador__fechar {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.visualizador__fechar:hover {
+  background-color: rgba(255, 255, 255, 0.26);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .visualizador[open] {
+    animation: none;
+  }
 }
 
 .conversa__enviar {
@@ -2190,6 +2504,349 @@ body.portal-pagina {
    no Trello ficam atras do menu do quadro.
    ========================================================================== */
 
+/* ==========================================================================
+   FILTROS DO QUADRO: MEMBROS, PRIORIDADE, UNIDADE E CATEGORIA
+   ========================================================================== */
+
+/*CARD QUE NAO PASSA NO FILTRO: SAI DA TELA, CONTINUA NO QUADRO*/
+.card--filtrado {
+  display: none;
+}
+
+.quadro-filtro {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/*BOTAO: MESMO VIDRO BRANCO DA BUSCA E DOS 3 PONTINHOS, SOBRE O DEGRADE*/
+.quadro-filtro__botao {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2.125rem;
+  box-sizing: border-box;
+  padding: 0 0.625rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.12);
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.75rem;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.quadro-filtro__botao:hover,
+.quadro-filtro__botao[aria-expanded="true"] {
+  background-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/*COM FILTRO LIGADO O BOTAO FICA BRANCO CHEIO: DA PARA VER DE LONGE QUE O
+  QUADRO NAO ESTA MOSTRANDO TUDO. Cores fixas — fica sobre o degrade nos
+  dois temas.*/
+.quadro-filtro__botao--ativo,
+.quadro-filtro__botao--ativo:hover,
+.quadro-filtro__botao--ativo[aria-expanded="true"] {
+  border-color: #fff;
+  background-color: #fff;
+  color: #c24f00;
+}
+
+.quadro-filtro__contador {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  box-sizing: border-box;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background-color: #dd5b12;
+  font-size: 0.625rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+
+.quadro-filtro__contador[hidden] {
+  display: none;
+}
+
+.quadro-filtro__painel {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  right: 0;
+  z-index: 5;
+  width: 22rem;
+  max-height: min(34rem, 70dvh);
+  box-sizing: border-box;
+  padding: 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background-color: var(--superficie);
+  box-shadow: 0 12px 32px rgba(26, 26, 26, 0.22);
+  overflow-y: auto;
+}
+
+.quadro-filtro__cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.625rem;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.quadro-filtro__limpar {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--laranja);
+  cursor: pointer;
+}
+
+.quadro-filtro__limpar:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.quadro-filtro__limpar:disabled {
+  color: var(--texto-4);
+  cursor: default;
+}
+
+.quadro-filtro__grupo + .quadro-filtro__grupo {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--borda-suave);
+}
+
+.quadro-filtro__titulo {
+  margin: 0 0 0.4375rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+
+.quadro-filtro__opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3125rem;
+}
+
+.quadro-filtro__opcao {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.25rem 0.5625rem;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background-color: var(--superficie);
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.6875rem;
+  text-align: left;
+  color: var(--texto-2);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.quadro-filtro__opcao:hover {
+  border-color: var(--realce-borda);
+  background-color: var(--realce);
+  color: var(--texto);
+}
+
+.quadro-filtro__opcao--marcada,
+.quadro-filtro__opcao--marcada:hover {
+  border-color: var(--laranja);
+  background-color: var(--realce);
+  font-weight: 600;
+  color: var(--texto);
+}
+
+/*PRIORIDADE MARCADA: A MESMA COR DA ETIQUETA DO CARD*/
+.quadro-filtro__opcao--urgente.quadro-filtro__opcao--marcada {
+  border-color: var(--etiqueta-urgente-texto);
+  background-color: var(--etiqueta-urgente-fundo);
+  color: var(--etiqueta-urgente-texto);
+}
+
+.quadro-filtro__opcao--prioridade.quadro-filtro__opcao--marcada {
+  border-color: var(--etiqueta-prioridade-texto);
+  background-color: var(--etiqueta-prioridade-fundo);
+  color: var(--etiqueta-prioridade-texto);
+}
+
+.quadro-filtro__opcao--normal.quadro-filtro__opcao--marcada {
+  border-color: var(--etiqueta-normal-texto);
+  background-color: var(--etiqueta-normal-fundo);
+  color: var(--etiqueta-normal-texto);
+}
+
+/*FOTO DO MEMBRO DENTRO DA OPCAO*/
+.quadro-filtro__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-left: -0.3125rem;
+  border-radius: 50%;
+  background-color: var(--avatar-fundo);
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: var(--avatar-texto);
+  overflow: hidden;
+}
+
+.quadro-filtro__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*UNIDADE: DROPDOWN COM BUSCA E CAIXAS DE MARCAR*/
+.quadro-filtro__dropdown-botao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4375rem 0.625rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background-color: var(--superficie);
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.75rem;
+  text-align: left;
+  color: var(--texto-2);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.quadro-filtro__dropdown-botao:hover {
+  border-color: var(--realce-borda);
+}
+
+.quadro-filtro__dropdown-botao[aria-expanded="true"] {
+  border-color: var(--laranja);
+}
+
+/*COM UNIDADE MARCADA: MESMO DESTAQUE DAS OUTRAS OPCOES MARCADAS*/
+.quadro-filtro__dropdown-botao--marcado {
+  border-color: var(--laranja);
+  background-color: var(--realce);
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.quadro-filtro__dropdown-texto {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.quadro-filtro__dropdown-seta {
+  flex-shrink: 0;
+  color: var(--texto-3);
+  transition: transform 0.2s ease;
+}
+
+.quadro-filtro__dropdown-botao[aria-expanded="true"] .quadro-filtro__dropdown-seta {
+  transform: rotate(180deg);
+}
+
+.quadro-filtro__dropdown-painel {
+  margin-top: 0.375rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background-color: var(--superficie);
+  overflow: hidden;
+}
+
+.quadro-filtro__dropdown-painel[hidden] {
+  display: none;
+}
+
+.quadro-filtro__dropdown-busca {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4375rem 0.625rem;
+  border: 0;
+  border-bottom: 1px solid var(--borda-suave);
+  background-color: var(--superficie-3);
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.75rem;
+  color: var(--texto);
+}
+
+.quadro-filtro__dropdown-busca:focus {
+  outline: none;
+  background-color: var(--superficie);
+}
+
+.quadro-filtro__dropdown-lista {
+  max-height: 12rem;
+  padding: 0.25rem;
+  overflow-y: auto;
+}
+
+.quadro-filtro__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.4375rem;
+  border-radius: 5px;
+  font-size: 0.75rem;
+  color: var(--texto);
+  cursor: pointer;
+}
+
+.quadro-filtro__dropdown-item:hover {
+  background-color: var(--superficie-2);
+}
+
+/*display: flex acima venceria o hidden da busca*/
+.quadro-filtro__dropdown-item[hidden] {
+  display: none;
+}
+
+.quadro-filtro__dropdown-item input {
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--laranja);
+  cursor: pointer;
+}
+
+.quadro-filtro__dropdown-vazio {
+  margin: 0;
+  padding: 0.625rem;
+  font-size: 0.6875rem;
+  text-align: center;
+  color: var(--texto-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quadro-filtro__dropdown-seta {
+    transition: none;
+  }
+}
+
 .quadro-menu {
   position: relative;
   flex-shrink: 0;
@@ -2407,14 +3064,208 @@ body.portal-pagina {
 }
 
 /* ==========================================================================
+   AVISO E CONFIRMACAO DO SITE (no lugar de alert/confirm do navegador)
+   ========================================================================== */
+
+/*AVISO: CANTO DE BAIXO, A DIREITA. O popover do navegador vem centralizado e
+  com borda propria; aqui ele vira um cartao fixo no canto.*/
+.aviso-site {
+  position: fixed;
+  inset: auto 1.25rem 1.25rem auto;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  box-sizing: border-box;
+  max-width: min(26rem, calc(100vw - 2.5rem));
+  margin: 0;
+  padding: 0.625rem 0.5rem 0.625rem 0.75rem;
+  border: 1px solid var(--borda);
+  border-left: 3px solid var(--laranja);
+  border-radius: 8px;
+  background-color: var(--superficie);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  font-family: "Poppins", system-ui, sans-serif;
+  color: var(--texto);
+}
+
+/*display: flex acima venceria o "some quando fechado" do proprio navegador*/
+.aviso-site:not(:popover-open) {
+  display: none;
+}
+
+.aviso-site:popover-open {
+  animation: aviso-site-entra 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes aviso-site-entra {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+.aviso-site[data-tipo="sucesso"] {
+  border-left-color: var(--status-aguardando);
+}
+
+.aviso-site[data-tipo="erro"] {
+  border-left-color: var(--erro-texto);
+}
+
+.aviso-site__icone {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--laranja);
+}
+
+.aviso-site[data-tipo="sucesso"] .aviso-site__icone {
+  color: var(--status-aguardando);
+}
+
+.aviso-site[data-tipo="erro"] .aviso-site__icone {
+  color: var(--erro-texto);
+}
+
+.aviso-site__texto {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.aviso-site__acao {
+  flex-shrink: 0;
+  padding: 0.3125rem 0.625rem;
+  border: 1px solid var(--borda);
+  border-radius: 5px;
+  background: none;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--laranja);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.aviso-site__acao:hover {
+  border-color: var(--laranja);
+  background-color: var(--realce);
+}
+
+.aviso-site__fechar {
+  display: flex;
+  flex-shrink: 0;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--texto-4);
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.aviso-site__fechar:hover {
+  background-color: var(--superficie-2);
+  color: var(--texto);
+}
+
+/*CONFIRMACAO: MESMO VOCABULARIO DOS OUTROS MODAIS DO PORTAL*/
+.confirmacao {
+  width: min(24rem, 92vw);
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background-color: var(--superficie);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.confirmacao::backdrop {
+  background-color: rgba(16, 10, 8, 0.62);
+}
+
+.confirmacao__conteudo {
+  margin: 0;
+  padding: 1.125rem 1.125rem 1rem;
+}
+
+.confirmacao__titulo {
+  margin: 0 0 0.375rem;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.confirmacao__mensagem {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--texto-2);
+}
+
+.confirmacao__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.125rem;
+}
+
+.confirmacao__botao {
+  padding: 0.4375rem 0.875rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background-color: var(--superficie);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--texto-2);
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.confirmacao__botao:hover {
+  background-color: var(--superficie-2);
+}
+
+.confirmacao__botao--principal {
+  border-color: var(--laranja);
+  background-color: var(--laranja);
+  color: #fff;
+}
+
+.confirmacao__botao--principal:hover {
+  border-color: #c24f00;
+  background-color: #c24f00;
+}
+
+/*ACAO QUE NAO TEM VOLTA (EXCLUIR): VERMELHO. Cor fixa nos dois temas — o
+  --erro-texto do escuro e um rosa claro, ilegivel com texto branco por cima.*/
+.confirmacao__botao--perigo {
+  border-color: #b02a2a;
+  background-color: #b02a2a;
+}
+
+.confirmacao__botao--perigo:hover {
+  border-color: #922323;
+  background-color: #922323;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aviso-site:popover-open {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
    PLANO DE FUNDO
    ========================================================================== */
 
 .fundo-modal {
-  width: min(26rem, 92vw);
+  width: min(30rem, 92vw);
   padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: 14px;
   background-color: var(--superficie);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
   overflow: hidden;
@@ -2425,36 +3276,234 @@ body.portal-pagina {
 }
 
 .fundo-modal__conteudo {
-  padding: 0 0.875rem 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem 1.125rem 1.125rem;
 }
 
-.fundo-modal__ajuda {
-  margin: 0.75rem 0 0;
+.fundo-modal__topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.fundo-modal__titulo {
+  margin: 0;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.fundo-modal__subtitulo {
+  margin: 0.125rem 0 0;
+  font-size: 0.6875rem;
+  color: var(--texto-3);
+}
+
+/*PREVIA: UMA MINIATURA DO QUADRO — FAIXA DO CABECALHO E QUATRO COLUNAS —
+  COM O FUNDO POR TRAS. Mesma proporcao de uma tela (16:9) e o mesmo cover
+  do quadro, entao o corte que aparece aqui e o que vai aparecer la.*/
+.fundo-modal__previa {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  background-color: #1a1a1a;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.fundo-modal__previa--padrao {
+  background-image: radial-gradient(circle at top left, #5e141d 0%, #dd5b12 100%);
+}
+
+.fundo-modal__previa-barra {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 13%;
+  background-color: rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.fundo-modal__previa-colunas {
+  position: absolute;
+  inset: 20% 5% 8%;
+  display: flex;
+  align-items: flex-start;
+  gap: 3%;
+}
+
+.fundo-modal__previa-colunas span {
+  flex: 1;
+  border-radius: 5px;
+  background-color: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.fundo-modal__previa-colunas span:nth-child(1) { height: 62%; }
+.fundo-modal__previa-colunas span:nth-child(2) { height: 88%; }
+.fundo-modal__previa-colunas span:nth-child(3) { height: 45%; }
+.fundo-modal__previa-colunas span:nth-child(4) { height: 72%; }
+
+.fundo-modal__previa-selo {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background-color: rgba(0, 0, 0, 0.55);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.fundo-modal__previa-selo--nova {
+  background-color: #dd5b12;
+}
+
+/*RESOLUCAO DA IMAGEM ESCOLHIDA: VERDE SE E NITIDA NA TELA, AMARELO SE VAI ESTICAR*/
+.fundo-modal__resolucao {
+  margin: -0.375rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--status-aguardando);
+}
+
+.fundo-modal__resolucao--baixa {
+  color: var(--etiqueta-prioridade-texto);
+}
+
+/*AREA DE ESCOLHER: CLIQUE, ARRASTAR E SOLTAR*/
+.fundo-modal__soltar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 1rem;
+  border: 1.5px dashed var(--borda);
+  border-radius: 10px;
+  background-color: var(--superficie-3);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+/*Os filhos nao recebem o ponteiro: senao passar o arquivo por cima do
+  texto dispararia dragleave e a borda piscaria.*/
+.fundo-modal__soltar > * {
+  pointer-events: none;
+}
+
+.fundo-modal__soltar:hover,
+.fundo-modal__soltar--sobre {
+  border-color: var(--laranja);
+  background-color: var(--realce);
+}
+
+.fundo-modal__soltar-icone {
+  color: var(--laranja);
+}
+
+.fundo-modal__soltar-titulo {
   font-size: 0.75rem;
-  line-height: 1.5;
-  color: var(--texto-2);
+  font-weight: 500;
+  color: var(--texto);
+}
+
+.fundo-modal__soltar-titulo u {
+  color: var(--laranja);
+  text-underline-offset: 2px;
+}
+
+.fundo-modal__soltar-dica {
+  font-size: 0.625rem;
+  color: var(--texto-3);
+}
+
+/*DEGRADE PADRAO: AMOSTRA + CHECK QUANDO E O FUNDO EM USO*/
+.fundo-modal__padrao {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.4375rem 0.625rem 0.4375rem 0.4375rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background-color: var(--superficie);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: left;
+  color: var(--texto);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.fundo-modal__padrao:hover:not(:disabled) {
+  border-color: var(--laranja);
+  background-color: var(--realce);
+}
+
+.fundo-modal__padrao:disabled {
+  cursor: default;
+}
+
+.fundo-modal__padrao-amostra {
+  flex-shrink: 0;
+  width: 3rem;
+  height: 1.875rem;
+  border-radius: 5px;
+  background: radial-gradient(circle at top left, #5e141d 0%, #dd5b12 100%);
+}
+
+.fundo-modal__padrao-texto {
+  flex: 1;
+}
+
+.fundo-modal__padrao-check {
+  flex-shrink: 0;
+  color: var(--status-aguardando);
+  visibility: hidden;
+}
+
+.fundo-modal__padrao--ativo .fundo-modal__padrao-check {
+  visibility: visible;
 }
 
 .fundo-modal__aviso {
-  min-height: 1.25rem;
-  margin: 0.5rem 0 0;
+  margin: 0;
   font-size: 0.6875rem;
   color: var(--status-aguardando);
+}
+
+.fundo-modal__aviso:empty {
+  display: none;
 }
 
 .fundo-modal__aviso--erro {
   color: var(--erro-texto);
 }
 
-.fundo-modal__acoes {
+.fundo-modal__rodape {
   display: flex;
+  justify-content: flex-end;
   gap: 0.5rem;
-  margin-top: 0.625rem;
+}
+
+.fundo-modal__rodape[hidden] {
+  display: none;
 }
 
 .fundo-modal__botao {
-  flex: 1;
-  padding: 0.5rem;
+  padding: 0.5rem 0.9375rem;
   border: 1px solid var(--borda);
   border-radius: 6px;
   background: none;
@@ -2462,12 +3511,11 @@ body.portal-pagina {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--texto-2);
-  text-align: center;
   cursor: pointer;
   transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 }
 
-.fundo-modal__botao:hover {
+.fundo-modal__botao:hover:not(:disabled) {
   border-color: var(--laranja);
   color: var(--laranja);
   background-color: var(--realce);
@@ -2479,8 +3527,403 @@ body.portal-pagina {
   color: #fff;
 }
 
-.fundo-modal__botao--principal:hover {
+.fundo-modal__botao--principal:hover:not(:disabled) {
   background-color: var(--laranja-forte);
   border-color: var(--laranja-forte);
   color: #fff;
 }
+
+.fundo-modal__botao:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ==========================================================================
+   EXPORTAR (mesma moldura do plano de fundo: .fundo-modal)
+   ========================================================================== */
+
+.exportar__atalhos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.exportar__atalho {
+  padding: 0.3125rem 0.6875rem;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background-color: var(--superficie);
+  font-family: inherit;
+  font-size: 0.6875rem;
+  color: var(--texto-2);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.exportar__atalho:hover {
+  border-color: var(--realce-borda);
+  background-color: var(--realce);
+  color: var(--texto);
+}
+
+.exportar__atalho--ativo,
+.exportar__atalho--ativo:hover {
+  border-color: var(--laranja);
+  background-color: var(--realce);
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.exportar__datas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.625rem;
+}
+
+.exportar__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3125rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--texto-2);
+}
+
+.exportar__campo input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background-color: var(--superficie);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: var(--texto);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.exportar__campo input:focus {
+  outline: none;
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 3px rgba(221, 91, 18, 0.15);
+}
+
+/*CONTAGEM DO PERIODO: CINZA NORMAL, VERMELHO QUANDO AS DATAS NAO FECHAM*/
+.exportar__resumo {
+  margin: 0;
+  padding: 0.5625rem 0.75rem;
+  border-radius: 8px;
+  background-color: var(--superficie-2);
+  font-size: 0.75rem;
+  color: var(--texto-2);
+}
+
+.exportar__resumo--erro {
+  background-color: var(--erro-fundo);
+  color: var(--erro-texto);
+}
+
+/* ==========================================================================
+   BARRA UNICA DO PORTAL (marca + titulo a esquerda; ferramentas e perfil a
+   direita). Substitui o topo branco do site e o cabecalho do quadro.
+
+   Fica neste ponto do arquivo DE PROPOSITO: depois das regras antigas do
+   topo e do tema escuro. Varios seletores aqui tem a mesma forca daqueles
+   ([data-tema="escuro"] .portal-pagina .topo__...), e vencem por virem depois.
+   ========================================================================== */
+
+/*O DEGRADE SAI DO .portal E VAI PARA A PAGINA: a barra fica fora do <main>
+  (para o zoom nao pega-la) e precisa do mesmo fundo por tras. :root na frente
+  para vencer o [data-tema="escuro"] body.portal-pagina dos tokens.*/
+:root body.portal-pagina {
+  background: radial-gradient(
+    circle at top left,
+    #5e141d 0%,
+    #dd5b12 100%
+  );
+  background-size: 160% 160%;
+  animation: destaque-fundo-respira 20s ease-in-out infinite;
+}
+
+.portal,
+.portal--fundo-proprio {
+  padding-top: 0.875rem;
+  background: transparent;
+  animation: none;
+}
+
+/*A FOTO DE FUNDO AGORA COBRE A TELA INTEIRA, ATRAS DA BARRA TAMBEM*/
+.portal-fundo {
+  inset: 0;
+}
+
+.barra-portal {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 1rem;
+  min-height: 3.75rem;
+  box-sizing: border-box;
+  padding: 0.5rem 1.25rem;
+  background-color: rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  /*Sombra leve no texto branco: em foto muito clara, ainda le.*/
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/*Paineis claros que abrem da barra nao herdam a sombra do texto branco.*/
+.barra-portal .zoom__painel,
+.barra-portal .topo__menu,
+.barra-portal .busca__resultados,
+.barra-portal .quadro-filtro__painel,
+.barra-portal .quadro-menu__painel {
+  text-shadow: none;
+}
+
+.barra-portal__marca {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  min-width: 0;
+}
+
+.barra-portal .topo__logo {
+  width: 7.25rem;
+}
+
+.barra-portal .topo__divisor {
+  flex-shrink: 0;
+  height: 1.625rem;
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.portal-pagina .barra-portal .topo__produto {
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  color: #fff;
+}
+
+.barra-portal .portal__identificacao {
+  min-width: 0;
+}
+
+.barra-portal .portal__titulo {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.barra-portal .portal__subtitulo {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*FERRAMENTAS ENCOSTADAS NA DIREITA: zoom, tema, busca, filtro, menu, perfil*/
+.barra-portal .portal__ferramentas {
+  margin-left: auto;
+}
+
+/*ZOOM E TEMA: O MESMO VIDRO BRANCO DA BUSCA E DOS 3 PONTINHOS, NOS DOIS TEMAS
+  (a barra e escura translucida nos dois).*/
+.portal-pagina .barra-portal .topo__zoom,
+.portal-pagina .barra-portal .topo__tema {
+  height: 2.125rem;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.portal-pagina .barra-portal .topo__tema {
+  align-items: center;
+  justify-content: center;
+  width: 2.125rem;
+  padding: 0;
+}
+
+.portal-pagina .barra-portal .topo__zoom:hover,
+.portal-pagina .barra-portal .topo__tema:hover,
+.portal-pagina .barra-portal .topo__zoom[aria-expanded="true"] {
+  border-color: rgba(255, 255, 255, 0.4);
+  background-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.portal-pagina .barra-portal .topo__zoom-valor {
+  color: #fff;
+}
+
+/*PERFIL: SO A FOTO, REDONDA, COM UM ANEL BRANCO QUE ACENDE NO HOVER/ABERTO*/
+.portal-pagina .barra-portal .topo__usuario,
+.portal-pagina .barra-portal .topo__usuario:hover,
+.portal-pagina .barra-portal .topo__usuario:active {
+  padding: 0;
+  border-radius: 50%;
+  background: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.portal-pagina .barra-portal .topo__avatar {
+  width: 2.125rem;
+  height: 2.125rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+  text-shadow: none;
+  transition: box-shadow 0.2s ease;
+}
+
+.portal-pagina .barra-portal .topo__usuario:hover .topo__avatar,
+.portal-pagina .barra-portal .topo__usuario[aria-expanded="true"] .topo__avatar {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/*MENU DO PERFIL: NOME NO TOPO (saiu da barra) E SAIR NO FIM*/
+.topo__menu-cabecalho {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.75rem 0.625rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--borda-suave);
+}
+
+.topo__menu-nome {
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.topo__menu-setor {
+  font-size: 0.6875rem;
+  color: var(--laranja);
+}
+
+.topo__menu-divisor {
+  display: block;
+  height: 1px;
+  margin: 0.25rem 0;
+  background-color: var(--borda-suave);
+}
+
+/*O SAIR E UM <button> NO MEIO DE LINKS: zera o visual de botao*/
+.portal-pagina .topo__menu-sair {
+  width: 100%;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  color: var(--erro-texto);
+  cursor: pointer;
+}
+
+.portal-pagina .topo__menu-sair svg {
+  color: var(--erro-texto);
+}
+
+.portal-pagina .topo__menu .topo__menu-sair:hover {
+  background-color: var(--erro-fundo);
+}
+
+/*TELA ESTREITA: sai primeiro o "TI - Gasometro Madeiras", depois a busca encolhe*/
+@media (max-width: 1280px) {
+  .barra-portal .topo__produto,
+  .barra-portal__divisor-produto {
+    display: none;
+  }
+
+  .barra-portal .busca {
+    width: 15rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .barra-portal .portal__subtitulo {
+    display: none;
+  }
+
+  .barra-portal .busca {
+    width: 11rem;
+  }
+}
+
+/*RESUMO DO QUADRO: FORA DA TELA, MAS LIDO POR LEITOR DE TELA (o portal.js
+  continua escrevendo nele)*/
+.barra-portal .barra-portal__resumo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*MENU DE 3 PONTINHOS: ZOOM E TEMA NO TOPO. Mais largo para caber a barra.*/
+.barra-portal .quadro-menu__painel {
+  width: 16.5rem;
+}
+
+.menu-ajuste {
+  padding: 0.5rem 0.5625rem 0.375rem;
+}
+
+.menu-ajuste__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4375rem;
+  font-size: 0.75rem;
+  color: var(--texto);
+}
+
+.menu-ajuste__valor {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--texto-2);
+}
+
+.menu-ajuste__rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.4375rem;
+}
+
+.menu-ajuste__dica {
+  font-size: 0.625rem;
+  color: var(--texto-3);
+}
+
+.menu-ajuste__dica kbd {
+  padding: 0 0.3125rem;
+  border: 1px solid var(--borda);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background-color: var(--superficie-2);
+  font-family: inherit;
+  font-size: 0.5625rem;
+  color: var(--texto-2);
+}
+
+/*TEMA: O ITEM MOSTRA PARA ONDE VAI (lua + "Tema escuro" no claro; sol +
+  "Tema claro" no escuro). Quem esconde um icone e mostra o outro sao as
+  regras .topo__tema-icone--sol/--lua do tema escuro, mais acima.*/
+.quadro-menu__divisor {
+  display: block;
+  height: 1px;
+  margin: 0.3125rem 0.25rem;
+  background-color: var(--borda-suave);
+}
+
