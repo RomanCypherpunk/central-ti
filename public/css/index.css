@@ -210,7 +210,7 @@ body {
     #dd5b12 100%
   );
   background-size: 250% 500%;
-  animation: destaque-fundo-respira 7s ease-in-out infinite;
+  animation: destaque-fundo-respira 20s ease-in-out infinite;
 
   color: #fff;
 }

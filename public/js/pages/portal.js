@@ -119,9 +119,11 @@ function formatarData(iso) {
 
 //AVATAR DA CONVERSA: A FOTO E A QUE A PESSOA ENVIOU EM "Dados pessoais".
 //Sem foto, ficam as iniciais.
-function montarAvatar(pessoa, fotoPath) {
+//classe: qual estilo de avatar usar — o balao do chat e o circulo do card
+//tem tamanhos diferentes, mas os dois mostram a mesma foto de perfil.
+function montarAvatar(pessoa, fotoPath, classe = "comentario__avatar") {
   const avatar = document.createElement("span");
-  avatar.className = "comentario__avatar";
+  avatar.className = classe;
   avatar.textContent = iniciais(pessoa?.nome, pessoa?.sobrenome);
   // O balao mostra so o primeiro nome; o completo fica no title, ao passar o mouse.
   avatar.title = nomeCompleto(pessoa) ?? "Alguém";
@@ -201,11 +203,8 @@ function montarCard(chamado) {
 
     if (!pessoa?.nome) return;
 
-    const avatar = document.createElement("span");
-    avatar.className = "card__membro";
-    avatar.textContent = iniciais(pessoa.nome, pessoa.sobrenome);
-    avatar.title = nomeCompleto(pessoa);
-    membros.appendChild(avatar);
+    // Mesma foto que aparece no balao do chat quando essa pessoa responde.
+    membros.appendChild(montarAvatar(pessoa, pessoa.foto_path, "card__membro"));
   });
 
   card.appendChild(membros);
@@ -497,7 +496,7 @@ function ligarBarra() {
 }
 
 //BUSCA: TICKET, SOLICITANTE, UNIDADE, CATEGORIA OU DESCRICAO
-function ligarBusca(chamados, filas) {
+function ligarBusca(chamados, filas, detalhe) {
   const campo = document.querySelector("[data-busca]");
   const painel = document.querySelector("[data-resultados]");
   const nomeDaFila = new Map(filas.map((fila) => [fila.id, fila.nome]));
@@ -543,7 +542,9 @@ function ligarBusca(chamados, filas) {
     const contexto = document.createElement("span");
     contexto.className = "busca__item-contexto";
     contexto.textContent = [
-      nomeDaFila.get(chamado.fila_id),
+      // Finalizado nao esta em nenhuma fila do quadro; dizer isso aqui
+      // evita a pessoa estranhar o clique nao rolar ate lugar nenhum.
+      chamado.fechamento_em ? "Finalizado" : nomeDaFila.get(chamado.fila_id),
       nomeCompleto(chamado.usuarios),
       chamado.unidades?.nome,
     ].filter(Boolean).join(" • ");
@@ -552,7 +553,12 @@ function ligarBusca(chamados, filas) {
     item.append(icone, texto);
 
     item.addEventListener("click", () => {
-      irAteOCard(chamado);
+      // Fechado nao tem card no quadro pra rolar ate — abre o detalhe direto.
+      if (chamado.fechamento_em) {
+        detalhe.abrir(chamado);
+      } else {
+        irAteOCard(chamado);
+      }
       fechar();
       campo.value = "";
     });
@@ -630,6 +636,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
   const nomeDoArquivo = document.querySelector("[data-conversa-arquivo-nome]");
   const botaoEnviar = document.querySelector("[data-conversa-enviar]");
   const aviso = document.querySelector("[data-detalhe-aviso]");
+  const botaoFecharChamado = document.querySelector("[data-detalhe-fechar-chamado]");
   const nomeDaFila = new Map(filas.map((fila) => [fila.id, fila.nome]));
 
   let aberto = null;
@@ -697,9 +704,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
       botao.className = "detalhe__membro";
       botao.title = `Remover ${nomeCompleto(pessoa)} do chamado`;
 
-      const avatar = document.createElement("span");
-      avatar.className = "detalhe__membro-avatar";
-      avatar.textContent = iniciais(pessoa.nome, pessoa.sobrenome);
+      const avatar = montarAvatar(pessoa, pessoa.foto_path, "detalhe__membro-avatar");
 
       botao.append(avatar, document.createTextNode(primeiroNome(pessoa)));
 
@@ -750,9 +755,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
         opcao.type = "button";
         opcao.className = "detalhe__membro";
 
-        const avatar = document.createElement("span");
-        avatar.className = "detalhe__membro-avatar";
-        avatar.textContent = iniciais(pessoa.nome, pessoa.sobrenome);
+        const avatar = montarAvatar(pessoa, pessoa.foto_path, "detalhe__membro-avatar");
 
         // A lista de escolha mostra o nome completo: e onde da para confundir
         // duas pessoas de primeiro nome parecido.
@@ -770,7 +773,10 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
 
           aberto.chamado_membros.push({
             usuario_id: pessoa.id,
-            usuarios: { id: pessoa.id, nome: pessoa.nome, sobrenome: pessoa.sobrenome },
+            usuarios: {
+              id: pessoa.id, nome: pessoa.nome, sobrenome: pessoa.sobrenome,
+              foto_path: pessoa.foto_path,
+            },
           });
           avisar("Salvo");
           desenharMembros();
@@ -1278,11 +1284,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
 
       if (!pessoa?.nome) return;
 
-      const avatar = document.createElement("span");
-      avatar.className = "card__membro";
-      avatar.textContent = iniciais(pessoa.nome, pessoa.sobrenome);
-      avatar.title = nomeCompleto(pessoa);
-      membros.appendChild(avatar);
+      membros.appendChild(montarAvatar(pessoa, pessoa.foto_path, "card__membro"));
     });
   }
 
@@ -1386,6 +1388,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
     aviso.textContent = "";
     // Sem isto o painel continuaria aberto por cima do chamado seguinte.
     textosRapidos.fechar();
+    atualizarBotaoFechar();
 
     desenharDados();
     desenharEtiquetas();
@@ -1395,6 +1398,49 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
 
     janela.showModal();
   }
+
+  //O TEXTO DO BOTAO MUDA CONFORME O CHAMADO JA ESTA FECHADO OU NAO —
+  //assim a mesma tela de detalhe serve tanto para o quadro quanto para
+  //quem abriu um item de dentro de Tickets finalizados.
+  function atualizarBotaoFechar() {
+    const fechado = Boolean(aberto.fechamento_em);
+    botaoFecharChamado.textContent = fechado ? "Reabrir chamado" : "Fechar chamado";
+    botaoFecharChamado.classList.toggle("detalhe__fechar-chamado--reabrir", fechado);
+  }
+
+  //FECHAR: SOME DO QUADRO E VAI PARA TICKETS FINALIZADOS. REABRIR: O
+  //INVERSO — fila_id nunca muda, entao o card volta pra onde estava.
+  async function alternarFechamento() {
+    const fechando = !aberto.fechamento_em;
+    const pergunta = fechando
+      ? "Fechar este chamado? Ele sai do quadro e vai para Tickets finalizados."
+      : "Reabrir este chamado? Ele volta a aparecer no quadro.";
+
+    if (!window.confirm(pergunta)) return;
+
+    const ok = await gravar({ fechamento_em: fechando ? new Date().toISOString() : null });
+
+    if (!ok) return;
+
+    atualizarBotaoFechar();
+
+    if (fechando) {
+      quadro.querySelector(`[data-chamado="${aberto.id}"]`)?.closest("li")?.remove();
+      const coluna = quadro.querySelector(`[data-fila="${aberto.fila_id}"]`);
+      if (coluna) sincronizarColuna(coluna);
+    } else {
+      const coluna = quadro.querySelector(`[data-fila="${aberto.fila_id}"]`);
+      if (coluna) {
+        coluna.querySelector(".fila__cards").appendChild(montarCard(aberto));
+        sincronizarColuna(coluna);
+      }
+    }
+
+    atualizarResumo(chamados, filas.length);
+    janela.close();
+  }
+
+  botaoFecharChamado.addEventListener("click", alternarFechamento);
 
   //CLICAR NO CARD ABRE; ARRASTAR NAO DEVE ABRIR
   let arrastou = false;
@@ -1421,6 +1467,275 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
   janela.addEventListener("click", (evento) => {
     if (evento.target === janela) janela.close();
   });
+
+  // Exposto para Tickets finalizados abrir o mesmo modal a partir da lista.
+  return { abrir };
+}
+
+//MENU DO QUADRO: BOTAO DE 3 PONTINHOS. EXPORTAR, FUNDO, FINALIZADOS.
+function ligarQuadroMenu() {
+  const botao = document.querySelector("[data-quadro-menu-abrir]");
+  const painel = document.querySelector("[data-quadro-menu-painel]");
+
+  function fechar() {
+    painel.hidden = true;
+    botao.setAttribute("aria-expanded", "false");
+  }
+
+  botao.addEventListener("click", () => {
+    const abrindo = painel.hidden;
+    painel.hidden = !abrindo;
+    botao.setAttribute("aria-expanded", String(abrindo));
+  });
+
+  document.addEventListener("click", (evento) => {
+    if (painel.hidden) return;
+    if (evento.target.closest(".quadro-menu")) return;
+    fechar();
+  });
+
+  document.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape" && !painel.hidden) fechar();
+  });
+
+  //EXPORTAR: SO JSON/CSV/EXCEL FICAM PARA DEPOIS, POR ENQUANTO E UM AVISO.
+  document.querySelector("[data-acao-exportar]").addEventListener("click", () => {
+    fechar();
+    window.alert("Exportar chamados: em breve.");
+  });
+
+  document.querySelector("[data-acao-fundo]").addEventListener("click", () => {
+    fechar();
+    document.querySelector("[data-fundo-modal]").showModal();
+  });
+
+  document.querySelector("[data-acao-finalizados]").addEventListener("click", () => {
+    fechar();
+    document.querySelector("[data-finalizados]").showModal();
+  });
+}
+
+//TICKETS FINALIZADOS: LISTA OS CHAMADOS COM fechamento_em PREENCHIDO.
+//Reabrir devolve o card ao quadro, na mesma fila de onde saiu — fila_id
+//nunca muda ao fechar, entao nao ha ambiguidade de para onde ele volta.
+function ligarFinalizados(chamados, filas, detalhe) {
+  const janela = document.querySelector("[data-finalizados]");
+  const lista = document.querySelector("[data-finalizados-lista]");
+  const nomeDaFila = new Map(filas.map((fila) => [fila.id, fila.nome]));
+
+  function desenhar() {
+    const fechados = chamados
+      .filter((chamado) => chamado.fechamento_em)
+      .sort((a, b) => new Date(b.fechamento_em) - new Date(a.fechamento_em));
+
+    lista.replaceChildren();
+
+    if (!fechados.length) {
+      const vazio = document.createElement("p");
+      vazio.className = "finalizados__vazio";
+      vazio.textContent = "Nenhum chamado finalizado ainda";
+      lista.appendChild(vazio);
+      return;
+    }
+
+    fechados.forEach((chamado) => lista.appendChild(montarItem(chamado)));
+  }
+
+  function montarItem(chamado) {
+    const item = document.createElement("div");
+    item.className = "finalizados__item";
+
+    const info = document.createElement("div");
+    info.className = "finalizados__item-info";
+
+    const titulo = document.createElement("span");
+    titulo.className = "finalizados__item-titulo";
+    titulo.textContent = tituloDoChamado(chamado);
+
+    const meta = document.createElement("span");
+    meta.className = "finalizados__item-meta";
+    meta.textContent =
+      `${nomeDaFila.get(chamado.fila_id) ?? "Sem fila"} • Fechado em ${formatarData(chamado.fechamento_em)}`;
+
+    info.append(titulo, meta);
+
+    const acoes = document.createElement("div");
+    acoes.className = "finalizados__item-acoes";
+
+    const ver = document.createElement("button");
+    ver.type = "button";
+    ver.className = "finalizados__acao";
+    ver.textContent = "Ver";
+    ver.addEventListener("click", () => {
+      janela.close();
+      detalhe.abrir(chamado);
+    });
+
+    const reabrir = document.createElement("button");
+    reabrir.type = "button";
+    reabrir.className = "finalizados__acao";
+    reabrir.textContent = "Reabrir";
+    reabrir.addEventListener("click", () => reabrirChamado(chamado));
+
+    acoes.append(ver, reabrir);
+    item.append(info, acoes);
+
+    return item;
+  }
+
+  async function reabrirChamado(chamado) {
+    const { error } = await supabase
+      .from("chamados")
+      .update({ fechamento_em: null })
+      .eq("id", chamado.id);
+
+    if (error) {
+      window.alert("Não foi possível reabrir o chamado. Tente de novo.");
+      return;
+    }
+
+    chamado.fechamento_em = null;
+    desenhar();
+    atualizarResumo(chamados, filas.length);
+
+    const coluna = quadro.querySelector(`[data-fila="${chamado.fila_id}"]`);
+    if (coluna) {
+      coluna.querySelector(".fila__cards").appendChild(montarCard(chamado));
+      sincronizarColuna(coluna);
+    }
+  }
+
+  document.querySelector("[data-finalizados-fechar]")
+    .addEventListener("click", () => janela.close());
+  janela.addEventListener("click", (evento) => {
+    if (evento.target === janela) janela.close();
+  });
+
+  // A lista e recalculada toda vez que o painel abre, para refletir quem
+  // acabou de ser fechado ou reaberto pelo modal do card.
+  document.querySelector("[data-acao-finalizados]")
+    .addEventListener("click", desenhar);
+}
+
+//PLANO DE FUNDO: FOTO PROPRIA DO USUARIO, SALVA NO BUCKET PRIVADO
+//"fundos-portal". Sem fundo salvo, o quadro mantem o degrade laranja.
+function ligarFundo() {
+  const janela = document.querySelector("[data-fundo-modal]");
+  const campoArquivo = document.querySelector("[data-fundo-arquivo]");
+  const botaoRestaurar = document.querySelector("[data-fundo-restaurar]");
+  const aviso = document.querySelector("[data-fundo-aviso]");
+  const TAMANHO_MAXIMO = 5 * 1024 * 1024;
+
+  let usuarioId = null;
+
+  function avisar(texto, erro = false) {
+    aviso.textContent = texto;
+    aviso.classList.toggle("fundo-modal__aviso--erro", erro);
+  }
+
+  async function aplicarFundoSalvo() {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    usuarioId = user.id;
+
+    const { data } = await supabase
+      .from("usuarios")
+      .select("fundo_path")
+      .eq("id", user.id)
+      .single();
+
+    if (!data?.fundo_path) return;
+
+    // Bucket privado: precisa de URL assinada, diferente do avatar (publico).
+    const { data: assinada } = await supabase.storage
+      .from("fundos-portal")
+      .createSignedUrl(data.fundo_path, 3600);
+
+    if (assinada?.signedUrl) {
+      const painelPortal = document.querySelector(".portal");
+      painelPortal.style.backgroundImage = `url("${assinada.signedUrl}")`;
+      // O tamanho/animacao do degrade nao serve para foto: distorceria.
+      painelPortal.classList.add("portal--fundo-proprio");
+    }
+  }
+
+  campoArquivo.addEventListener("change", async () => {
+    const arquivo = campoArquivo.files[0];
+
+    if (!arquivo || !usuarioId) return;
+
+    if (arquivo.size > TAMANHO_MAXIMO) {
+      avisar("A imagem precisa ter até 5 MB.", true);
+      campoArquivo.value = "";
+      return;
+    }
+
+    avisar("Enviando…");
+
+    const extensao = arquivo.name.split(".").pop().toLowerCase();
+    const caminho = `${usuarioId}.${extensao}`;
+
+    const { error: erroUpload } = await supabase.storage
+      .from("fundos-portal")
+      .upload(caminho, arquivo, { upsert: true });
+
+    if (erroUpload) {
+      avisar("Não foi possível enviar a imagem.", true);
+      campoArquivo.value = "";
+      return;
+    }
+
+    const { error: erroPerfil } = await supabase
+      .from("usuarios")
+      .update({ fundo_path: caminho })
+      .eq("id", usuarioId);
+
+    if (erroPerfil) {
+      avisar("A imagem subiu, mas não foi possível salvá-la.", true);
+      return;
+    }
+
+    await aplicarFundoSalvo();
+    campoArquivo.value = "";
+    avisar("Fundo atualizado");
+  });
+
+  botaoRestaurar.addEventListener("click", async () => {
+    if (!usuarioId) return;
+
+    const { error } = await supabase
+      .from("usuarios")
+      .update({ fundo_path: null })
+      .eq("id", usuarioId);
+
+    if (error) {
+      avisar("Não foi possível restaurar o fundo padrão.", true);
+      return;
+    }
+
+    const painelPortal = document.querySelector(".portal");
+    painelPortal.style.backgroundImage = "";
+    painelPortal.classList.remove("portal--fundo-proprio");
+    avisar("Fundo padrão restaurado");
+  });
+
+  document.querySelector("[data-fundo-fechar]")
+    .addEventListener("click", () => janela.close());
+  janela.addEventListener("click", (evento) => {
+    if (evento.target === janela) janela.close();
+  });
+
+  aplicarFundoSalvo();
+}
+
+//RESUMO NO CABECALHO: SO CONTA O QUE ESTA ABERTO. Chamado fechado nao
+//esta escondido por engano — foi fechado por decisao de quem atende.
+function atualizarResumo(chamados, totalFilas) {
+  const abertos = chamados.filter((chamado) => !chamado.fechamento_em).length;
+  resumo.textContent =
+    `${abertos} ${abertos === 1 ? "chamado aberto" : "chamados abertos"} em ${totalFilas} filas`;
 }
 
 async function montarQuadro() {
@@ -1442,7 +1757,7 @@ async function montarQuadro() {
         categorias(nome),
         unidades(nome),
         usuarios!chamados_solicitante_id_fkey(nome, sobrenome, email),
-        chamado_membros(usuario_id, usuarios(id, nome, sobrenome)),
+        chamado_membros(usuario_id, usuarios(id, nome, sobrenome, foto_path)),
         comentarios(id, autor_id, texto, visibilidade, tipo, criado_em, usuarios(nome, sobrenome, foto_path)),
         anexos(id, nome_arquivo, storage_path, criado_em)
       `)
@@ -1450,7 +1765,7 @@ async function montarQuadro() {
     // Quem pode ser posto num chamado: a propria equipe de TI.
     supabase
       .from("usuarios")
-      .select("id, nome, sobrenome")
+      .select("id, nome, sobrenome, foto_path")
       .neq("perfil", "solicitante")
       .eq("ativo", true)
       .order("nome"),
@@ -1462,19 +1777,27 @@ async function montarQuadro() {
     return;
   }
 
+  //FECHADO NAO APARECE NO QUADRO: vive em Tickets finalizados. O array
+  //chamados.data continua com todos — o quadro so filtra na hora de montar.
   filas.data.forEach((fila) => {
-    const daFila = chamados.data.filter((chamado) => chamado.fila_id === fila.id);
+    const daFila = chamados.data.filter(
+      (chamado) => chamado.fila_id === fila.id && !chamado.fechamento_em,
+    );
     quadro.appendChild(montarFila(fila, daFila));
   });
 
-  const abertos = chamados.data.filter((chamado) => !chamado.fechamento_em).length;
-  resumo.textContent = `${abertos} ${abertos === 1 ? "chamado aberto" : "chamados abertos"} em ${filas.data.length} filas`;
+  atualizarResumo(chamados.data, filas.data.length);
 
   ligarArrastar();
   ligarArrastoDoFundo();
   ligarBarra();
-  ligarBusca(chamados.data, filas.data);
-  ligarDetalhe(chamados.data, filas.data, equipe.data ?? [], atendente);
+  const detalhe = ligarDetalhe(chamados.data, filas.data, equipe.data ?? [], atendente);
+  // A busca abre o modal (via detalhe.abrir) quando o achado e um chamado
+  // finalizado — esse nao tem card no quadro para rolar ate.
+  ligarBusca(chamados.data, filas.data, detalhe);
+  ligarQuadroMenu();
+  ligarFinalizados(chamados.data, filas.data, detalhe);
+  ligarFundo();
 }
 
 montarQuadro();

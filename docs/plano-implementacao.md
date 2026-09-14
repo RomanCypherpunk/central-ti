@@ -686,9 +686,99 @@ peça inteira, que não existia:
 - No Portal, o avatar da conversa usa `usuarios.foto_path` e cai nas
   iniciais quando a pessoa não tem foto.
 
+### Menu do quadro: fechar chamado, tickets finalizados, fundo (2026-09-14)
+
+Botão de 3 pontinhos ao lado da busca, como no Trello. Abre um dropdown
+(`.quadro-menu__painel`) com três opções.
+
+**Fechar / reabrir chamado.** Botão no topo do modal do card, ao lado do
+X. Fechar grava `fechamento_em = now()`, some com o card do quadro na hora
+e joga o chamado para "Tickets finalizados"; reabrir limpa a coluna e o
+card volta para a mesma fila de onde saiu (`fila_id` nunca muda ao
+fechar). A query do quadro passou a filtrar `fechamento_em is null` na
+hora de montar as colunas — o array `chamados` em memória continua com
+todos, é só o desenho do quadro que filtra, para não precisar de uma
+segunda ida ao banco quando abre a lista de finalizados.
+Nenhuma policy nova foi necessária: `chamados: equipe TI atualiza` já
+cobria esse update.
+
+Descobri, ao testar, que **já existe um trigger** (`chamados_notificar_
+fechamento`, chamando `notificar_fechamento_chamado()`) que não é meu —
+ele insere um comentário automático avisando o solicitante do
+fechamento sempre que `fechamento_em` passa de nulo para preenchido.
+Não mexi nele; ele já fazia o que faria sentido pedir a seguir.
+
+**Tickets finalizados.** Lista (`<dialog data-finalizados>`) dos chamados
+com `fechamento_em` preenchido: título, fila original, data de
+fechamento, e os botões **Ver** (abre o modal normal do card) e
+**Reabrir**.
+
+**Plano de fundo.** Migration `20260914090000_fundo_portal.sql`:
+`usuarios.fundo_path` + bucket **privado** `fundos-portal` — diferente do
+`avatares`, aqui não faz sentido leitura pública, é fundo pessoal. Mesma
+regra do avatar (arquivo nomeado pelo id do usuário), mas como o bucket é
+privado a leitura usa `createSignedUrl` em vez de `getPublicUrl`. Sem
+fundo salvo, o quadro mantém o degradê laranja padrão — a troca é opt-in,
+por usuário, e o padrão nunca muda para quem não mexeu. O tamanho/
+animação do degradê (`background-size: 250% 500%` + a respiração) são
+para o gradiente, não para uma foto; uma classe `.portal--fundo-proprio`
+desliga os dois quando há imagem, senão a foto do usuário ficaria
+zunindo e distorcida.
+
+**Exportar** só mostra "em breve" por decisão de escopo — formato
+(JSON/CSV/Excel) fica para quando o menu em si estiver validado em uso.
+
+**Descoberta à parte, não relacionada a este trabalho:** ao aplicar a
+migration, `supabase db push` recusou por causa de uma migration antiga
+alheia (`20260911_artigos_solucoes.sql`, da Base de Soluções) que nunca
+aplicou de verdade no banco — o schema real de `artigos` já diverge do
+que o arquivo descreve. Não mexi nela porque é a parte que o João
+Gabriel está cuidando; apliquei só a minha migration direto, fora do
+fluxo de `db push`.
+
+### Correções do menu do quadro (2026-09-14)
+
+- **Busca e menu de 3 pontinhos encostados, no canto direito.** O layout
+  tinha 3 filhos com `justify-content: space-between`
+  (identificação / busca / menu), o que empurrava o menu para a ponta e
+  deixava a busca solta no meio. Busca e menu agora vivem dentro de um
+  wrapper só (`.portal__ferramentas`, `display: flex; gap: 0.5rem`), e é
+  esse par que fica encostado na borda direita do cabeçalho.
+- **Respiração do fundo, de 7s para 20s** — `destaque-fundo-respira`,
+  tanto em `portal.css` quanto em `index.css` (é a mesma animação,
+  compartilhada com a faixa da home).
+- **Busca acha chamado finalizado.** Já achava (a busca roda sobre o
+  array `chamados` inteiro, sem filtrar fechado) — o que faltava era o
+  clique funcionar: `irAteOCard` rola até um card no quadro, e um
+  chamado fechado não tem card lá. Agora o resultado mostra "Finalizado"
+  no lugar do nome da fila, e o clique abre o modal direto
+  (`detalhe.abrir`) em vez de tentar rolar até um elemento que não
+  existe.
+- **Foto de perfil no avatar do membro do card** — o card usava um
+  `<span>` com só as iniciais, nunca chamava `montarAvatar` (a função que
+  já existia e busca a foto no bucket `avatares`). Editado nos 3 lugares
+  que desenham membro: o card (`montarCard`), o card depois de editar
+  (`atualizarCard`) e o chip "Membros" dentro do modal. `montarAvatar`
+  ganhou um terceiro parâmetro (`classe`) para servir tanto o círculo do
+  card quanto o balão do chat, que têm tamanhos diferentes. A query
+  precisou trazer `foto_path` em três pontos: `chamado_membros(...
+  usuarios(...))`, a lista de "quem pode ser adicionado" e o objeto que
+  entra em `chamado_membros` na hora de adicionar (otimista, antes de
+  recarregar).
+- **Plano de fundo já carregava por conta, não por navegador** — o
+  código sempre leu `usuarios.fundo_path` do banco (nunca gravou nada em
+  `localStorage`), então a foto já deveria aparecer em qualquer login
+  com a mesma conta, igual a foto de perfil. O texto do modal dizia
+  "Vale só para você, neste navegador", o que sugeria o contrário do que
+  o código fazia — trocado para "Fica salvo na sua conta e aparece em
+  qualquer computador que você usar para entrar". Vale conferir: há dois
+  logins de Enzo no banco (`enzo.xs@hotmail.com` e
+  `enzo.xavier@madeirasgasometro.com.br`) — são duas contas diferentes,
+  cada uma com seu próprio fundo.
+
 ### Próximos cortes (não feitos ainda)
 
-- Fechar chamado, controle de SLA e alerta de vencimento.
+- Controle de SLA e alerta de vencimento.
 - Aprovar cadastro pela própria tela, em vez de tratar o chamado de
   "Aprovação de Acesso" à mão.
 - Tempo real (Supabase Realtime): hoje o quadro só atualiza ao recarregar
