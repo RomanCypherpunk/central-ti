@@ -2002,6 +2002,18 @@ function ligarFundo() {
   const aviso = document.querySelector("[data-fundo-aviso]");
   const TAMANHO_MAXIMO = 5 * 1024 * 1024;
 
+  //CACHE DO FUNDO: a URL assinada fica no localStorage por um dia.
+  //
+  //Sem isso o fundo so comeca a baixar ~1,6s depois da pagina abrir, porque
+  //espera tres idas ao servidor em fila (getUser -> ler fundo_path ->
+  //assinar a URL) — e e esse tempo, nao o download, que deixa o quadro
+  //branco. Com o cache a foto e aplicada no primeiro quadro, sem rede.
+  const CACHE_CHAVE = "portal:fundo";
+  const CACHE_VALIDADE = 24 * 60 * 60 * 1000;
+  //A URL precisa durar mais que o cache; se expirasse antes, o cache
+  //devolveria um link morto e o fundo sumiria ate a revalidacao.
+  const URL_VALIDADE = 7 * 24 * 60 * 60;
+
   let usuarioId = null;
 
   function avisar(texto, erro = false) {
@@ -2009,10 +2021,60 @@ function ligarFundo() {
     aviso.classList.toggle("fundo-modal__aviso--erro", erro);
   }
 
-  async function aplicarFundoSalvo() {
+  function lerCache() {
+    try {
+      const bruto = localStorage.getItem(CACHE_CHAVE);
+
+      if (!bruto) return null;
+
+      const guardado = JSON.parse(bruto);
+
+      if (Date.now() - guardado.em > CACHE_VALIDADE) return null;
+
+      return guardado;
+    } catch {
+      // localStorage bloqueado (aba anonima) ou JSON corrompido: sem cache,
+      // a pagina segue pelo caminho normal.
+      return null;
+    }
+  }
+
+  function gravarCache(url, caminho) {
+    try {
+      localStorage.setItem(CACHE_CHAVE,
+        JSON.stringify({ url, caminho, em: Date.now() }));
+    } catch {
+      // Cota estourada ou escrita bloqueada: o cache e um atalho, nao um
+      // requisito — falhar aqui nao pode derrubar o fundo.
+    }
+  }
+
+  function limparCache() {
+    try {
+      localStorage.removeItem(CACHE_CHAVE);
+    } catch {
+      // Ver gravarCache.
+    }
+  }
+
+  function pintar(url) {
+    const painelPortal = document.querySelector(".portal");
+    painelPortal.style.backgroundImage = `url("${url}")`;
+    // O tamanho/animacao do degrade nao serve para foto: distorceria.
+    painelPortal.classList.add("portal--fundo-proprio");
+  }
+
+  function despintar() {
+    const painelPortal = document.querySelector(".portal");
+    painelPortal.style.backgroundImage = "";
+    painelPortal.classList.remove("portal--fundo-proprio");
+  }
+
+  //Le o banco e reassina a URL. Devolve o caminho salvo (ou null).
+  async function buscarFundo() {
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) return;
+    if (!user) return null;
 
     usuarioId = user.id;
 
@@ -2022,19 +2084,37 @@ function ligarFundo() {
       .eq("id", user.id)
       .single();
 
-    if (!data?.fundo_path) return;
+    if (!data?.fundo_path) return null;
 
     // Bucket privado: precisa de URL assinada, diferente do avatar (publico).
     const { data: assinada } = await supabase.storage
       .from("fundos-portal")
-      .createSignedUrl(data.fundo_path, 3600);
+      .createSignedUrl(data.fundo_path, URL_VALIDADE);
 
-    if (assinada?.signedUrl) {
-      const painelPortal = document.querySelector(".portal");
-      painelPortal.style.backgroundImage = `url("${assinada.signedUrl}")`;
-      // O tamanho/animacao do degrade nao serve para foto: distorceria.
-      painelPortal.classList.add("portal--fundo-proprio");
+    if (!assinada?.signedUrl) return null;
+
+    return { url: assinada.signedUrl, caminho: data.fundo_path };
+  }
+
+  async function aplicarFundoSalvo() {
+    const cache = lerCache();
+
+    // Com cache, a foto entra ja no primeiro quadro; a conferencia com o
+    // banco vem depois, sem segurar a tela.
+    if (cache) pintar(cache.url);
+
+    const atual = await buscarFundo();
+
+    if (!atual) {
+      // O fundo foi removido em outro navegador: o cache esta velho.
+      if (cache) { limparCache(); despintar(); }
+      return;
     }
+
+    gravarCache(atual.url, atual.caminho);
+
+    // So repinta se mudou — repintar com a mesma URL faria a foto piscar.
+    if (!cache || cache.caminho !== atual.caminho) pintar(atual.url);
   }
 
   campoArquivo.addEventListener("change", async () => {
@@ -2073,6 +2153,11 @@ function ligarFundo() {
       return;
     }
 
+    // Trocar a foto mantendo a extensao devolve o mesmo caminho
+    // ("<id>.jpg"), entao a comparacao de caminho nao veria a troca:
+    // limpar o cache aqui e o que garante a repintura.
+    limparCache();
+
     await aplicarFundoSalvo();
     campoArquivo.value = "";
     avisar("Fundo atualizado");
@@ -2091,9 +2176,8 @@ function ligarFundo() {
       return;
     }
 
-    const painelPortal = document.querySelector(".portal");
-    painelPortal.style.backgroundImage = "";
-    painelPortal.classList.remove("portal--fundo-proprio");
+    limparCache();
+    despintar();
     avisar("Fundo padrão restaurado");
   });
 

@@ -68,7 +68,52 @@ function tituloDoChamado(chamado) {
   const bruto = chamado.titulo
     ?? `${chamado.categorias?.nome ?? "Sem categoria"} | Ticket-${chamado.numero}`;
 
-  return bruto.replace(/\s*\|\s*Ticket-\d+\s*$/i, "").trim() || bruto;
+  // O sufixo sai mesmo que alguem tenha editado o titulo e deixado algo
+  // depois do numero ("... | Ticket-103 d") — o corte e do "|" em diante.
+  return bruto.replace(/\s*\|\s*Ticket-\d+\b.*$/i, "").trim() || bruto;
+}
+
+function iniciais(nome, sobrenome) {
+  const primeira = (nome ?? "").trim().split(/\s+/)[0] ?? "";
+  const ultima = (sobrenome ?? "").trim().split(/\s+/).pop() ?? "";
+
+  return (primeira[0] ?? "").concat(ultima[0] ?? "").toUpperCase();
+}
+
+function nomeCompleto(pessoa) {
+  if (!pessoa) return null;
+
+  return [pessoa.nome, pessoa.sobrenome].filter(Boolean).join(" ");
+}
+
+//AVATAR DA CONVERSA: MESMA FOTO DO PORTAL E DE "Dados pessoais" — a que a
+//pessoa enviou para o bucket 'avatares'. Sem foto, ficam as iniciais.
+function montarAvatar(pessoa) {
+  const letras = iniciais(pessoa?.nome, pessoa?.sobrenome);
+
+  const avatar = document.createElement("span");
+  avatar.className = "mensagem__avatar";
+  avatar.textContent = letras;
+  // No balão vai só o primeiro nome; o completo fica no title, ao passar o mouse.
+  avatar.title = nomeCompleto(pessoa) ?? "Alguém";
+
+  if (!pessoa?.foto_path) return avatar;
+
+  const { data } = supabase.storage.from("avatares").getPublicUrl(pessoa.foto_path);
+
+  const foto = document.createElement("img");
+  foto.src = data.publicUrl;
+  foto.alt = "";
+  foto.loading = "lazy";
+  //Se o arquivo sumiu, a imagem sai e as iniciais voltam. Repor o texto e
+  //necessario: o 'load' limpa o textContent para a foto nao ficar por cima
+  //das letras, entao sem isso o circulo ficaria vazio numa falha tardia.
+  foto.addEventListener("error", () => { foto.remove(); avatar.textContent = letras; });
+  foto.addEventListener("load", () => { avatar.textContent = ""; avatar.appendChild(foto); });
+
+  avatar.appendChild(foto);
+
+  return avatar;
 }
 
 function formatarData(iso) {
@@ -228,7 +273,18 @@ function montarMensagem(comentario) {
   quando.dateTime = comentario.criado_em;
   quando.textContent = formatarDataHora(comentario.criado_em);
 
-  bloco.append(balao, quando);
+  // A mensagem automática não é de ninguém: não leva foto.
+  if (sistema) {
+    bloco.append(balao, quando);
+    return bloco;
+  }
+
+  // A minha foto fica à direita do balão, a da equipe à esquerda — a ordem
+  // no DOM segue a leitura, o CSS só espelha o lado.
+  const avatar = montarAvatar(comentario.usuarios);
+
+  if (minha) bloco.append(balao, avatar, quando);
+  else bloco.append(avatar, balao, quando);
 
   return bloco;
 }
@@ -308,7 +364,8 @@ formResponder.addEventListener("submit", async (evento) => {
       visibilidade: "publico",
       tipo: "humano",
     })
-    .select("id, autor_id, texto, visibilidade, tipo, criado_em, usuarios(nome)")
+    .select(`id, autor_id, texto, visibilidade, tipo, criado_em,
+             usuarios(nome, sobrenome, foto_path)`)
     .single();
 
   botao.disabled = false;
@@ -369,7 +426,8 @@ async function carregar() {
     .select(`
       id, numero, titulo, descricao, abertura_em, fechamento_em, solicitante_id,
       categorias(nome),
-      comentarios(id, autor_id, texto, visibilidade, tipo, criado_em, usuarios(nome))
+      comentarios(id, autor_id, texto, visibilidade, tipo, criado_em,
+                  usuarios(nome, sobrenome, foto_path))
     `)
     .eq("solicitante_id", user.id)
     .order("abertura_em", { ascending: false });

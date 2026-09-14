@@ -372,15 +372,52 @@
   overflow-y: auto;
 }
 
+/*A mensagem e uma grade de duas colunas: foto e balao. A hora ocupa a
+  linha de baixo, alinhada com o balao — nao com a foto.*/
 .mensagem {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.5rem;
   max-width: 82%;
 }
 
 .mensagem--minha {
   align-self: flex-end;
-  align-items: flex-end;
+  /*Espelha: o balao vem antes da foto, entao a coluna elastica e a primeira.*/
+  grid-template-columns: minmax(0, 1fr) auto;
+  justify-items: end;
+}
+
+/*A automatica nao tem foto: uma coluna so. O recuo da esquerda ocupa o
+  lugar que seria da foto, para ela alinhar com os baloes da equipe.*/
+.mensagem--sistema {
+  grid-template-columns: minmax(0, 1fr);
+  margin-left: calc(28px + 0.5rem);
+}
+
+.mensagem__avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  /*Alinha pelo topo do balao, na altura do nome de quem falou — no rodape
+    a foto descola do autor quando a mensagem tem varias linhas.*/
+  align-self: start;
+  background-color: #d4d4d8;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #3f3f46;
+  /*A foto pode demorar; o circulo ja nasce redondo com as iniciais dentro.*/
+  user-select: none;
+}
+
+.mensagem__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .mensagem__balao {
@@ -423,10 +460,18 @@
   overflow-wrap: anywhere;
 }
 
+/*A hora vai para a linha de baixo, na coluna do balao — assim ela fica
+  alinhada com o texto e nao embaixo da foto.*/
 .mensagem__quando {
+  grid-column: 2;
   margin-top: 0.1875rem;
   font-size: 0.625rem;
   color: #a1a1aa;
+}
+
+.mensagem--minha .mensagem__quando,
+.mensagem--sistema .mensagem__quando {
+  grid-column: 1;
 }
 
 .conversa__vazia {

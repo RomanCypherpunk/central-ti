@@ -625,7 +625,108 @@ Zero erro no console.
 
 ## Fase 3 — Triagem e abertura de chamado
 
-**Status: não iniciada.**
+**Status: em andamento** (começada em 2026-09-14). A abertura de
+chamado em si ainda não foi feita; o que existe é a tela onde o
+solicitante acompanha e responde o que já abriu.
+
+### Tela "Solicitações" do solicitante (2026-09-14)
+
+`public/solicitacoes.html` + `public/css/solicitacoes.css` +
+`public/js/pages/solicitacoes.js`. O topo (barra, menu de perfil,
+avatar, sair) vem de `index.css` + `main.js`, como no Portal — sem
+duplicar.
+
+É a contraparte do Portal: o Portal é a mesa do analista (filas,
+arrastar e soltar, textos rápidos), esta é a caixa de entrada de quem
+pediu. Mesma informação, vocabulário do solicitante.
+
+**Layout.** A referência que o usuário mandou era tabela densa + filtros
+numa coluna lateral. Não segui: o solicitante tem poucos chamados (não
+dezenas), e o que ele quer saber ao abrir a tela é uma coisa só — *tem
+algo esperando por mim?*. Então virou pilha de cartões com uma **barra
+colorida de 5px** na borda esquerda como único elemento forte da tela;
+todo o resto (tipografia, fundo, chips) fica quieto. Os filtros viraram
+chips horizontais acima da lista, que ocupam menos espaço que uma
+coluna lateral e cabem no mobile sem virar gaveta.
+
+**Status.** Derivado, não tem coluna no banco — a mesma regra do Portal
+e da home (`derivarStatus`): fechado se tem `fechamento_em`; senão olha
+o último comentário **público e humano** (mensagem `tipo = 'sistema'`
+de abertura não conta, senão todo chamado nasceria "em andamento"). Se
+não tem nenhum, "Aberto"; se o último é do próprio usuário, "Em
+andamento"; se é de outra pessoa, "Aguardando você".
+
+| Status | Quando | Cor |
+|---|---|---|
+| Aberto | nenhuma resposta ainda | azul `#2c5c96` |
+| Em andamento | o solicitante falou por último | amarelo `#a37a0a` |
+| Aguardando você | a equipe falou por último | vermelho `#d64545` |
+| Fechado | tem `fechamento_em` | cinza `#8a8a8a` |
+
+Só "Aguardando você" ganha o selo **Responda** ao lado do status — é o
+único estado que pede ação de quem está lendo.
+
+**Título.** No banco o título nasce `"Categoria | Ticket-N"` (convenção
+do Portal, onde o analista quer o número no título). Aqui o número já
+aparece sozinho na linha de apoio, então o sufixo é cortado — repetido,
+vira ruído. O corte é do `|` em diante (`/\s*\|\s*Ticket-\d+\b.*$/i`),
+não só do fim: um título tinha sido editado para `"... | Ticket-103 d"`
+e uma regex ancorada no fim deixava passar.
+
+**Conversa.** O detalhe é um `<dialog>` nativo (backdrop, Esc e prisão
+de foco de graça) com a conversa e a caixa de resposta. A resposta
+entra em `comentarios` com `visibilidade: 'publico'`, `tipo: 'humano'`
+— aproveitando a policy de INSERT que já existia, sem precisar de RLS
+nova. Depois de gravar, o cartão se move de estado na hora (de
+"Aguardando você" para "Em andamento") e o resumo do topo acompanha,
+sem recarregar. Chamado fechado não mostra a caixa de resposta: mostra
+uma linha explicando que para reabrir é pelo botão do ticket.
+
+**Consulta.** Um `select` só, com os comentários aninhados
+(PostgREST), filtrando `solicitante_id = auth.uid()` — a RLS já
+limitaria, o filtro explícito só deixa a intenção visível na query. O
+resumo do topo ("N em aberto · N esperando você") conta sobre todos os
+chamados, não só os visíveis pelo filtro ativo.
+
+**Estado vazio.** Mantém todo o cromo da página (cabeçalho, busca,
+chips) e troca só as linhas por uma frase — decisão do usuário, para a
+tela não parecer quebrada quando não há nada.
+
+Testado no navegador: os 4 estados derivam certo; o selo "Responda" só
+aparece em "Aguardando você"; a resposta passou pela RLS e o cartão
+mudou de estado ao vivo com o resumo junto; chamado fechado esconde a
+caixa e mostra a explicação; filtros, busca e o estado "nenhum
+resultado" funcionam; no mobile (390px) não há rolagem horizontal.
+Zero erro no console.
+
+### Fotos na conversa (2026-09-14)
+
+A conversa mostrava só o nome de quem falou. Agora mostra a **mesma
+foto** do Portal e de "Dados pessoais" — a que a pessoa enviou para o
+bucket `avatares`. `montarAvatar` é a mesma lógica do Portal: foto se
+houver `foto_path`, iniciais se não houver, nome completo no `title`.
+
+A consulta passou a trazer `usuarios(nome, sobrenome, foto_path)` no
+lugar de só `nome` — nos dois lugares, na carga da página e no `select`
+que volta depois de gravar a resposta (por isso a mensagem recém-enviada
+já aparece com a foto, sem recarregar).
+
+A mensagem automática **não** leva foto: não é de uma pessoa. Ela ganha
+um recuo do tamanho do avatar, para alinhar com os balões da equipe.
+
+**Bug corrigido de passagem** (existe igual no Portal, em
+`portal.js:236`): no `load` da foto o código limpa o `textContent` para
+a imagem não ficar por cima das letras. Se a imagem falhasse *depois*
+disso — arquivo apagado do bucket, link expirado —, o `error` removia a
+`img` e o círculo ficava **vazio**, sem iniciais. Aqui as iniciais ficam
+guardadas numa variável e voltam no `error`. Confirmado no navegador
+disparando o evento na mão: o círculo volta a mostrar "JA".
+
+### Ainda não feito nesta fase
+
+- Abertura de chamado pelo solicitante (formulário + categoria + anexo).
+- Triagem: distribuir o chamado que chega para fila/responsável.
+- Anexos na resposta do solicitante (hoje só texto).
 
 ## Fase 4 — Portal do TI
 
@@ -995,6 +1096,51 @@ fluxo de `db push`.
   logins de Enzo no banco (`enzo.xs@hotmail.com` e
   `enzo.xavier@madeirasgasometro.com.br`) — são duas contas diferentes,
   cada uma com seu próprio fundo.
+
+### Cache do plano de fundo (2026-09-14)
+
+O quadro ficava branco por um instante antes da foto aparecer. Medi
+antes de mexer: a foto só começava a baixar **1,6s** depois da página
+abrir, e ficava pronta aos **5,4s**. O gargalo não era o download — era
+a fila de três idas ao servidor antes de existir uma URL para baixar:
+
+```
+getUser() -> select fundo_path -> createSignedUrl() -> aí sim baixa
+  50ms          87ms                 162ms                 637ms
+```
+
+A URL assinada agora fica no **localStorage por 1 dia**
+(`portal:fundo`). Com cache, a foto é pintada no primeiro quadro, sem
+esperar rede; a conferência com o banco acontece depois, em segundo
+plano, e só repinta se a foto mudou (repintar igual faria piscar).
+
+**Resultado medido** (mesma máquina, mesma rede): fundo visível em
+**484ms** com cache contra **5433ms** sem — 11x mais rápido.
+
+A validade da URL assinada subiu de 1h para 7 dias. Ela precisa durar
+mais que o cache: se expirasse antes, o cache devolveria um link morto
+e o fundo sumiria até a revalidação.
+
+**Invalidação** — o cache é limpo em três situações:
+
+1. **Trocar a foto**: `limparCache()` explícito no upload. Necessário
+   porque trocar mantendo a extensão devolve o mesmo caminho
+   (`<id>.jpg`), então comparar caminho não veria a troca.
+2. **Restaurar o fundo padrão**: limpa e despinta.
+3. **Fundo removido em outro navegador**: a revalidação não acha
+   `fundo_path`, então descarta o cache e despinta sozinha.
+
+`localStorage` bloqueado (aba anônima), cota estourada ou JSON
+corrompido caem em `try/catch` e seguem pelo caminho normal — o cache
+é um atalho, não um requisito.
+
+Testado no navegador: 1ª visita grava; 2ª visita pinta imediato; cache
+de 25h é descartado e revalidado; cache corrompido não quebra a página;
+fundo removido por fora limpa o cache e despinta.
+
+**Não feito:** a imagem tem 1,2 MB e continua assim. Comprimir no
+upload (~300 KB) ajudaria a 1ª visita e quem tem internet fraca — fica
+para quando incomodar.
 
 ### Próximos cortes (não feitos ainda)
 
