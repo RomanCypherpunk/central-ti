@@ -66,6 +66,12 @@ body {
   gap: 1rem;
 }
 
+/*A LOGO LEVA PARA O INICIO. COMO FLEX, O <a> NAO SOBRA ESPACO EMBAIXO DA IMAGEM*/
+.topo__logo-link {
+  display: flex;
+  align-items: center;
+}
+
 .topo__logo {
   width: 8.25rem;
   height: auto;

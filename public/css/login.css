@@ -59,6 +59,12 @@ body {
 }
 
 /*LOGO*/
+/*A LOGO LEVA PARA O INICIO. align-self: SO A LOGO E CLICAVEL, NAO A LARGURA TODA*/
+.login__logo-link {
+  display: flex;
+  align-self: flex-start;
+}
+
 .login__logo {
   width: 11rem;
   height: auto;

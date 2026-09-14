@@ -60,6 +60,12 @@ body {
 }
 
 /*LOGO*/
+/*A LOGO LEVA PARA O INICIO. align-self: SO A LOGO E CLICAVEL, NAO A LARGURA TODA*/
+.recuperar__logo-link {
+  display: flex;
+  align-self: flex-start;
+}
+
 .recuperar__logo {
   width: 11rem;
   height: auto;
