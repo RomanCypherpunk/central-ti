@@ -600,15 +600,71 @@
 
 .detalhe__fechado {
   flex-shrink: 0;
-  margin: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   padding: 0.875rem 1.25rem 1.125rem;
   border-top: 1px solid #ececec;
-  font-size: 0.75rem;
-  color: #8a8a8a;
 }
 
 .detalhe__fechado[hidden] {
   display: none;
+}
+
+.detalhe__fechado-texto {
+  flex: 1;
+  min-width: 12rem;
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #8a8a8a;
+}
+
+.detalhe__reabrir {
+  flex-shrink: 0;
+  padding: 0.5rem 1.125rem;
+  border: 1px solid #dd5b12;
+  border-radius: 8px;
+  background-color: #fff;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #dd5b12;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.detalhe__reabrir:hover:not(:disabled) {
+  background-color: #fdf1ea;
+}
+
+.detalhe__reabrir:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.detalhe__reabrir:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.detalhe__reabrir-aviso {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.75rem;
+  color: #b02a2a;
+}
+
+.detalhe__reabrir-aviso:empty {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detalhe__reabrir,
+  .detalhe__reabrir:active:not(:disabled) {
+    transition: none;
+    transform: none;
+  }
 }
 
 /* --------------------------------------------------------------------------

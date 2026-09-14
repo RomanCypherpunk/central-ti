@@ -25,6 +25,8 @@ const formResponder = document.querySelector("[data-responder]");
 const campoResposta = document.querySelector("[data-responder-campo]");
 const avisoResposta = document.querySelector("[data-responder-aviso]");
 const avisoFechado = document.querySelector("[data-detalhe-fechado]");
+const botaoReabrir = document.querySelector("[data-detalhe-reabrir]");
+const avisoReabrir = document.querySelector("[data-detalhe-reabrir-aviso]");
 
 const STATUS = {
   aberto: { chave: "aberto", rotulo: "Aberto" },
@@ -37,6 +39,15 @@ let chamados = [];
 let usuarioId = null;
 let filtroAtivo = "";
 let aberto = null;
+
+//MESMA CONSULTA NA CARGA E NO TEMPO REAL: um caminho só para montar o
+//chamado, igual o Portal faz com CAMPOS_CHAMADO.
+const CAMPOS_CHAMADO = `
+  id, numero, titulo, descricao, abertura_em, fechamento_em, solicitante_id,
+  categorias(nome),
+  comentarios(id, autor_id, texto, visibilidade, tipo, criado_em,
+              usuarios(nome, sobrenome, foto_path))
+`;
 
 function mostrarErro(texto) {
   erroEl.textContent = texto;
@@ -387,6 +398,39 @@ formResponder.addEventListener("submit", async (evento) => {
 });
 
 /* ==========================================================================
+   REABRIR
+   ========================================================================== */
+
+//REABRIR: chama a mesma RPC reabrir_chamado(p_chamado_id) que a equipe usa
+//em Tickets finalizados — ela confere permissão (dono do chamado ou equipe
+//TI), devolve para o Inbox, zera o fechamento e grava a mensagem
+//automática. O tempo real (ligarTempoReal) já reflete essas mudanças no
+//banco sozinho, mas atualiza local aqui também: sem isso a pessoa teria que
+//esperar o evento chegar para ver o próprio clique surtir efeito.
+botaoReabrir.addEventListener("click", async () => {
+  if (!aberto) return;
+
+  botaoReabrir.disabled = true;
+  avisoReabrir.textContent = "";
+
+  const { error } = await supabase.rpc("reabrir_chamado", { p_chamado_id: aberto.id });
+
+  botaoReabrir.disabled = false;
+
+  if (error) {
+    avisoReabrir.textContent = "Não foi possível reabrir. Tente de novo.";
+    return;
+  }
+
+  aberto.fechamento_em = null;
+  formResponder.hidden = false;
+  avisoFechado.hidden = true;
+
+  desenharLista();
+  atualizarResumo();
+});
+
+/* ==========================================================================
    LIGAÇÕES
    ========================================================================== */
 
@@ -423,12 +467,7 @@ async function carregar() {
   // intenção visível na query e evita depender só dela.
   const { data, error } = await supabase
     .from("chamados")
-    .select(`
-      id, numero, titulo, descricao, abertura_em, fechamento_em, solicitante_id,
-      categorias(nome),
-      comentarios(id, autor_id, texto, visibilidade, tipo, criado_em,
-                  usuarios(nome, sobrenome, foto_path))
-    `)
+    .select(CAMPOS_CHAMADO)
     .eq("solicitante_id", user.id)
     .order("abertura_em", { ascending: false });
 
@@ -442,6 +481,153 @@ async function carregar() {
 
   atualizarResumo();
   desenharLista();
+
+  ligarTempoReal();
+}
+
+//TEMPO REAL: a lista e a conversa acompanham o banco sem recarregar —
+//mesmo princípio do Portal (ver ligarTempoReal em portal.js), reduzido ao
+//que esta tela precisa: sem quadro, fila ou drag-and-drop, um chamado
+//mudando é só "busque de novo esse chamado e redesenhe".
+function ligarTempoReal() {
+  const pendentes = new Map(); // chamado_id -> timeout da busca agendada
+  let esperaRessincronizar = null;
+  let jaConectou = false;
+
+  function guardarChamado(dados) {
+    const indice = chamados.findIndex((chamado) => chamado.id === dados.id);
+
+    if (indice === -1) chamados.unshift(dados);
+    else chamados[indice] = dados;
+
+    // O detalhe aberto segura a mesma referência que `chamados` usa nos
+    // outros lugares — trocando aqui, abrirDetalhe/desenharConversa
+    // continuam lendo `aberto` sem precisar saber que ele mudou.
+    if (aberto?.id === dados.id) {
+      aberto = dados;
+      detalheMeta.textContent =
+        `${derivarStatus(dados).rotulo} · Aberto em ${formatarData(dados.abertura_em)}`;
+
+      const fechado = Boolean(dados.fechamento_em);
+      formResponder.hidden = fechado;
+      avisoFechado.hidden = !fechado;
+
+      desenharConversa();
+    }
+
+    desenharLista();
+    atualizarResumo();
+  }
+
+  async function recarregarChamado(id) {
+    pendentes.delete(id);
+
+    const { data, error } = await supabase
+      .from("chamados")
+      .select(CAMPOS_CHAMADO)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Tempo real: não foi possível atualizar o chamado", id, error);
+      return;
+    }
+
+    // Sem linha: o RLS deixou de mostrar (não deveria acontecer aqui, um
+    // solicitante não perde acesso ao próprio chamado, mas a checagem
+    // evita guardar `undefined` se algo mudar no banco).
+    if (data) guardarChamado(data);
+  }
+
+  // Varios eventos do mesmo chamado em sequencia (responder gera o
+  // comentario; a equipe fechando gera chamado + mensagem automatica)
+  // viram uma busca so.
+  function agendar(id, espera = 150) {
+    clearTimeout(pendentes.get(id));
+    pendentes.set(id, setTimeout(() => recarregarChamado(id), espera));
+  }
+
+  function ressincronizar() {
+    clearTimeout(esperaRessincronizar);
+
+    esperaRessincronizar = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from("chamados")
+        .select(CAMPOS_CHAMADO)
+        .eq("solicitante_id", usuarioId)
+        .order("abertura_em", { ascending: false });
+
+      if (error) {
+        console.warn("Tempo real: não foi possível ressincronizar", error);
+        return;
+      }
+
+      chamados = data ?? [];
+
+      if (aberto) {
+        const atualizado = chamados.find((chamado) => chamado.id === aberto.id);
+        if (atualizado) guardarChamado(atualizado);
+      }
+
+      desenharLista();
+      atualizarResumo();
+    }, 300);
+  }
+
+  //DE QUAL CHAMADO E O EVENTO. Em DELETE viria a linha antiga; aqui só
+  //escuta INSERT/UPDATE, que é o que muda para o solicitante.
+  function chamadoDoEvento(tabela, payload) {
+    const linha = payload.new;
+
+    if (!linha) return null;
+    if (tabela === "chamados") return linha.id ?? null;
+    if (linha.chamado_id) return linha.chamado_id;
+
+    return null;
+  }
+
+  // Filtra no próprio canal: só os eventos de chamados deste solicitante
+  // chegam (e comentários, sem coluna solicitante_id, filtram no handler).
+  const canal = supabase.channel(`solicitacoes-${usuarioId}`);
+
+  canal.on(
+    "postgres_changes",
+    { event: "*", schema: "public", table: "chamados", filter: `solicitante_id=eq.${usuarioId}` },
+    (payload) => {
+      const id = chamadoDoEvento("chamados", payload);
+      if (id) agendar(id);
+    },
+  );
+
+  canal.on(
+    "postgres_changes",
+    { event: "INSERT", schema: "public", table: "comentarios" },
+    (payload) => {
+      const id = chamadoDoEvento("comentarios", payload);
+      // Comentário de um chamado que não é meu: ignora sem buscar nada.
+      if (id && chamados.some((chamado) => chamado.id === id)) agendar(id);
+    },
+  );
+
+  canal.subscribe((status, erroCanal) => {
+    if (status === "SUBSCRIBED") {
+      // Na primeira vez a carga acabou de acontecer. Numa reconexão
+      // (rede caiu, aba dormiu), o que mudou nesse meio tempo não chegou.
+      if (jaConectou) ressincronizar();
+      jaConectou = true;
+      return;
+    }
+
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+      console.warn("Tempo real desconectado; o Supabase tenta reconectar sozinho.", status, erroCanal);
+    }
+  });
+
+  // Aba que volta a ficar visível: o navegador pode ter pausado a conexão
+  // enquanto ela estava escondida.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && jaConectou) ressincronizar();
+  });
 }
 
 carregar();

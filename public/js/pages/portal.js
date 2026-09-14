@@ -2334,15 +2334,16 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
 
     campoAprovacaoSetor.value = solicitante?.setor_id ?? "";
 
+    //O AVISO E SO INFORMATIVO: aprovar/rejeitar fica sempre clicavel, mesmo
+    //com uma decisao anterior — quem revisa pode mudar de ideia (aprovou
+    //errado, ou quer rejeitar de novo depois de reabrir), sem travar o
+    //botao a espera de outra acao primeiro.
     const jaDecidido = solicitante?.status_aprovacao && solicitante.status_aprovacao !== "pendente";
 
     avisoAprovacao.textContent = jaDecidido
-      ? `Cadastro já ${solicitante.status_aprovacao === "aprovado" ? "aprovado" : "rejeitado"}.`
+      ? `Cadastro já ${solicitante.status_aprovacao === "aprovado" ? "aprovado" : "rejeitado"} — pode alterar se precisar.`
       : "";
     avisoAprovacao.classList.toggle("aprovacao__aviso--feito", Boolean(jaDecidido));
-
-    botaoAprovar.disabled = Boolean(jaDecidido);
-    botaoRejeitar.disabled = Boolean(jaDecidido);
   }
 
   //APROVAR/REJEITAR: grava em usuarios (nao em chamados) — o trigger do
@@ -2396,13 +2397,15 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
     campoFila.textContent = nomeDaFila.get(chamado.fila_id) ?? "Sem fila";
 
     //APROVACAO DE ACESSO NAO USA O CARD PADRAO: ficha diferente, sem
-    //titulo/prioridade/membros/descricao/chat visiveis. O botao de fechar
-    //manual tambem some — quem fecha esse chamado e Aprovar (o trigger do
-    //banco cuida disso), nao um fechamento avulso.
+    //titulo/prioridade/membros/descricao/chat visiveis. O botao Fechar/
+    //Reabrir do topo continua igual a qualquer chamado — Aprovar/Rejeitar
+    //fecham automaticamente (o trigger do banco cuida disso), mas o
+    //solicitante pode reabrir pelo dele, e a equipe pode fechar/reabrir
+    //manualmente por aqui tambem, sem depender so da decisao de aprovacao.
     const aprovacao = ehAprovacaoDeAcesso(chamado);
     painelAprovacao.hidden = !aprovacao;
     conteudoPadrao.hidden = aprovacao;
-    botaoFecharChamado.hidden = aprovacao;
+    atualizarBotaoFechar();
 
     if (aprovacao) {
       desenharAprovacao();

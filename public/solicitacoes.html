@@ -164,9 +164,16 @@
         </div>
       </form>
 
-      <p class="detalhe__fechado" data-detalhe-fechado hidden>
-        Este chamado foi finalizado. Para retomar, abra um novo chamado.
-      </p>
+      <div class="detalhe__fechado" data-detalhe-fechado hidden>
+        <p class="detalhe__fechado-texto">
+          Este chamado foi finalizado. Se ainda precisar de ajuda com o mesmo
+          assunto, reabra em vez de criar um novo.
+        </p>
+        <button class="detalhe__reabrir" type="button" data-detalhe-reabrir>
+          Reabrir chamado
+        </button>
+        <p class="detalhe__reabrir-aviso" data-detalhe-reabrir-aviso role="status"></p>
+      </div>
 
     </article>
   </dialog>
