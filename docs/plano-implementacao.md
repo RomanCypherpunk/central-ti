@@ -384,24 +384,244 @@ nome, foto/iniciais + nome + cargo + e-mail, cada card no padrão shadcn.
 
 ### Fora de escopo nesta fase
 
-- Ligar "Destaques da base" e "Meus chamados recentes" a queries reais no
-  Supabase — os dados de exemplo continuam fixos no HTML até a Base de
-  Soluções (Fase 2) e o Portal do TI (Fase 4) existirem de fato.
 - Páginas linkadas pelo menu de perfil e pelas portas (`perfil.html`,
   `base.html`, `portal.html`, `triagem.html`) — ainda são esqueletos
   vazios ou não existem.
+
+### "Soluções em destaque" e "Suas últimas solicitações" com dados reais (2026-09-14)
+
+As duas seções eram HTML fixo (3 soluções e 4 chamados de exemplo,
+hardcoded). `public/js/pages/index.js`, novo — antes a home não tinha
+JS próprio, só reaproveitava `main.js`.
+
+**Soluções em destaque**: `select("*")` simples em `artigos`, sem
+filtro de setor no cliente — a RLS de `artigos_leitura` (a mesma da
+Fase 2, `is_equipe_ti() OR autor_id = auth.uid() OR meu_setor_id() =
+any(setores)`) já resolve sozinha quem vê o quê. Testei isso de forma
+rigorosa: simulei sessão de um solicitante do setor Vendas direto no
+Postgres (`set_config('request.jwt.claims', ...)`) com dois artigos de
+setores diferentes cadastrados — ele só recebeu o do próprio setor.
+Quem é equipe de TI (`is_equipe_ti()`) vê de todos os setores, sem
+precisar de nenhuma lógica extra na página: é a mesma regra de sempre,
+só herdada.
+
+**Suas últimas solicitações**: os chamados do próprio usuário
+(`solicitante_id = auth.uid()`), com o status derivado do mesmo jeito
+que o Portal (`derivarStatus`, olhando quem foi o último a comentar
+publicamente) — mas em **vocabulário de solicitante**, não de
+analista. É a mesma informação, lida de dois lados:
+
+| Portal (visão do analista) | Home (visão do solicitante) | Cor |
+|---|---|---|
+| Aberto | Aberto | azul `#2c5c96` |
+| Usuário respondeu (a bola virou da equipe) | Em andamento | amarelo `#a37a0a` |
+| Aguardando retorno (equipe já respondeu, espera o usuário) | Aguardando você | vermelho `#d64545` |
+| Fechado | Fechado | cinza `#8a8a8a` |
+
+O resumo do cabeçalho ("N em andamento · N aguardando você") conta
+sobre *todos* os chamados abertos da pessoa, não só os 4 que aparecem
+na tabela — por isso é uma segunda consulta, mais enxuta (só as colunas
+que decidem o status). Chamado fechado não entra no resumo.
+
+Testado no navegador, os 4 estados um por um (fechando o chamado e
+inserindo comentários de teste direto no banco, depois revertido):
+cada selo apareceu com o texto e a cor certos, a barra colorida à
+esquerda da linha bateu, e o resumo atualizou. Zero erro no console.
 
 ---
 
 ## Fase 2 — Base de soluções
 
-**Status: não iniciada.**
+**Status: funcionando** (front-end feito pelo João Gabriel, banco
+consertado em 2026-09-14 — ver "Conserto do banco" abaixo). Portado do
+projeto GASO, com ajustes para o schema daqui. Quem mexe no front desta
+parte é o João Gabriel; antes de mudar o design ou os campos do
+formulário, alinhar com ele.
 
-A definir quando a Fase 1 estiver concluída. Ver visão geral em
-[central-unica-ti-plano.md](central-unica-ti-plano.md#fase-1--base-de-soluções)
-(numeração de fases do documento de proposta não bate 1:1 com este
-arquivo — lá a base de soluções é "Fase 1"; aqui, por já existir schema e
-cadastro prontos, ela vem depois).
+### O que existe (front-end)
+
+`public/base.html` (listagem) + `public/nova-solucao.html` (cadastro/
+edição), cada um com seu CSS e JS próprios
+(`css/base.css` + `js/pages/base.js`,
+`css/nova-solucao.css` + `js/pages/nova-solucao.js`). Design system
+próprio — sidebar colapsável laranja à esquerda, cards brancos — **não
+reaproveita os tokens do Portal** (`var(--superficie)` etc.) nem tem
+tema escuro; é visualmente uma sub-área separada do resto do site.
+
+**Listagem (`base.html`)**: busca com ranking (título pesa mais que
+descrição, que pesa mais que setor/sintomas/código; título idêntico ao
+termo digitado dispara para o topo), 4 filtros (tipo, setor, autor,
+período) combináveis com chips removíveis, alternância grade/lista
+(salva a escolha em `localStorage`), ordenar por mais recente/antiga.
+Card mostra tipo (selo colorido), título, descrição, até 2 tags
+(setor/sintoma) e autor. Clicar abre um painel lateral com o registro
+inteiro: passo a passo com galeria de imagens (clicável, abre em
+lightbox), anexos, soluções relacionadas (clicáveis, trocam o painel
+para a outra solução), editar (vai para `nova-solucao.html?id=`) e
+excluir (confirmação com 5s de espera obrigatória antes do botão
+habilitar — decisão deliberada contra clique por impulso).
+
+**Cadastro (`nova-solucao.html`)**: escolher um de dois tipos —
+**Erro/Correção** ou **Procedimento** — abre um formulário que muda de
+cara conforme o tipo (código de erro só aparece em "Erro"). Título,
+descrição, sintomas/palavras-chave como tags, passo a passo
+reordenável por arrastar (cada passo aceita até 3 imagens, inclusive
+colar com Ctrl+V), anexos por arrastar-e-soltar ou seleção de arquivo,
+busca de soluções relacionadas para vincular, "Nº da página" + "Caminho"
+do ERP (concatenados em um campo só na hora de salvar), setores que
+enxergam a solução (multi-select com "Marcar todos") e autor (texto
+livre — quem resolveu pode não ser quem cadastra). Mesma tela serve
+para editar: com `?id=` na URL, carrega o registro e troca "Salvar" por
+"Confirmar edição".
+
+### Conserto do banco (2026-09-14)
+
+**Estava quebrado**: salvar dava `PGRST204: Could not find the
+'anexos' column of 'artigos' in the schema cache`. A causa era a
+migration `20260911_artigos_solucoes.sql` (que adiciona `tipo`,
+`codigo_erro`, `sintomas`, `passos`, `anexos`, `modulo`, `relacionadas`,
+`autor` e a coluna gerada `busca`) nunca ter aplicado — erro `42P17:
+generation expression is not immutable`. Isolei o motivo exato: não é
+o `to_tsvector('portuguese', ...)` em si (isso funciona — é como a
+coluna `busca_vetor`, com titulo+conteudo, tinha sido criada à mão
+antes); o problema é **`array_to_string()` sobre uma coluna `text[]`
+dentro de uma expressão `GENERATED ALWAYS AS ... STORED`** — nesse
+banco isso não é aceito como immutable. Como a migration roda numa
+transação só, o erro nessa coluna desfazia o `alter table` inteiro, e
+nenhuma das colunas chegava a existir.
+
+**Conserto**: migration `20260914150000_conserta_artigos_solucoes.sql`.
+
+- Cria as 8 colunas que `nova-solucao.js` usa de fato: `tipo`,
+  `codigo_erro`, `sintomas`, `passos`, `anexos`, `modulo`,
+  `relacionadas`, `autor`. Ficaram de fora `tabelas_campos`,
+  `criticidade` e `acessos` — previstas na migration antiga, sem uso no
+  formulário atual.
+- **Busca por trigger, não por coluna gerada.** `busca_vetor` deixou de
+  ser `GENERATED` (`alter column ... drop expression`) e passou a ser
+  preenchida por um trigger `BEFORE INSERT OR UPDATE`
+  (`artigos_atualizar_busca()`) — roda em PL/pgSQL, fora da checagem de
+  immutabilidade que travava a coluna gerada. Agora inclui
+  `sintomas` e `codigo_erro` na busca, que a `busca_vetor` antiga (só
+  titulo+conteudo) não cobria.
+- **Policy de leitura duplicada, resolvida**: existia uma policy sem
+  arquivo de migration correspondente (`artigos: leitura autenticada`,
+  criada direto no dashboard em algum momento, `ativo OR
+  is_equipe_ti()`) que, combinada por `OR` com a nova regra de setor,
+  deixava qualquer autenticado ver qualquer artigo ativo — a
+  segmentação por setor não tinha efeito. Essa policy foi derrubada; só
+  `artigos_leitura` (por setor) continua valendo.
+- **Quem escreve**: mantida a regra que já existia —
+  `artigos: escrita equipe TI`, só quem é `is_equipe_ti()` cadastra,
+  edita ou apaga solução, mesmo que qualquer usuário logado veja o
+  formulário e a base.
+- **Bucket `artigos`** criado (público, mesmo padrão do `avatares` —
+  precisa ser público porque as imagens do passo a passo e os anexos
+  aparecem numa `<img>`/link direto), com policies próprias: qualquer
+  autenticado lê, só equipe de TI envia/troca/apaga.
+
+**Testado de ponta a ponta no navegador** (2026-09-14): cadastrar com
+todos os campos (tipo, título, descrição, sintoma, código de erro,
+passo com imagem colada, anexo, setor, autor) → salva e aparece na
+listagem com os filtros já refletindo o registro → abrir o painel
+mostra tudo, imagem carregada do bucket → editar título → confirma e
+`atualizado_em`/`busca_vetor` mudam → excluir (com a espera de 5s) →
+volta a 0 registros. `busca_vetor` verificado direto no banco depois
+de cada passo, contém as palavras certas.
+
+`supabase migration list` mostra `20260914150000` como não-registrada
+no remoto (apliquei via `db query --file`, mesma situação de
+`20260914090000` e `20260914120000`, documentadas nas seções acima) —
+efeito real no banco confirmado, só o bookkeeping do CLI está
+desatualizado. Não rodar `supabase db push --include-all`: ele tentaria
+reaplicar `20260911_artigos_solucoes.sql` do zero (a migration
+original, ainda quebrada) e falharia de novo.
+
+### Confirmado: leitura por setor, escrita só TI (2026-09-14)
+
+A regra pedida ("quem não é admin só vê solução do próprio setor; TI vê
+e edita tudo") **já estava no banco** desde o conserto acima — a policy
+`artigos_leitura` (`is_equipe_ti() OR auth.uid() = autor_id OR
+meu_setor_id() = any(setores)`) e `artigos: escrita equipe TI`
+(`is_equipe_ti()` para tudo) já cobriam exatamente isso. Testei direto
+no Postgres, simulando sessão de cada perfil com
+`set_config('request.jwt.claims', ...)` (sem precisar da senha de
+ninguém): um `solicitante` do setor Vendas só via o artigo marcado para
+Vendas, nunca o de Logística; o `admin` via os dois; um `UPDATE` do
+solicitante num artigo de Vendas (o próprio setor dele) não alterou
+nada — RLS recusa silenciosamente, sem erro, é assim que Postgres
+trata `USING` que não casa; o admin editou um artigo de Logística
+mesmo não sendo desse setor.
+
+**O que faltava era a tela**, não o banco: nada verificava perfil antes
+de mostrar "Nova Solução" no menu ou os botões Editar/Excluir do
+painel — um solicitante via os três, clicava, e a RLS barrava sem
+avisar por quê ("Não foi possível salvar", sem contexto).
+
+- **`main.js`** ganhou a mesma lógica que já existia para
+  `[data-menu-portal]` (o atalho do Portal, também condicional):
+  calcula `ehEquipeTi` com a *mesma regra do RLS*
+  (`is_equipe_ti()` no banco — `admin`/`analista`/`parceiro`,
+  `status_aprovacao = 'aprovado'`, `ativo`) e revela todo elemento
+  `[data-equipe-ti] hidden` na página. Um atributo genérico, não
+  específico da Base de Soluções — qualquer tela nova pode usá-lo.
+- **`base.html`**: `data-equipe-ti hidden` no link "Nova Solução" do
+  sidebar e nos botões Editar/Excluir do painel de detalhe.
+- **`nova-solucao.js`** ganhou um guard próprio (`garantirEquipeTi()`,
+  primeira coisa que roda no arquivo) que manda de volta para
+  `base.html` quem não é equipe de TI — cobre quem digita a URL
+  direto, já que esconder link no menu não impede isso (mesmo
+  raciocínio já documentado para o Portal). O link "Nova Solução"
+  *dentro* de `nova-solucao.html` (o item "ativo" do próprio sidebar)
+  ficou sem `data-equipe-ti` de propósito — quem não pode estar ali já
+  é redirecionado pelo guard antes de qualquer coisa renderizar.
+
+**Testado no navegador**: com sessão de admin, os três elementos
+aparecem. Simulando perfil `solicitante` (interceptando a resposta da
+API na própria sessão de teste, sem precisar de uma segunda conta),
+"Nova Solução" ficou escondido, e navegar direto para
+`nova-solucao.html?...` redirecionou de volta para `base.html` antes
+da tela montar.
+
+Achado à parte, não um bug: durante o teste, o Chromium do Playwright
+cacheou uma versão velha de `main.js` entre navegações
+(`<script type="module">` sem `Cache-Control`, cache HTTP padrão do
+navegador) e por um tempo pareceu que a lógica não rodava — só
+reproduzia fora do cache (`fetch(..., { cache: 'no-store' })` ou
+interceptando a rota para forçar `Cache-Control: no-cache`). Vale
+lembrar disso se algo parecer não atualizar depois de editar JS: pode
+ser cache do navegador, não o código.
+
+### Baixar PDF (2026-09-14)
+
+Portado do projeto GASO (`C:\Users\gasometro\Desktop\base-solucoes\GASO`
+— a base de soluções antiga, mesma origem do resto do front desta
+fase). Botão "Baixar PDF" no rodapé do painel de detalhe: monta um PDF
+no navegador com [jsPDF](https://github.com/parallax/jsPDF) (CDN,
+`2.5.1`), sem servidor nem função extra no banco — usa só o que já está
+em memória no artigo aberto.
+
+- **O que entra no PDF**: título, autor e data, código de erro (se
+  houver) e o passo a passo completo, com as imagens de cada passo
+  desenhadas ao lado do texto. Baixadas de novo do bucket (`fetch` +
+  `FileReader` para base64) porque `jsPDF.addImage` não aceita URL
+  direta.
+- **Adaptação do original**: o GASO tinha um terceiro tipo de registro
+  ("Script", com bloco de código e o campo `solucao.codigo`) que não
+  existe neste projeto — a função usa direto `artigo.codigo_erro`
+  (título da seção também fixo em "Código ou mensagem de erro"), sem a
+  ramificação por tipo. `formatarData` já existia em `base.js`; não
+  duplicado.
+- **Nome do arquivo**: o título da solução, sem acento e em minúsculas
+  (`ora-01722-...pdf`); cai para `solucao.pdf` se o título vier vazio.
+- **Visível para todo mundo que vê a solução**, sem `data-equipe-ti` —
+  é leitura, não edição; a RLS de `artigos_leitura` já decide quem
+  enxerga o quê, o botão só monta o PDF do que a tela já mostra.
+
+Testado no navegador: cadastrar solução com passo + imagem colada →
+abrir o painel → Baixar PDF → arquivo baixa com o nome esperado,
+conteúdo lido de volta (texto e imagem) bate com o que estava na tela.
+Zero erro no console.
 
 ## Fase 3 — Triagem e abertura de chamado
 

@@ -12,6 +12,30 @@ import { supabase } from "../config/supabase-config.js";
 const BUCKET = "artigos";
 const MAX_IMAGENS_POR_PASSO = 3;
 
+//SO A EQUIPE DE TI CADASTRA/EDITA SOLUCAO — o RLS ja bloqueia o insert/update
+//de quem nao e, mas sem essa guarda um solicitante preencheria a tela toda
+//pra so descobrir no fim, com "Não foi possível salvar". Mesma regra do
+//banco (is_equipe_ti): admin, analista ou parceiro, aprovado e ativo.
+async function garantirEquipeTi() {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("perfil, status_aprovacao, ativo")
+    .eq("id", user.id)
+    .single();
+
+  const ehEquipeTi = ["admin", "analista", "parceiro"].includes(perfil?.perfil)
+    && perfil?.status_aprovacao === "aprovado"
+    && perfil?.ativo;
+
+  if (!ehEquipeTi) window.location.href = "base.html";
+}
+
+garantirEquipeTi();
+
 const tipoCards = document.querySelectorAll(".tipo-card");
 const registroVazio = document.getElementById("registro-vazio");
 const registroCampos = document.getElementById("registro-campos");
