@@ -22,97 +22,174 @@
 </head>
 <body class="portal-pagina" style="visibility: hidden">
 
-  <header class="topo">
+  <!--BARRA UNICA DO PORTAL. A esquerda, a logo e o nome da tela; a direita,
+      busca, filtros, menu do quadro (onde ficam zoom e tema) e o perfil. Fica fora do <main> de
+      proposito: o zoom do quadro nao mexe nela. O fundo (degrade ou foto)
+      passa por tras, como no Trello.
+      As classes topo__perfil/usuario/menu e data-nome/data-setor/data-iniciais/
+      data-acao="sair" sao as que o main.js procura — nao renomear.-->
+  <header class="barra-portal">
 
-    <!--MARCA-->
-    <div class="topo__marca">
+    <!--ESQUERDA: SO A LOGO E O NOME DA TELA-->
+    <div class="barra-portal__marca">
       <a class="topo__logo-link" href="index.html">
-        <img class="topo__logo topo__logo--claro" src="assets/img/logo-claro.svg" alt="Gasômetro Madeiras">
-        <img class="topo__logo topo__logo--escuro" src="assets/img/logo-branco.svg" alt="Gasômetro Madeiras">
+        <img class="topo__logo" src="assets/img/logo-branco.svg" alt="Gasômetro Madeiras">
       </a>
       <span class="topo__divisor" aria-hidden="true"></span>
-      <span class="topo__produto">TI - Gasômetro Madeiras</span>
+      <h1 class="portal__titulo">Portal de Chamados</h1>
+
+      <!--RESUMO ("6 chamados abertos em 8 filas"): saiu da tela por decisao de
+          layout, mas o portal.js escreve nele — por isso escondido, e nao
+          apagado. Continua disponivel para leitor de tela.-->
+      <p class="portal__subtitulo barra-portal__resumo" data-resumo>Carregando o quadro…</p>
     </div>
 
-    <!--ACOES DA DIREITA-->
-    <div class="topo__acoes">
+    <div class="portal__ferramentas">
 
-      <!--ZOOM: SO O QUADRO ABAIXO DO TOPO. O BOTAO MOSTRA O VALOR; CLICAR ABRE
-          O PAINEL COM O SLIDER. CTRL + RODA SOBRE O QUADRO TAMBEM FUNCIONA.-->
-      <div class="zoom" data-zoom>
-        <button class="topo__zoom" type="button" data-zoom-abrir
-                aria-haspopup="true" aria-expanded="false" aria-label="Zoom do quadro">
+      <!--BUSCA: NUMERO DO TICKET, SOLICITANTE, UNIDADE, CATEGORIA OU DESCRICAO-->
+      <div class="busca">
+        <svg class="busca__icone" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+          <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+          <path d="m15.5 15.5 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input class="busca__campo" type="search" data-busca
+               placeholder="Buscar por ticket, pessoa, unidade…"
+               autocomplete="off" aria-label="Buscar chamados">
+
+        <!--RESULTADOS: LISTA SUSPENSA, PREENCHIDA PELO portal.js-->
+        <div class="busca__resultados" data-resultados hidden></div>
+      </div>
+
+      <!--FILTROS DO QUADRO: MEMBROS, PRIORIDADE, UNIDADE E CATEGORIA.
+          O painel e montado pelo portal.js com o que existe nos chamados.-->
+      <div class="quadro-filtro" data-quadro-filtro>
+        <button class="quadro-filtro__botao" type="button" data-filtros-abrir
+                aria-haspopup="true" aria-expanded="false">
           <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-            <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
-            <path d="m15.5 15.5 4 4M8 10.5h5M10.5 8v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            <path d="M4 5.5h16l-6.2 7.3v5.2l-3.6 1.8v-7Z" fill="none" stroke="currentColor"
+                  stroke-width="1.7" stroke-linejoin="round"/>
           </svg>
-          <span class="topo__zoom-valor" data-zoom-valor>100%</span>
+          <span>Filtrar</span>
+          <span class="quadro-filtro__contador" data-filtros-contador hidden></span>
         </button>
 
-        <div class="zoom__painel" data-zoom-painel>
-          <div class="zoom__cabecalho">
-            <span>Zoom do quadro</span>
-            <button class="zoom__redefinir" type="button" data-zoom-redefinir>Redefinir</button>
+        <div class="quadro-filtro__painel" data-filtros-painel hidden>
+          <div class="quadro-filtro__cabecalho">
+            <span>Filtrar chamados</span>
+            <button class="quadro-filtro__limpar" type="button" data-filtros-limpar>Limpar filtros</button>
           </div>
-
-          <div class="zoom__controle">
-            <button class="zoom__passo" type="button" data-zoom-menos aria-label="Diminuir zoom">
-              <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
-                <path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </button>
-            <input class="zoom__slider" type="range" min="50" max="150" step="5" value="100"
-                   data-zoom-slider aria-label="Zoom do quadro">
-            <button class="zoom__passo" type="button" data-zoom-mais aria-label="Aumentar zoom">
-              <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
-                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </button>
-          </div>
-
-          <div class="zoom__marcas" aria-hidden="true">
-            <span>50%</span><span>100%</span><span>150%</span>
-          </div>
-
-          <p class="zoom__dica"><kbd>Ctrl</kbd> + roda do mouse sobre o quadro também dá zoom.</p>
+          <div class="quadro-filtro__grupos" data-filtros-grupos></div>
         </div>
       </div>
 
-      <!--TEMA: SO NESTA TELA. UM BOTAO SO, QUE ALTERNA ENTRE OS DOIS-->
-      <button class="topo__tema" type="button" data-tema-alternar
-              aria-pressed="false" aria-label="Ativar tema escuro">
-        <svg class="topo__tema-icone topo__tema-icone--sol" viewBox="0 0 24 24"
-             width="17" height="17" aria-hidden="true">
-          <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
-          <path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"
-                stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-        </svg>
-        <svg class="topo__tema-icone topo__tema-icone--lua" viewBox="0 0 24 24"
-             width="17" height="17" aria-hidden="true">
-          <path d="M20.5 14.4A8.6 8.6 0 0 1 9.6 3.5a8.6 8.6 0 1 0 10.9 10.9Z"
-                fill="none" stroke="currentColor" stroke-width="1.7"
-                stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-
-      <span class="topo__divisor" aria-hidden="true"></span>
-
-      <!--PERFIL: BOTAO E MENU-->
-      <div class="topo__perfil">
-        <!--USUARIO: PREENCHIDO PELO main.js A PARTIR DA SESSAO-->
-        <button class="topo__usuario" type="button" aria-haspopup="true" aria-expanded="false">
-          <span class="topo__avatar" data-iniciais></span>
-          <span class="topo__usuario-texto">
-            <span class="topo__usuario-nome" data-nome></span>
-            <span class="topo__usuario-setor" data-setor></span>
-          </span>
-          <svg class="topo__usuario-seta" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-            <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"
-                  stroke-linecap="round" stroke-linejoin="round"/>
+      <!--MENU DO QUADRO: EXPORTAR, PLANO DE FUNDO, TICKETS FINALIZADOS-->
+      <div class="quadro-menu">
+        <button class="quadro-menu__botao" type="button" data-quadro-menu-abrir
+                aria-haspopup="true" aria-expanded="false" aria-label="Opções do quadro">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <circle cx="12" cy="5" r="1.6" fill="currentColor"/>
+            <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
+            <circle cx="12" cy="19" r="1.6" fill="currentColor"/>
           </svg>
         </button>
 
+        <div class="quadro-menu__painel" data-quadro-menu-painel hidden>
+          <!--VISUALIZACAO: ZOOM E TEMA. Mexer aqui nao fecha o menu (o clique
+              fica dentro de .quadro-menu), entao da para ajustar vendo o quadro
+              mudar por tras. Ctrl + roda sobre o quadro continua valendo.-->
+          <div class="menu-ajuste">
+            <div class="menu-ajuste__topo">
+              <span class="menu-ajuste__rotulo">Zoom do quadro</span>
+              <span class="menu-ajuste__valor" data-zoom-valor>100%</span>
+            </div>
+
+            <div class="zoom__controle">
+              <button class="zoom__passo" type="button" data-zoom-menos aria-label="Diminuir zoom">
+                <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                  <path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+              <input class="zoom__slider" type="range" min="50" max="150" step="5" value="100"
+                     data-zoom-slider aria-label="Zoom do quadro">
+              <button class="zoom__passo" type="button" data-zoom-mais aria-label="Aumentar zoom">
+                <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+
+            <div class="menu-ajuste__rodape">
+              <span class="menu-ajuste__dica"><kbd>Ctrl</kbd> + roda também dá zoom</span>
+              <button class="zoom__redefinir" type="button" data-zoom-redefinir>Redefinir</button>
+            </div>
+          </div>
+
+          <!--TEMA: SO NESTA TELA. Mostra para onde vai, nao onde esta: no claro
+              aparece a lua e "Tema escuro"; no escuro, o sol e "Tema claro".
+              O texto e trocado pelo portal.js; os icones, pelo CSS.-->
+          <button class="quadro-menu__item menu-ajuste__tema" type="button" data-tema-alternar>
+            <svg class="topo__tema-icone topo__tema-icone--lua" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M20.5 14.4A8.6 8.6 0 0 1 9.6 3.5a8.6 8.6 0 1 0 10.9 10.9Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg class="topo__tema-icone topo__tema-icone--sol" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"
+                    stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            <span data-tema-texto>Tema escuro</span>
+          </button>
+
+          <span class="quadro-menu__divisor" aria-hidden="true"></span>
+
+          <button class="quadro-menu__item" type="button" data-acao-exportar>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M12 3.5v11M8 11l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4.5 16.5v2a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2" fill="none"
+                    stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            Exportar
+          </button>
+
+          <button class="quadro-menu__item" type="button" data-acao-fundo>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <circle cx="8.5" cy="9.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="m4.5 16 4.5-4.5a1.6 1.6 0 0 1 2.2 0l1.8 1.8m3-3 3.5 3.5"
+                    fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+            </svg>
+            Alterar plano de fundo
+          </button>
+
+          <button class="quadro-menu__item" type="button" data-acao-finalizados>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <rect x="3.5" y="5" width="17" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="m8 12 2.5 2.5L16 9" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Tickets finalizados
+          </button>
+        </div>
+      </div>
+
+      <span class="topo__divisor barra-portal__divisor" aria-hidden="true"></span>
+
+      <!--PERFIL: SO A FOTO. CLICAR ABRE O MENU, COM O NOME NO TOPO E O SAIR NO FIM.
+          Preenchido pelo main.js a partir da sessao.-->
+      <div class="topo__perfil">
+        <button class="topo__usuario" type="button" aria-haspopup="true" aria-expanded="false"
+                aria-label="Menu do perfil">
+          <span class="topo__avatar" data-iniciais></span>
+        </button>
+
         <div class="topo__menu">
+          <div class="topo__menu-cabecalho">
+            <span class="topo__menu-nome" data-nome></span>
+            <span class="topo__menu-setor" data-setor></span>
+          </div>
+
           <a class="topo__menu-item" href="index.html">
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path d="M4 11.5 12 4.5l8 7" fill="none" stroke="currentColor" stroke-width="1.7"
@@ -146,94 +223,31 @@
             </svg>
             Soluções
           </a>
+
+          <span class="topo__menu-divisor" aria-hidden="true"></span>
+
+          <!--SAIR: FICA NO MENU DO PERFIL, NAO MAIS SOLTO NA BARRA-->
+          <button class="topo__menu-item topo__menu-sair" type="button" data-acao="sair">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M14.5 4.5h3.2a1.8 1.8 0 0 1 1.8 1.8v11.4a1.8 1.8 0 0 1-1.8 1.8h-3.2"
+                    fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9.5 15.5 5 12l4.5-3.5M5 12h9" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Sair
+          </button>
         </div>
       </div>
-
-      <!--SAIR-->
-      <button class="topo__sair" type="button" data-acao="sair">
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-          <path d="M14.5 4.5h3.2a1.8 1.8 0 0 1 1.8 1.8v11.4a1.8 1.8 0 0 1-1.8 1.8h-3.2"
-                fill="none" stroke="currentColor" stroke-width="1.7"
-                stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M9.5 15.5 5 12l4.5-3.5M5 12h9" fill="none" stroke="currentColor" stroke-width="1.7"
-                stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span>Sair</span>
-      </button>
 
     </div>
   </header>
 
+  <!--PLANO DE FUNDO PROPRIO: CAMADA FIXA ATRAS DO QUADRO. Fica fora do
+      <main> de proposito — o zoom do quadro nao mexe nela.-->
+  <div class="portal-fundo" data-portal-fundo aria-hidden="true"></div>
+
   <main class="portal">
-
-    <div class="portal__cabecalho">
-      <div class="portal__identificacao">
-        <h1 class="portal__titulo">Portal de Chamados</h1>
-        <p class="portal__subtitulo" data-resumo>Carregando o quadro…</p>
-      </div>
-
-      <!--FERRAMENTAS: BUSCA E MENU FICAM JUNTOS, ENCOSTADOS UM NO OUTRO,
-          O GRUPO INTEIRO ENCOSTADO NA BORDA DIREITA-->
-      <div class="portal__ferramentas">
-
-        <!--BUSCA: NUMERO DO TICKET, SOLICITANTE, UNIDADE, CATEGORIA OU DESCRICAO-->
-        <div class="busca">
-          <svg class="busca__icone" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-            <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
-            <path d="m15.5 15.5 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-          <input class="busca__campo" type="search" data-busca
-                 placeholder="Buscar por ticket, pessoa, unidade…"
-                 autocomplete="off" aria-label="Buscar chamados">
-
-          <!--RESULTADOS: LISTA SUSPENSA, PREENCHIDA PELO portal.js-->
-          <div class="busca__resultados" data-resultados hidden></div>
-        </div>
-
-        <!--MENU DO QUADRO: EXPORTAR, PLANO DE FUNDO, TICKETS FINALIZADOS-->
-        <div class="quadro-menu">
-          <button class="quadro-menu__botao" type="button" data-quadro-menu-abrir
-                  aria-haspopup="true" aria-expanded="false" aria-label="Opções do quadro">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <circle cx="12" cy="5" r="1.6" fill="currentColor"/>
-              <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
-              <circle cx="12" cy="19" r="1.6" fill="currentColor"/>
-            </svg>
-          </button>
-
-          <div class="quadro-menu__painel" data-quadro-menu-painel hidden>
-            <button class="quadro-menu__item" type="button" data-acao-exportar>
-              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <path d="M12 3.5v11M8 11l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.7"
-                      stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M4.5 16.5v2a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2" fill="none"
-                      stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-              </svg>
-              Exportar
-            </button>
-
-            <button class="quadro-menu__item" type="button" data-acao-fundo>
-              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
-                <circle cx="8.5" cy="9.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/>
-                <path d="m4.5 16 4.5-4.5a1.6 1.6 0 0 1 2.2 0l1.8 1.8m3-3 3.5 3.5"
-                      fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-              </svg>
-              Alterar plano de fundo
-            </button>
-
-            <button class="quadro-menu__item" type="button" data-acao-finalizados>
-              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <rect x="3.5" y="5" width="17" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
-                <path d="m8 12 2.5 2.5L16 9" fill="none" stroke="currentColor" stroke-width="1.7"
-                      stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              Tickets finalizados
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!--AVISO DE ERRO: APARECE NO LUGAR DO QUADRO SE A CARGA FALHAR-->
     <p class="portal__erro" data-erro role="alert"></p>
@@ -316,9 +330,13 @@
                         placeholder="Escrever para o solicitante…"
                         aria-label="Mensagem para o solicitante"></textarea>
 
+              <!--ANEXOS PENDENTES: O QUE VAI JUNTO COM A PROXIMA RESPOSTA.
+                  Preenchido pelo portal.js (botao Anexar ou Ctrl+V no campo).-->
+              <div class="conversa__pendentes" data-conversa-pendentes hidden></div>
+
               <div class="conversa__acoes">
                 <label class="conversa__anexar">
-                  <input type="file" data-conversa-arquivo hidden
+                  <input type="file" data-conversa-arquivo hidden multiple
                          accept="image/*,application/pdf">
                   <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                     <path d="M16.5 8.5 9.7 15.3a2.4 2.4 0 0 0 3.4 3.4l7.3-7.3a4 4 0 0 0-5.7-5.7l-7.3 7.3a5.7 5.7 0 0 0 8 8l6.4-6.4"
@@ -419,8 +437,11 @@
   <!--PLANO DE FUNDO: FOTO PROPRIA DO USUARIO, SALVA NO STORAGE PRIVADO-->
   <dialog class="fundo-modal" data-fundo-modal>
     <div class="fundo-modal__conteudo">
-      <header class="finalizados__topo">
-        <h2 class="finalizados__titulo">Plano de fundo</h2>
+      <header class="fundo-modal__topo">
+        <div>
+          <h2 class="fundo-modal__titulo">Plano de fundo</h2>
+          <p class="fundo-modal__subtitulo">Só você vê. Fica salvo na sua conta, em qualquer computador.</p>
+        </div>
         <button class="detalhe__fechar" type="button" data-fundo-fechar aria-label="Fechar">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
             <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -428,23 +449,131 @@
         </button>
       </header>
 
-      <p class="fundo-modal__ajuda">
-        Envie uma imagem para usar como fundo do quadro. Fica salvo na sua
-        conta e aparece em qualquer computador que você usar para entrar.
-      </p>
+      <!--PREVIA: MINIATURA DO QUADRO COM O FUNDO POR TRAS, PARA VER COMO FICA ANTES DE APLICAR-->
+      <div class="fundo-modal__previa fundo-modal__previa--padrao" data-fundo-previa aria-hidden="true">
+        <div class="fundo-modal__previa-barra"></div>
+        <div class="fundo-modal__previa-colunas"><span></span><span></span><span></span><span></span></div>
+        <span class="fundo-modal__previa-selo" data-fundo-previa-selo>Padrão</span>
+      </div>
+
+      <p class="fundo-modal__resolucao" data-fundo-resolucao hidden></p>
+
+      <!--ESCOLHER: CLIQUE, ARRASTAR E SOLTAR, OU CTRL+V COM A JANELA ABERTA-->
+      <label class="fundo-modal__soltar" data-fundo-soltar>
+        <input type="file" data-fundo-arquivo hidden accept="image/*">
+        <svg class="fundo-modal__soltar-icone" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path d="M12 15.5v-10M8 9l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4.5 15.5v2.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2.5" fill="none" stroke="currentColor"
+                stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <span class="fundo-modal__soltar-titulo">Arraste uma imagem ou <u>escolha do computador</u></span>
+        <span class="fundo-modal__soltar-dica">Também dá para colar com Ctrl+V · JPG, PNG ou WebP até 15 MB</span>
+      </label>
+
+      <button class="fundo-modal__padrao" type="button" data-fundo-restaurar>
+        <span class="fundo-modal__padrao-amostra" aria-hidden="true"></span>
+        <span class="fundo-modal__padrao-texto">Degradê padrão</span>
+        <svg class="fundo-modal__padrao-check" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="m5.5 12.5 4 4 9-9" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
 
       <p class="fundo-modal__aviso" data-fundo-aviso role="status"></p>
 
-      <div class="fundo-modal__acoes">
-        <label class="fundo-modal__botao fundo-modal__botao--principal">
-          <input type="file" data-fundo-arquivo hidden accept="image/*">
-          Enviar imagem
-        </label>
-        <button class="fundo-modal__botao" type="button" data-fundo-restaurar>
-          Restaurar padrão
-        </button>
-      </div>
+      <!--SO APARECE DEPOIS DE ESCOLHER UMA IMAGEM-->
+      <footer class="fundo-modal__rodape" data-fundo-rodape hidden>
+        <button class="fundo-modal__botao" type="button" data-fundo-cancelar>Cancelar</button>
+        <button class="fundo-modal__botao fundo-modal__botao--principal" type="button" data-fundo-aplicar>Aplicar fundo</button>
+      </footer>
     </div>
+  </dialog>
+
+  <!--EXPORTAR: PLANILHA CSV DOS CHAMADOS CRIADOS NUM PERIODO. Aberto pelo item
+      Exportar do menu de 3 pontinhos; o portal.js monta o arquivo com os
+      chamados que ja estao carregados na tela.-->
+  <dialog class="fundo-modal exportar" data-exportar>
+    <div class="fundo-modal__conteudo">
+      <header class="fundo-modal__topo">
+        <div>
+          <h2 class="fundo-modal__titulo">Exportar chamados</h2>
+          <p class="fundo-modal__subtitulo">Planilha CSV com os chamados criados no período, em aberto e finalizados.</p>
+        </div>
+        <button class="detalhe__fechar" type="button" data-exportar-fechar aria-label="Fechar">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </header>
+
+      <div class="exportar__atalhos" role="group" aria-label="Períodos prontos">
+        <button class="exportar__atalho" type="button" data-periodo="hoje">Hoje</button>
+        <button class="exportar__atalho" type="button" data-periodo="7">Últimos 7 dias</button>
+        <button class="exportar__atalho" type="button" data-periodo="30">Últimos 30 dias</button>
+        <button class="exportar__atalho" type="button" data-periodo="mes">Este mês</button>
+        <button class="exportar__atalho" type="button" data-periodo="tudo">Tudo</button>
+      </div>
+
+      <div class="exportar__datas">
+        <label class="exportar__campo">
+          <span>De</span>
+          <input type="date" data-exportar-de>
+        </label>
+        <label class="exportar__campo">
+          <span>Até</span>
+          <input type="date" data-exportar-ate>
+        </label>
+      </div>
+
+      <p class="exportar__resumo" data-exportar-resumo role="status"></p>
+
+      <footer class="fundo-modal__rodape">
+        <button class="fundo-modal__botao" type="button" data-exportar-cancelar>Cancelar</button>
+        <button class="fundo-modal__botao fundo-modal__botao--principal" type="button" data-exportar-baixar>Baixar CSV</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <!--VISUALIZADOR DE IMAGEM: ABRE NA PROPRIA TELA, POR CIMA DO CHAMADO.
+      Clicar fora da imagem, no x ou Esc fecha e volta para o chamado.-->
+  <dialog class="visualizador" data-visualizador aria-label="Visualizar imagem">
+    <img class="visualizador__imagem" data-visualizador-imagem alt="">
+    <p class="visualizador__nome" data-visualizador-nome></p>
+    <button class="visualizador__fechar" type="button" aria-label="Fechar imagem">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </dialog>
+
+  <!--AVISO DO SITE: SUBSTITUI O alert() DO NAVEGADOR. popover="manual" poe o
+      aviso na camada de cima da pagina, entao ele aparece ate por cima de um
+      <dialog> aberto (o detalhe do chamado, por exemplo).-->
+  <div class="aviso-site" data-aviso-site popover="manual" role="status" aria-live="polite">
+    <span class="aviso-site__icone" data-aviso-site-icone aria-hidden="true"></span>
+    <p class="aviso-site__texto" data-aviso-site-texto></p>
+    <button class="aviso-site__acao" type="button" data-aviso-site-acao hidden></button>
+    <button class="aviso-site__fechar" type="button" data-aviso-site-fechar aria-label="Fechar aviso">
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+        <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <!--CONFIRMACAO DO SITE: SUBSTITUI O confirm() DO NAVEGADOR. method="dialog"
+      fecha o <dialog> com o value do botao clicado; Esc e clique fora contam
+      como cancelar.-->
+  <dialog class="confirmacao" data-confirmacao>
+    <form class="confirmacao__conteudo" method="dialog">
+      <h2 class="confirmacao__titulo" data-confirmacao-titulo></h2>
+      <p class="confirmacao__mensagem" data-confirmacao-mensagem></p>
+      <div class="confirmacao__acoes">
+        <button class="confirmacao__botao" type="submit" value="cancelar">Cancelar</button>
+        <button class="confirmacao__botao confirmacao__botao--principal" type="submit" value="confirmar"
+                data-confirmacao-confirmar>Confirmar</button>
+      </div>
+    </form>
   </dialog>
 
   <script type="module" src="js/auth-guard.js"></script>
