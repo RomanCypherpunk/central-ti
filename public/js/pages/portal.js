@@ -35,6 +35,103 @@ function ligarTema() {
 
 ligarTema();
 
+//ZOOM: SO O QUADRO (<main class="portal">), NUNCA O TOPO. O zoom do CSS
+//escala tudo que esta dentro dele; a escolha fica salva neste navegador,
+//com chave propria, como o tema.
+const ZOOM_MINIMO = 0.5;
+const ZOOM_MAXIMO = 1.5;
+const ZOOM_PASSO_BOTAO = 0.1;
+// A roda (e a pinca do touchpad, que chega como Ctrl + roda) vem em muitos
+// eventos seguidos: passo menor para o zoom andar suave, sem saltos.
+const ZOOM_PASSO_RODA = 0.05;
+
+function ligarZoom() {
+  const caixa = document.querySelector("[data-zoom]");
+  const abrir = document.querySelector("[data-zoom-abrir]");
+  const painel = document.querySelector("[data-zoom-painel]");
+  const valor = document.querySelector("[data-zoom-valor]");
+  const slider = document.querySelector("[data-zoom-slider]");
+  const menos = document.querySelector("[data-zoom-menos]");
+  const mais = document.querySelector("[data-zoom-mais]");
+  const redefinir = document.querySelector("[data-zoom-redefinir]");
+  const portal = document.querySelector(".portal");
+
+  function atual() {
+    const salvo = getComputedStyle(document.documentElement).getPropertyValue("--zoom-portal");
+
+    return Number(salvo) || 1;
+  }
+
+  function aplicar(zoom) {
+    // Arredonda de 5 em 5%: somar 0.1 repetidas vezes da 0.7999...
+    const ajustado = Math.min(ZOOM_MAXIMO, Math.max(ZOOM_MINIMO, Math.round(zoom * 20) / 20));
+    const porcento = Math.round(ajustado * 100);
+
+    document.documentElement.style.setProperty("--zoom-portal", ajustado);
+    localStorage.setItem("zoom-portal", ajustado);
+
+    valor.textContent = `${porcento}%`;
+    slider.value = porcento;
+    // Faixa de 50 a 150: a parte pintada do trilho e (valor - 50)%.
+    slider.style.setProperty("--preenchido", `${porcento - 50}%`);
+    menos.disabled = ajustado <= ZOOM_MINIMO;
+    mais.disabled = ajustado >= ZOOM_MAXIMO;
+    redefinir.disabled = porcento === 100;
+
+    // A barra de rolagem propria mede o quadro: em outro zoom, redesenha.
+    window.dispatchEvent(new Event("resize"));
+  }
+
+  function mostrarPainel(aberto) {
+    painel.classList.toggle("zoom__painel--aberto", aberto);
+    abrir.setAttribute("aria-expanded", String(aberto));
+  }
+
+  abrir.addEventListener("click", () => {
+    mostrarPainel(!painel.classList.contains("zoom__painel--aberto"));
+  });
+
+  // input, e nao change: o quadro acompanha a bolinha enquanto ela e arrastada.
+  slider.addEventListener("input", () => aplicar(Number(slider.value) / 100));
+  menos.addEventListener("click", () => aplicar(atual() - ZOOM_PASSO_BOTAO));
+  mais.addEventListener("click", () => aplicar(atual() + ZOOM_PASSO_BOTAO));
+  redefinir.addEventListener("click", () => aplicar(1));
+
+  // Clique fora fecha, como o menu do perfil.
+  document.addEventListener("click", (evento) => {
+    if (!caixa.contains(evento.target)) mostrarPainel(false);
+  });
+
+  document.addEventListener("keydown", (evento) => {
+    if (evento.key !== "Escape" || !painel.classList.contains("zoom__painel--aberto")) return;
+
+    mostrarPainel(false);
+    abrir.focus();
+  });
+
+  // CTRL + RODA SOBRE O QUADRO: o preventDefault segura o zoom do navegador
+  // (que aumentaria o topo junto) e aplica so no quadro. passive: false e o
+  // que permite o preventDefault num evento de roda.
+  portal.addEventListener("wheel", (evento) => {
+    if (!evento.ctrlKey) return;
+
+    evento.preventDefault();
+    aplicar(atual() + (evento.deltaY < 0 ? ZOOM_PASSO_RODA : -ZOOM_PASSO_RODA));
+  }, { passive: false });
+
+  // O <head> ja aplicou o zoom salvo; aqui so acerta o numero, o slider e os limites.
+  aplicar(atual());
+}
+
+ligarZoom();
+
+//Com zoom, clientX vem em pixels da tela, mas scrollLeft e clientWidth vem
+//em pixels do quadro. Quem soma um no outro divide pelo zoom, senao o quadro
+//corre mais (ou menos) que o mouse.
+function zoomDoQuadro() {
+  return quadro.getBoundingClientRect().width / quadro.offsetWidth || 1;
+}
+
 function mostrarErro(mensagem) {
   erro.textContent = mensagem;
   erro.classList.add("portal__erro--visivel");
@@ -145,6 +242,61 @@ function montarAvatar(pessoa, fotoPath, classe = "comentario__avatar") {
   return avatar;
 }
 
+//COR DE DESTAQUE: A COR QUE A PESSOA ESCOLHEU (usuarios.cor_destaque) VIRA
+//UM FUNDO CLARO DO COMECO DA FOTO ATE O FIM DO NOME. Recebe o elemento que
+//envolve foto e nome. Sem cor, sem fundo. O data-usuario deixa trocar a cor
+//em todos os lugares da tela de uma vez, sem redesenhar o quadro.
+function aplicarCorDestaque(elemento, pessoa) {
+  elemento.dataset.usuario = pessoa.id ?? "";
+  elemento.classList.toggle("membro--destaque", Boolean(pessoa.cor_destaque));
+
+  if (pessoa.cor_destaque) {
+    elemento.style.setProperty("--cor-destaque", pessoa.cor_destaque);
+  } else {
+    elemento.style.removeProperty("--cor-destaque");
+  }
+}
+
+//Cores oferecidas no detalhe do chamado. Todas fortes o bastante para o anel
+//aparecer tanto no card claro quanto no escuro.
+const CORES_DESTAQUE = [
+  { nome: "Laranja", valor: "#dd5b12" },
+  { nome: "Vermelho", valor: "#d64545" },
+  { nome: "Rosa", valor: "#d6457f" },
+  { nome: "Roxo", valor: "#7c5cf0" },
+  { nome: "Azul", valor: "#2c6fd6" },
+  { nome: "Ciano", valor: "#0f9bb3" },
+  { nome: "Verde", valor: "#2f9e44" },
+  { nome: "Amarelo", valor: "#d19a0a" },
+];
+
+//RODAPE DO CARD: QUEM ESTA ATENDENDO. Foto maior e o primeiro nome ao lado,
+//para dar para saber de quem e o ticket sem abrir. Usado ao montar o card e
+//ao atualiza-lo depois de uma edicao no detalhe, para os dois sairem iguais.
+function desenharMembrosDoCard(container, chamadoMembros) {
+  container.replaceChildren();
+
+  chamadoMembros.forEach((membro) => {
+    const pessoa = membro.usuarios;
+
+    if (!pessoa?.nome) return;
+
+    const chip = document.createElement("span");
+    chip.className = "card__membro-chip";
+
+    // Mesma foto que aparece no balao do chat quando essa pessoa responde.
+    const avatar = montarAvatar(pessoa, pessoa.foto_path, "card__membro");
+    aplicarCorDestaque(chip, pessoa);
+
+    const nome = document.createElement("span");
+    nome.className = "card__membro-nome";
+    nome.textContent = primeiroNome(pessoa);
+
+    chip.append(avatar, nome);
+    container.appendChild(chip);
+  });
+}
+
 function montarCard(chamado) {
   const card = document.createElement("li");
   card.className = "card";
@@ -197,16 +349,7 @@ function montarCard(chamado) {
   //MEMBROS
   const membros = document.createElement("div");
   membros.className = "card__membros";
-
-  chamado.chamado_membros.forEach((membro) => {
-    const pessoa = membro.usuarios;
-
-    if (!pessoa?.nome) return;
-
-    // Mesma foto que aparece no balao do chat quando essa pessoa responde.
-    membros.appendChild(montarAvatar(pessoa, pessoa.foto_path, "card__membro"));
-  });
-
+  desenharMembrosDoCard(membros, chamado.chamado_membros);
   card.appendChild(membros);
 
   return card;
@@ -394,6 +537,7 @@ function ligarArrastoDoFundo() {
   let puxando = false;
   let inicioX = 0;
   let inicioScroll = 0;
+  let zoom = 1;
 
   quadro.addEventListener("pointerdown", (evento) => {
     if (evento.button !== 0) return;
@@ -402,6 +546,7 @@ function ligarArrastoDoFundo() {
     puxando = true;
     inicioX = evento.clientX;
     inicioScroll = quadro.scrollLeft;
+    zoom = zoomDoQuadro();
     quadro.classList.add("portal__quadro--puxando");
 
     // Segue o ponteiro mesmo se ele sair do quadro no meio do movimento.
@@ -411,7 +556,7 @@ function ligarArrastoDoFundo() {
   quadro.addEventListener("pointermove", (evento) => {
     if (!puxando) return;
 
-    quadro.scrollLeft = inicioScroll - (evento.clientX - inicioX);
+    quadro.scrollLeft = inicioScroll - (evento.clientX - inicioX) / zoom;
   });
 
   function soltar(evento) {
@@ -462,9 +607,10 @@ function ligarBarra() {
     const inicioScroll = quadro.scrollLeft;
     const transbordo = quadro.scrollWidth - quadro.clientWidth;
     const curso = trilho - alca.clientWidth;
+    const zoom = zoomDoQuadro();
 
     function mover(evento) {
-      quadro.scrollLeft = inicioScroll + ((evento.clientX - inicioX) / curso) * transbordo;
+      quadro.scrollLeft = inicioScroll + ((evento.clientX - inicioX) / zoom / curso) * transbordo;
     }
 
     function soltar() {
@@ -690,104 +836,295 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
     });
   }
 
-  //MEMBROS: CLICAR NUM MEMBRO TIRA; O + LISTA QUEM PODE ENTRAR
+  //MEMBROS: DOIS BOTOES AO LADO DOS CHIPS. O + SO ADICIONA ALGUEM AO CHAMADO;
+  //A ENGRENAGEM SO TROCA A COR DE CADA MEMBRO. O x no chip tira a pessoa.
+  //So um painel fica aberto por vez. O estado guarda o id do chamado: ao
+  //abrir outro ticket, nada vem aberto.
+  let painelMembros = null; // { chamado, tipo: "adicionar" | "cor" }
+
+  function painelAberto(tipo) {
+    return painelMembros?.chamado === aberto.id && painelMembros.tipo === tipo;
+  }
+
+  function alternarPainel(tipo) {
+    painelMembros = painelAberto(tipo) ? null : { chamado: aberto.id, tipo };
+    desenharMembros();
+  }
+
+  //A COR E DA PESSOA, NAO DO CHAMADO: grava em usuarios e atualiza a pessoa
+  //em todos os chamados ja carregados, na lista da equipe e em todo avatar
+  //dela que esta na tela (cards do quadro inclusive).
+  async function trocarCorDestaque(usuarioId, cor) {
+    // O .select devolve as linhas gravadas. Sem ele, um update que a RLS
+    // barra volta sem erro e sem gravar nada — a tela mostraria a cor nova e
+    // ela sumiria ao recarregar.
+    const { data: gravadas, error } = await supabase
+      .from("usuarios")
+      .update({ cor_destaque: cor })
+      .eq("id", usuarioId)
+      .select("id");
+
+    if (error) {
+      console.error("Erro ao trocar a cor de destaque:", error);
+      avisar("Não foi possível trocar a cor.", true);
+      return;
+    }
+
+    if (!gravadas?.length) {
+      console.error("Update de cor_destaque não gravou nenhuma linha (RLS?) para", usuarioId);
+      avisar("A cor não foi salva: sem permissão para alterar essa pessoa.", true);
+      return;
+    }
+
+    chamados.forEach((chamado) => {
+      chamado.chamado_membros.forEach((membro) => {
+        if (membro.usuario_id === usuarioId && membro.usuarios) membro.usuarios.cor_destaque = cor;
+      });
+    });
+
+    equipe.forEach((pessoa) => {
+      if (pessoa.id === usuarioId) pessoa.cor_destaque = cor;
+    });
+
+    // Os elementos marcados sao os que envolvem foto e nome (card e detalhe).
+    document.querySelectorAll(`[data-usuario="${usuarioId}"]`).forEach((elemento) => {
+      aplicarCorDestaque(elemento, { id: usuarioId, cor_destaque: cor });
+    });
+
+    avisar("Salvo");
+    desenharMembros();
+  }
+
+  async function removerMembro(usuarioId) {
+    const { error } = await supabase
+      .from("chamado_membros")
+      .delete()
+      .eq("chamado_id", aberto.id)
+      .eq("usuario_id", usuarioId);
+
+    if (error) {
+      avisar("Não foi possível remover o membro.", true);
+      return;
+    }
+
+    aberto.chamado_membros = aberto.chamado_membros
+      .filter((outro) => outro.usuario_id !== usuarioId);
+    avisar("Salvo");
+    desenharMembros();
+    atualizarCard();
+  }
+
+  async function adicionarMembro(pessoa) {
+    const { error } = await supabase
+      .from("chamado_membros")
+      .insert({ chamado_id: aberto.id, usuario_id: pessoa.id });
+
+    if (error) {
+      avisar("Não foi possível adicionar o membro.", true);
+      return;
+    }
+
+    aberto.chamado_membros.push({
+      usuario_id: pessoa.id,
+      usuarios: {
+        id: pessoa.id, nome: pessoa.nome, sobrenome: pessoa.sobrenome,
+        foto_path: pessoa.foto_path, cor_destaque: pessoa.cor_destaque,
+      },
+    });
+    avisar("Salvo");
+    desenharMembros();
+    atualizarCard();
+  }
+
+  //AS BOLINHAS DE COR DE UMA PESSOA. A atual ganha o anel duplo.
+  function montarAmostras(pessoa, usuarioId) {
+    const corAtual = pessoa.cor_destaque?.toLowerCase() ?? null;
+    const cores = document.createElement("div");
+    cores.className = "detalhe__cores";
+
+    [...CORES_DESTAQUE, { nome: "Sem cor", valor: null }].forEach(({ nome, valor }) => {
+      const atual = corAtual === (valor?.toLowerCase() ?? null);
+      const amostra = document.createElement("button");
+
+      amostra.type = "button";
+      amostra.className = "detalhe__cor";
+      amostra.classList.toggle("detalhe__cor--sem", valor === null);
+      amostra.classList.toggle("detalhe__cor--atual", atual);
+      amostra.title = nome;
+      amostra.setAttribute("aria-label", `${nome} para ${primeiroNome(pessoa)}`);
+      amostra.setAttribute("aria-pressed", String(atual));
+
+      if (valor) amostra.style.setProperty("--cor", valor);
+
+      amostra.addEventListener("click", () => {
+        if (!atual) trocarCorDestaque(usuarioId, valor);
+      });
+
+      cores.appendChild(amostra);
+    });
+
+    return cores;
+  }
+
+  //PAINEL DA ENGRENAGEM: SO A COR, E SO DE QUEM ESTA LOGADO. Cada analista
+  //escolhe a propria cor; a dos colegas nao se mexe daqui.
+  function montarPainelCores() {
+    const painel = document.createElement("div");
+    painel.className = "detalhe__escolher";
+
+    const titulo = document.createElement("p");
+    titulo.className = "detalhe__escolher-titulo";
+    titulo.textContent = "Sua cor de destaque";
+    painel.appendChild(titulo);
+
+    // A equipe carregada no inicio inclui quem esta logado (perfil admin).
+    const eu = equipe.find((pessoa) => pessoa.id === atendente);
+
+    if (!eu) {
+      const vazio = document.createElement("p");
+      vazio.className = "detalhe__escolher-nota";
+      vazio.textContent = "Não foi possível identificar seu perfil. Recarregue a página.";
+      painel.appendChild(vazio);
+      return painel;
+    }
+
+    const linha = document.createElement("div");
+    linha.className = "detalhe__config-linha";
+
+    const quem = document.createElement("span");
+    quem.className = "detalhe__config-pessoa";
+
+    const avatar = montarAvatar(eu, eu.foto_path, "detalhe__membro-avatar");
+    aplicarCorDestaque(quem, eu);
+
+    const nome = document.createElement("span");
+    nome.className = "detalhe__config-nome";
+    nome.textContent = nomeCompleto(eu);
+
+    quem.append(avatar, nome);
+    linha.append(quem, montarAmostras(eu, eu.id));
+    painel.appendChild(linha);
+
+    const nota = document.createElement("p");
+    nota.className = "detalhe__escolher-nota";
+    nota.textContent = "A cor é sua: aparece em volta da sua foto em todos os cards.";
+    painel.appendChild(nota);
+
+    return painel;
+  }
+
+  //PAINEL DO +: SO QUEM PODE ENTRAR. Clicou, entrou, o painel fecha.
+  function montarPainelAdicionar(disponiveis) {
+    const painel = document.createElement("div");
+    painel.className = "detalhe__escolher";
+
+    const titulo = document.createElement("p");
+    titulo.className = "detalhe__escolher-titulo";
+    titulo.textContent = "Adicionar ao chamado";
+
+    const opcoes = document.createElement("div");
+    opcoes.className = "detalhe__escolher-opcoes";
+
+    disponiveis.forEach((pessoa) => {
+      const opcao = document.createElement("button");
+      opcao.type = "button";
+      opcao.className = "detalhe__membro";
+
+      const avatar = montarAvatar(pessoa, pessoa.foto_path, "detalhe__membro-avatar");
+      aplicarCorDestaque(opcao, pessoa);
+
+      // A lista de escolha mostra o nome completo: e onde da para confundir
+      // duas pessoas de primeiro nome parecido.
+      opcao.append(avatar, document.createTextNode(nomeCompleto(pessoa)));
+      opcao.addEventListener("click", () => {
+        painelMembros = null;
+        adicionarMembro(pessoa);
+      });
+
+      opcoes.appendChild(opcao);
+    });
+
+    painel.append(titulo, opcoes);
+
+    return painel;
+  }
+
+  function montarBotaoMembros({ tipo, rotulo, icone, desativado = false }) {
+    const ativo = painelAberto(tipo);
+    const botao = document.createElement("button");
+
+    botao.type = "button";
+    botao.className = `detalhe__adicionar detalhe__adicionar--${tipo}`;
+    botao.classList.toggle("detalhe__adicionar--ativo", ativo);
+    botao.disabled = desativado;
+    botao.title = rotulo;
+    botao.setAttribute("aria-label", rotulo);
+    botao.setAttribute("aria-expanded", String(ativo));
+    botao.innerHTML = icone;
+    botao.addEventListener("click", () => alternarPainel(tipo));
+
+    return botao;
+  }
+
   function desenharMembros() {
     campoMembros.replaceChildren();
 
+    // Chip: foto, nome e o x para tirar a pessoa do chamado.
     aberto.chamado_membros.forEach((membro) => {
       const pessoa = membro.usuarios;
 
       if (!pessoa?.nome) return;
 
-      const botao = document.createElement("button");
-      botao.type = "button";
-      botao.className = "detalhe__membro";
-      botao.title = `Remover ${nomeCompleto(pessoa)} do chamado`;
+      const chip = document.createElement("span");
+      chip.className = "detalhe__membro detalhe__membro--fixo";
+      chip.title = nomeCompleto(pessoa);
 
       const avatar = montarAvatar(pessoa, pessoa.foto_path, "detalhe__membro-avatar");
+      aplicarCorDestaque(chip, pessoa);
 
-      botao.append(avatar, document.createTextNode(primeiroNome(pessoa)));
+      const remover = document.createElement("button");
+      remover.type = "button";
+      remover.className = "detalhe__membro-remover";
+      remover.textContent = "×";
+      remover.title = `Remover ${nomeCompleto(pessoa)} do chamado`;
+      remover.setAttribute("aria-label", remover.title);
+      remover.addEventListener("click", () => removerMembro(membro.usuario_id));
 
-      botao.addEventListener("click", async () => {
-        const { error } = await supabase
-          .from("chamado_membros")
-          .delete()
-          .eq("chamado_id", aberto.id)
-          .eq("usuario_id", membro.usuario_id);
-
-        if (error) {
-          avisar("Não foi possível remover o membro.", true);
-          return;
-        }
-
-        aberto.chamado_membros = aberto.chamado_membros
-          .filter((outro) => outro.usuario_id !== membro.usuario_id);
-        avisar("Salvo");
-        desenharMembros();
-        atualizarCard();
-      });
-
-      campoMembros.appendChild(botao);
+      chip.append(avatar, document.createTextNode(primeiroNome(pessoa)), remover);
+      campoMembros.appendChild(chip);
     });
 
     const disponiveis = equipe.filter((pessoa) =>
       !aberto.chamado_membros.some((membro) => membro.usuario_id === pessoa.id));
 
-    if (!disponiveis.length) return;
+    // Painel de adicionar aberto mas ninguem mais disponivel: fecha sozinho.
+    if (painelAberto("adicionar") && !disponiveis.length) painelMembros = null;
 
-    const adicionar = document.createElement("button");
-    adicionar.type = "button";
-    adicionar.className = "detalhe__adicionar";
-    adicionar.title = "Adicionar membro";
-    adicionar.textContent = "+";
+    campoMembros.appendChild(montarBotaoMembros({
+      tipo: "adicionar",
+      rotulo: disponiveis.length ? "Adicionar membro" : "Toda a equipe já está no chamado",
+      desativado: !disponiveis.length,
+      icone: `
+        <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>`,
+    }));
 
-    const escolher = document.createElement("div");
-    escolher.className = "detalhe__escolher";
-
-    adicionar.addEventListener("click", () => {
-      if (escolher.childElementCount) {
-        escolher.replaceChildren();
-        return;
-      }
-
-      disponiveis.forEach((pessoa) => {
-        const opcao = document.createElement("button");
-        opcao.type = "button";
-        opcao.className = "detalhe__membro";
-
-        const avatar = montarAvatar(pessoa, pessoa.foto_path, "detalhe__membro-avatar");
-
-        // A lista de escolha mostra o nome completo: e onde da para confundir
-        // duas pessoas de primeiro nome parecido.
-        opcao.append(avatar, document.createTextNode(nomeCompleto(pessoa)));
-
-        opcao.addEventListener("click", async () => {
-          const { error } = await supabase
-            .from("chamado_membros")
-            .insert({ chamado_id: aberto.id, usuario_id: pessoa.id });
-
-          if (error) {
-            avisar("Não foi possível adicionar o membro.", true);
-            return;
-          }
-
-          aberto.chamado_membros.push({
-            usuario_id: pessoa.id,
-            usuarios: {
-              id: pessoa.id, nome: pessoa.nome, sobrenome: pessoa.sobrenome,
-              foto_path: pessoa.foto_path,
-            },
-          });
-          avisar("Salvo");
-          desenharMembros();
-          atualizarCard();
-        });
-
-        escolher.appendChild(opcao);
-      });
+    const configurar = montarBotaoMembros({
+      tipo: "cor",
+      rotulo: "Cor dos membros",
+      icone: `
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
+           stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>`,
     });
 
-    campoMembros.append(adicionar, escolher);
+    campoMembros.appendChild(configurar);
+
+    if (painelAberto("adicionar")) campoMembros.appendChild(montarPainelAdicionar(disponiveis));
+    if (painelAberto("cor")) campoMembros.appendChild(montarPainelCores());
   }
 
   function desenharConversa() {
@@ -1276,16 +1613,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
         etiquetas.appendChild(etiqueta);
       });
 
-    const membros = card.querySelector(".card__membros");
-    membros.replaceChildren();
-
-    aberto.chamado_membros.forEach((membro) => {
-      const pessoa = membro.usuarios;
-
-      if (!pessoa?.nome) return;
-
-      membros.appendChild(montarAvatar(pessoa, pessoa.foto_path, "card__membro"));
-    });
+    desenharMembrosDoCard(card.querySelector(".card__membros"), aberto.chamado_membros);
   }
 
   //SALVA AO SAIR DO CAMPO, SE MUDOU
@@ -1746,7 +2074,7 @@ async function montarQuadro() {
     return;
   }
 
-  const [filas, chamados, equipe] = await Promise.all([
+  const [filas, chamados, equipe, cores] = await Promise.all([
     supabase.from("filas").select("id, nome").eq("ativo", true).order("ordem"),
     supabase
       .from("chamados")
@@ -1769,12 +2097,34 @@ async function montarQuadro() {
       .neq("perfil", "solicitante")
       .eq("ativo", true)
       .order("nome"),
+    // Cor de destaque em consulta separada, de proposito: se a coluna ainda
+    // nao existir no banco (migration nao aplicada), so esta falha — dentro
+    // da consulta dos chamados, derrubaria o quadro inteiro.
+    supabase.from("usuarios").select("id, cor_destaque"),
   ]);
 
   if (filas.error || chamados.error) {
+    console.error("Erro ao carregar o quadro:", filas.error ?? chamados.error);
     resumo.textContent = "";
     mostrarErro("Não foi possível carregar o quadro. Recarregue a página.");
     return;
+  }
+
+  //COR DE DESTAQUE: SE A CONSULTA FALHOU, O QUADRO SEGUE SEM ANEL
+  if (cores.error) {
+    console.warn("Cor de destaque indisponível (a migration foi aplicada?):", cores.error);
+  } else {
+    const corDe = new Map(cores.data.map((pessoa) => [pessoa.id, pessoa.cor_destaque]));
+
+    (equipe.data ?? []).forEach((pessoa) => {
+      pessoa.cor_destaque = corDe.get(pessoa.id) ?? null;
+    });
+
+    chamados.data.forEach((chamado) => {
+      chamado.chamado_membros.forEach((membro) => {
+        if (membro.usuarios) membro.usuarios.cor_destaque = corDe.get(membro.usuario_id) ?? null;
+      });
+    });
   }
 
   //FECHADO NAO APARECE NO QUADRO: vive em Tickets finalizados. O array

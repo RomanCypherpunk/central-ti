@@ -35,6 +35,52 @@ function preencher(seletor, texto) {
   if (elemento) elemento.textContent = texto;
 }
 
+//AVATAR DO TOPO: FOTO DE "Dados pessoais"; SEM FOTO, AS INICIAIS
+const avatarTopo = document.querySelector("[data-iniciais]");
+let fotoTopo = null;
+let iniciaisTopo = "";
+let imagemTopoAtual = null;
+
+function desenharAvatarTopo() {
+  if (!avatarTopo) return;
+
+  avatarTopo.textContent = iniciaisTopo;
+  imagemTopoAtual = null;
+
+  if (!fotoTopo) return;
+
+  const { data } = supabase.storage.from("avatares").getPublicUrl(fotoTopo);
+  const imagem = document.createElement("img");
+
+  imagemTopoAtual = imagem;
+
+  imagem.className = "topo__avatar-foto";
+  imagem.alt = "";
+  // A troca grava por cima do mesmo caminho: sem o sufixo, o navegador
+  // continuaria mostrando a foto antiga que tem em cache.
+  imagem.src = `${data.publicUrl}?v=${Date.now()}`;
+  // Só troca as iniciais quando a imagem carregou: arquivo sumido do Storage
+  // não vira imagem quebrada. E só a última pedida vale — uma troca rápida não
+  // deixa a foto anterior terminar de carregar por cima da nova.
+  imagem.addEventListener("load", () => {
+    if (imagemTopoAtual !== imagem) return;
+
+    avatarTopo.textContent = "";
+    avatarTopo.appendChild(imagem);
+  });
+}
+
+// A tela de perfil avisa quando a foto ou o nome mudam, e o topo acompanha
+// sem precisar recarregar.
+window.addEventListener("perfil:atualizado", (evento) => {
+  const { detail } = evento;
+
+  if ("fotoPath" in detail) fotoTopo = detail.fotoPath;
+  if ("iniciais" in detail) iniciaisTopo = detail.iniciais;
+
+  desenharAvatarTopo();
+});
+
 async function preencherUsuario() {
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -44,7 +90,7 @@ async function preencherUsuario() {
   // cadastro e nao acompanha quem edita o nome em "Dados pessoais".
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("nome, sobrenome, perfil, setores(nome)")
+    .select("nome, sobrenome, perfil, foto_path, setores(nome)")
     .eq("id", user.id)
     .single();
 
@@ -64,7 +110,9 @@ async function preencherUsuario() {
   // as telas que precisam identificar a pessoa (detalhe do chamado).
   preencher("[data-nome]", nome);
   preencher("[data-saudacao-nome]", nome);
-  preencher("[data-iniciais]", iniciais(nome, sobrenome));
+  iniciaisTopo = iniciais(nome, sobrenome);
+  fotoTopo = perfil?.foto_path ?? null;
+  desenharAvatarTopo();
 
   const setor = perfil?.setores?.nome;
 

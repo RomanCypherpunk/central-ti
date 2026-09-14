@@ -120,6 +120,11 @@ body.portal-pagina {
   );
   background-size: 250% 500%;
   animation: destaque-fundo-respira 20s ease-in-out infinite;
+
+  /*ZOOM DO QUADRO: SO O QUE ESTA ABAIXO DO TOPO. O VALOR VEM DOS BOTOES
+    DO TOPO (portal.js); O flex: 1 CONTINUA INDO ATE O RODAPE EM QUALQUER
+    ZOOM — conferido no navegador.*/
+  zoom: var(--zoom-portal, 1);
 }
 
 /*FUNDO PROPRIO: O JS poe backgroundImage inline quando ha fundo_path. O
@@ -568,16 +573,50 @@ body.portal-pagina {
   color: var(--status-fechado);
 }
 
-/*MEMBROS: INICIAIS EM CIRCULO, ALINHADOS A DIREITA*/
-/*SO OCUPA ESPACO QUANDO TEM ALGUEM NO CHAMADO*/
+/*MEMBROS: RODAPE DO CARD COM QUEM ESTA ATENDENDO — FOTO E NOME LADO A LADO.
+  Uma linha fina separa do resto; com mais de um membro, quebra de linha.
+  SO OCUPA ESPACO QUANDO TEM ALGUEM NO CHAMADO*/
 .card__membros {
   display: flex;
-  justify-content: flex-end;
-  gap: 0.1875rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.625rem;
+  margin-top: 0.125rem;
+  padding-top: 0.375rem;
+  border-top: 1px solid var(--borda-suave);
 }
 
 .card__membros:empty {
   display: none;
+}
+
+.card__membro-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+/*COR DE DESTAQUE: FUNDO CLARO NA COR DA PESSOA (usuarios.cor_destaque), DO
+  COMECO DA FOTO ATE O FIM DO NOME, NO CARD E NO DETALHE. color-mix clareia a
+  cor misturando com o fundo do card — nao precisa salvar uma segunda cor, e
+  no tema escuro o fundo escurece junto. O texto puxa um pouco da cor.*/
+.membro--destaque {
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--cor-destaque) 18%, var(--superficie));
+  color: color-mix(in srgb, var(--cor-destaque) 60%, var(--texto));
+}
+
+/*NO CARD E NO PAINEL O ELEMENTO NAO TINHA RECHEIO: COM FUNDO, A FOTO ENCOSTA
+  NA PONTA ESQUERDA E O NOME GANHA FOLGA NA DIREITA*/
+.card__membro-chip.membro--destaque,
+.detalhe__config-pessoa.membro--destaque {
+  padding: 0.125rem 0.625rem 0.125rem 0.125rem;
+}
+
+.membro--destaque .card__membro-nome,
+.membro--destaque .detalhe__config-nome {
+  color: inherit;
 }
 
 .card__membro {
@@ -585,15 +624,24 @@ body.portal-pagina {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 1.125rem;
-  height: 1.125rem;
+  width: 1.875rem;
+  height: 1.875rem;
   border-radius: 50%;
   background-color: var(--avatar-fundo);
   font-family: "Sora", system-ui, sans-serif;
-  font-size: 0.5rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--avatar-texto);
   overflow: hidden;
+}
+
+.card__membro-nome {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--texto-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /*A FOTO E A MESMA DE "Dados pessoais", SEJA NO CARD, NO CHIP DE MEMBRO
@@ -848,9 +896,23 @@ body.portal-pagina {
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-.detalhe__membro:hover {
+.detalhe__membro:hover,
+.detalhe__membro--ativo {
   border-color: var(--realce-borda);
   background-color: var(--realce);
+}
+
+/*NO DETALHE O CHIP JA TEM BORDA E FUNDO PROPRIOS: A COR TROCA OS DOIS.
+  O :hover do chip fixo esta aqui para ele nao voltar ao cinza ao passar o mouse.*/
+.detalhe__membro.membro--destaque,
+.detalhe__membro--fixo.membro--destaque:hover {
+  border-color: color-mix(in srgb, var(--cor-destaque) 35%, var(--superficie));
+  background-color: color-mix(in srgb, var(--cor-destaque) 18%, var(--superficie));
+}
+
+/*NA LISTA DO +, O HOVER ESCURECE UM POUCO A MESMA COR*/
+.detalhe__membro.membro--destaque:not(.detalhe__membro--fixo):hover {
+  background-color: color-mix(in srgb, var(--cor-destaque) 28%, var(--superficie));
 }
 
 .detalhe__membro-avatar {
@@ -858,12 +920,12 @@ body.portal-pagina {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.625rem;
+  height: 1.625rem;
   border-radius: 50%;
   background-color: var(--avatar-fundo);
   font-family: "Sora", system-ui, sans-serif;
-  font-size: 0.5rem;
+  font-size: 0.625rem;
   font-weight: 600;
   color: var(--avatar-texto);
   overflow: hidden;
@@ -883,26 +945,202 @@ body.portal-pagina {
   transition: border-color 0.2s ease, color 0.2s ease;
 }
 
-.detalhe__adicionar:hover {
+.detalhe__adicionar:hover:not(:disabled),
+.detalhe__adicionar--ativo {
+  border-style: solid;
   border-color: var(--laranja);
   color: var(--laranja);
 }
 
-/*LISTA DE QUEM PODE ENTRAR NO CHAMADO*/
-.detalhe__escolher {
+/*ENGRENAGEM: GIRA UM POUCO QUANDO O PAINEL ESTA ABERTO*/
+.detalhe__adicionar--ativo svg {
+  transform: rotate(60deg);
+}
+
+.detalhe__adicionar svg {
+  transition: transform 0.25s ease;
+}
+
+/*CHIP SO DE EXIBICAO: CONFIGURAR E PELA ENGRENAGEM, ENTAO SEM CARA DE BOTAO*/
+.detalhe__membro--fixo {
+  padding-right: 0.25rem;
+  cursor: default;
+}
+
+.detalhe__membro--fixo:hover {
+  border-color: var(--borda);
+  background-color: var(--superficie);
+}
+
+/*x NO CHIP: TIRA A PESSOA DO CHAMADO. DISCRETO ATE PASSAR O MOUSE*/
+.detalhe__membro-remover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin-left: 0.125rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1;
+  color: var(--texto-4);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.detalhe__membro-remover:hover {
+  background-color: var(--erro-fundo);
+  color: var(--erro-texto);
+}
+
+/*A ENGRENAGEM FICA COLADA NO + */
+.detalhe__adicionar--cor {
+  margin-left: -0.125rem;
+}
+
+/*UMA LINHA POR MEMBRO NO PAINEL: PESSOA / CORES / REMOVER*/
+.detalhe__config-linha {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--borda-suave);
+}
+
+.detalhe__config-pessoa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 8.5rem;
+  flex: 1 1 8.5rem;
+}
+
+.detalhe__config-nome {
+  font-size: 0.75rem;
+  color: var(--texto);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detalhe__config-linha .detalhe__remover-membro {
+  margin-left: auto;
+}
+
+/*"ADICIONAR AO CHAMADO" SEPARADO DO QUE VEM ACIMA*/
+.detalhe__escolher-titulo--secao {
+  margin-top: 0.25rem;
+}
+
+.detalhe__adicionar:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/*PAINEL ABAIXO DOS MEMBROS: LISTA DE QUEM PODE ENTRAR, OU COR E REMOVER DE
+  UM MEMBRO. OCUPA A LINHA INTEIRA DO BLOCO.*/
+.detalhe__escolher {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.5rem;
+  margin-top: 0.25rem;
+  padding: 0.625rem;
   border: 1px solid var(--borda);
   border-radius: 7px;
   background-color: var(--superficie-3);
 }
 
-.detalhe__escolher:empty {
-  display: none;
+.detalhe__escolher-titulo {
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+
+.detalhe__escolher-opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.detalhe__escolher-nota {
+  margin: 0;
+  font-size: 0.625rem;
+  color: var(--texto-3);
+}
+
+/*AMOSTRAS DE COR: A ATUAL GANHA O MESMO ANEL DUPLO DO AVATAR*/
+.detalhe__cores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.detalhe__cor {
+  width: 1.375rem;
+  height: 1.375rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: var(--cor);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.detalhe__cor:hover {
+  transform: scale(1.12);
+}
+
+.detalhe__cor--atual {
+  box-shadow: 0 0 0 2px var(--superficie-3), 0 0 0 4px var(--cor, var(--texto-3));
+}
+
+/*"SEM COR": CIRCULO VAZIO CORTADO POR UM TRACO*/
+.detalhe__cor--sem {
+  border: 1px solid var(--borda);
+  background: linear-gradient(
+    135deg,
+    transparent calc(50% - 1px),
+    var(--texto-4) calc(50% - 1px),
+    var(--texto-4) calc(50% + 1px),
+    transparent calc(50% + 1px)
+  ), var(--superficie);
+}
+
+.detalhe__remover-membro {
+  align-self: flex-start;
+  padding: 0.3125rem 0.625rem;
+  border: 1px solid var(--erro-borda);
+  border-radius: 5px;
+  background-color: transparent;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  color: var(--erro-texto);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.detalhe__remover-membro:hover {
+  background-color: var(--erro-fundo);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detalhe__adicionar svg,
+  .detalhe__cor {
+    transition: none;
+  }
+
+  .detalhe__cor:hover {
+    transform: none;
+  }
 }
 
 .detalhe__descricao {
@@ -1549,6 +1787,260 @@ body.portal-pagina {
   transform: scale(0.94);
 }
 
+/*ZOOM: BOTAO NA MESMA MOLDURA DO TEMA, MOSTRANDO O VALOR; CLICAR ABRE O
+  PAINEL COM O SLIDER (ancorado no botao, como o menu do perfil)*/
+.zoom {
+  position: relative;
+}
+
+.topo__zoom {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2.0625rem;
+  padding: 0 0.5rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  background-color: #fff;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: #8a8a8a;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.topo__zoom:hover {
+  color: #1a1a1a;
+  transform: scale(1.04);
+}
+
+.topo__zoom:active {
+  transform: scale(0.97);
+}
+
+.topo__zoom[aria-expanded="true"] {
+  border-color: #dd5b12;
+  color: #dd5b12;
+}
+
+.topo__zoom-valor {
+  min-width: 2.25rem;
+  text-align: right;
+  /*NUMEROS DE LARGURA FIXA: 95% E 100% NAO FAZEM O BOTAO MUDAR DE TAMANHO*/
+  font-variant-numeric: tabular-nums;
+  color: #1a1a1a;
+}
+
+.zoom__painel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 20;
+  width: 15.5rem;
+  box-sizing: border-box;
+  padding: 0.75rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background-color: #fff;
+  box-shadow: 0 12px 32px rgba(26, 26, 26, 0.14);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+}
+
+.zoom__painel--aberto {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+.zoom__cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.zoom__redefinir {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  color: #c24f00;
+  cursor: pointer;
+}
+
+.zoom__redefinir:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.zoom__redefinir:disabled {
+  color: #b5b5b5;
+  cursor: default;
+}
+
+.zoom__controle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.zoom__passo {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #5a5a5a;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.zoom__passo:hover:not(:disabled) {
+  background-color: #f5f5f5;
+  color: #1a1a1a;
+}
+
+.zoom__passo:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/*SLIDER: TRILHO FINO QUE PREENCHE DE LARANJA ATE A BOLINHA. --preenchido
+  VEM DO JS (no Firefox quem pinta e o ::-moz-range-progress)*/
+.zoom__slider {
+  flex: 1;
+  min-width: 0;
+  height: 1.25rem;
+  margin: 0;
+  background: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.zoom__slider:focus-visible {
+  outline: none;
+}
+
+.zoom__slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #dd5b12 var(--preenchido, 50%),
+    #e5e5e5 var(--preenchido, 50%)
+  );
+}
+
+.zoom__slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background-color: #e5e5e5;
+}
+
+.zoom__slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background-color: #dd5b12;
+}
+
+.zoom__slider::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background-color: #dd5b12;
+  box-shadow: 0 1px 4px rgba(26, 26, 26, 0.3);
+  -webkit-appearance: none;
+  appearance: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.zoom__slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background-color: #dd5b12;
+  box-shadow: 0 1px 4px rgba(26, 26, 26, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.zoom__slider:hover::-webkit-slider-thumb,
+.zoom__slider:active::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+
+.zoom__slider:hover::-moz-range-thumb,
+.zoom__slider:active::-moz-range-thumb {
+  transform: scale(1.2);
+}
+
+.zoom__slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(221, 91, 18, 0.28);
+}
+
+.zoom__slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgba(221, 91, 18, 0.28);
+}
+
+/*MARCAS 50 / 100 / 150: A MARGEM LATERAL E A LARGURA DO BOTAO + O GAP,
+  PARA AS PONTAS CAIREM EMBAIXO DAS PONTAS DO SLIDER*/
+.zoom__marcas {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.25rem 2.25rem 0;
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+  color: #8a8a8a;
+}
+
+.zoom__dica {
+  margin: 0.75rem 0 0;
+  padding-top: 0.625rem;
+  border-top: 1px solid #f0f0f0;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: #8a8a8a;
+}
+
+.zoom__dica kbd {
+  padding: 0 0.3125rem;
+  border: 1px solid #e5e5e5;
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background-color: #fafafa;
+  font-family: inherit;
+  font-size: 0.625rem;
+  color: #5a5a5a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topo__zoom,
+  .zoom__painel,
+  .zoom__slider::-webkit-slider-thumb {
+    transition: none;
+  }
+
+  .topo__zoom:hover,
+  .topo__zoom:active {
+    transform: none;
+  }
+}
+
 .topo__tema-icone--sol {
   display: none;
 }
@@ -1596,6 +2088,80 @@ body.portal-pagina {
 }
 
 [data-tema="escuro"] .portal-pagina .topo__tema:hover {
+  color: var(--texto);
+}
+
+[data-tema="escuro"] .portal-pagina .topo__zoom {
+  border-color: var(--borda);
+  background-color: var(--superficie);
+  color: var(--texto-3);
+}
+
+[data-tema="escuro"] .portal-pagina .topo__zoom:hover {
+  color: var(--texto);
+}
+
+[data-tema="escuro"] .portal-pagina .topo__zoom[aria-expanded="true"] {
+  border-color: var(--laranja-forte);
+  color: var(--laranja-forte);
+}
+
+[data-tema="escuro"] .portal-pagina .topo__zoom-valor,
+[data-tema="escuro"] .portal-pagina .zoom__cabecalho {
+  color: var(--texto);
+}
+
+[data-tema="escuro"] .portal-pagina .zoom__painel {
+  border-color: var(--borda);
+  background-color: var(--superficie);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+[data-tema="escuro"] .portal-pagina .zoom__passo {
+  border-color: var(--borda);
+  background-color: var(--superficie);
+  color: var(--texto-3);
+}
+
+[data-tema="escuro"] .portal-pagina .zoom__passo:hover:not(:disabled) {
+  background-color: var(--superficie-2);
+  color: var(--texto);
+}
+
+[data-tema="escuro"] .portal-pagina .zoom__slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    #dd5b12 var(--preenchido, 50%),
+    var(--borda) var(--preenchido, 50%)
+  );
+}
+
+[data-tema="escuro"] .portal-pagina .zoom__slider::-moz-range-track {
+  background-color: var(--borda);
+}
+
+/*SEPARADOS DE PROPOSITO: NUMA LISTA SO, O NAVEGADOR QUE NAO CONHECE UM DOS
+  PSEUDO-ELEMENTOS DESCARTA A REGRA INTEIRA*/
+[data-tema="escuro"] .portal-pagina .zoom__slider::-webkit-slider-thumb {
+  border-color: var(--superficie);
+}
+
+[data-tema="escuro"] .portal-pagina .zoom__slider::-moz-range-thumb {
+  border-color: var(--superficie);
+}
+
+[data-tema="escuro"] .portal-pagina .zoom__marcas,
+[data-tema="escuro"] .portal-pagina .zoom__dica {
+  color: var(--texto-3);
+}
+
+[data-tema="escuro"] .portal-pagina .zoom__dica {
+  border-top-color: var(--borda-suave);
+}
+
+[data-tema="escuro"] .portal-pagina .zoom__dica kbd {
+  border-color: var(--borda);
+  background-color: var(--superficie-2);
   color: var(--texto);
 }
 

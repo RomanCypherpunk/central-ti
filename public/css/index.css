@@ -136,6 +136,14 @@ body {
   font-size: 0.8125rem;
   font-weight: 400;
   color: #fff;
+  overflow: hidden;
+}
+
+/*FOTO DE PERFIL: PREENCHE O QUADRADO SEM DISTORCER*/
+.topo__avatar-foto {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .topo__usuario-texto {

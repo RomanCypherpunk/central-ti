@@ -14,6 +14,10 @@
     // Antes da primeira pintura, senao a tela pisca no tema errado ao recarregar.
     document.documentElement.dataset.tema =
       localStorage.getItem("tema-portal") ?? "claro";
+
+    // Mesmo motivo: o quadro ja nasce no zoom escolhido, sem pular de tamanho.
+    const zoomSalvo = Number(localStorage.getItem("zoom-portal"));
+    if (zoomSalvo) document.documentElement.style.setProperty("--zoom-portal", zoomSalvo);
   </script>
 </head>
 <body class="portal-pagina" style="visibility: hidden">
@@ -32,6 +36,47 @@
 
     <!--ACOES DA DIREITA-->
     <div class="topo__acoes">
+
+      <!--ZOOM: SO O QUADRO ABAIXO DO TOPO. O BOTAO MOSTRA O VALOR; CLICAR ABRE
+          O PAINEL COM O SLIDER. CTRL + RODA SOBRE O QUADRO TAMBEM FUNCIONA.-->
+      <div class="zoom" data-zoom>
+        <button class="topo__zoom" type="button" data-zoom-abrir
+                aria-haspopup="true" aria-expanded="false" aria-label="Zoom do quadro">
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+            <path d="m15.5 15.5 4 4M8 10.5h5M10.5 8v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          </svg>
+          <span class="topo__zoom-valor" data-zoom-valor>100%</span>
+        </button>
+
+        <div class="zoom__painel" data-zoom-painel>
+          <div class="zoom__cabecalho">
+            <span>Zoom do quadro</span>
+            <button class="zoom__redefinir" type="button" data-zoom-redefinir>Redefinir</button>
+          </div>
+
+          <div class="zoom__controle">
+            <button class="zoom__passo" type="button" data-zoom-menos aria-label="Diminuir zoom">
+              <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <input class="zoom__slider" type="range" min="50" max="150" step="5" value="100"
+                   data-zoom-slider aria-label="Zoom do quadro">
+            <button class="zoom__passo" type="button" data-zoom-mais aria-label="Aumentar zoom">
+              <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="zoom__marcas" aria-hidden="true">
+            <span>50%</span><span>100%</span><span>150%</span>
+          </div>
+
+          <p class="zoom__dica"><kbd>Ctrl</kbd> + roda do mouse sobre o quadro também dá zoom.</p>
+        </div>
+      </div>
 
       <!--TEMA: SO NESTA TELA. UM BOTAO SO, QUE ALTERNA ENTRE OS DOIS-->
       <button class="topo__tema" type="button" data-tema-alternar

@@ -43,6 +43,11 @@ function urlDaFoto(caminho) {
   return `${data.publicUrl}?v=${Date.now()}`;
 }
 
+//O avatar do topo e do main.js: ele escuta este evento e se redesenha.
+function avisarTopo(detalhe) {
+  window.dispatchEvent(new CustomEvent("perfil:atualizado", { detail: detalhe }));
+}
+
 function desenharFoto() {
   foto.querySelector("img")?.remove();
 
@@ -133,6 +138,7 @@ fotoArquivo.addEventListener("change", async () => {
   eu.foto_path = caminho;
   fotoArquivo.value = "";
   desenharFoto();
+  avisarTopo({ fotoPath: caminho });
   avisar("Foto atualizada");
 });
 
@@ -158,6 +164,7 @@ fotoRemover.addEventListener("click", async () => {
 
   eu.foto_path = null;
   desenharFoto();
+  avisarTopo({ fotoPath: null });
   avisar("Foto removida");
 });
 
@@ -202,7 +209,8 @@ botaoSalvar.addEventListener("click", async () => {
   fotoIniciais.textContent = iniciais(nome, sobrenome);
   // O topo da pagina mostra so o primeiro nome; sem isso ele so mudaria ao recarregar.
   document.querySelector("[data-nome]").textContent = nome;
-  document.querySelector("[data-iniciais]").textContent = iniciais(nome, sobrenome);
+  // As iniciais passam pelo main.js: escrever direto no avatar apagaria a foto.
+  avisarTopo({ iniciais: iniciais(nome, sobrenome) });
   avisar("Nome atualizado");
 });
 
