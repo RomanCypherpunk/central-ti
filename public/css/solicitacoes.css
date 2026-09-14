@@ -121,6 +121,11 @@
   color: #1a1a1a;
 }
 
+/*TOQUE: sem hover no celular, o filtro precisa reagir no dedo encostar.*/
+.filtro:active {
+  transform: scale(0.96);
+}
+
 .filtro--ativo,
 .filtro--ativo:hover {
   border-color: #1a1a1a;
@@ -169,6 +174,14 @@
   border-color: #d4d4d8;
   box-shadow: 0 2px 10px rgba(26, 26, 26, 0.06);
   transform: translateY(-1px);
+}
+
+/*TOQUE: o mesmo destaque do hover, mais um leve encolhimento — confirma
+  o toque na hora, sem esperar o clique terminar.*/
+.chamado:active {
+  border-color: #d4d4d8;
+  box-shadow: 0 2px 10px rgba(26, 26, 26, 0.06);
+  transform: translateY(0) scale(0.99);
 }
 
 .chamado:focus-visible {
@@ -295,10 +308,30 @@
   background-color: #fff;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
   overflow: hidden;
+  /*CHEGA COMO MATERIAL, NAO SO UM FADE: opacidade + leve escala junto.
+    allow-discrete deixa a transicao rodar antes do display:none sumir
+    o elemento (senao nao haveria tempo de anima-lo saindo).*/
+  transition: opacity 0.18s ease, transform 0.18s ease,
+              overlay 0.18s allow-discrete, display 0.18s allow-discrete;
+  opacity: 1;
+  transform: scale(1);
 }
 
 .detalhe::backdrop {
   background-color: rgba(16, 10, 8, 0.55);
+  transition: background-color 0.18s ease, overlay 0.18s allow-discrete,
+              display 0.18s allow-discrete;
+}
+
+@starting-style {
+  .detalhe[open] {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  .detalhe[open]::backdrop {
+    background-color: transparent;
+  }
 }
 
 .detalhe__conteudo {
@@ -555,6 +588,11 @@
   background-color: #c24f00;
 }
 
+.responder__enviar:active:not(:disabled) {
+  background-color: #c24f00;
+  transform: scale(0.97);
+}
+
 .responder__enviar:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -608,8 +646,21 @@
 
 @media (prefers-reduced-motion: reduce) {
   .chamado,
-  .chamado:hover {
+  .chamado:hover,
+  .chamado:active {
     transition: none;
+    transform: none;
+  }
+
+  /*SEM ESCALA, SO CROSS-FADE: quem pede menos movimento ainda ve o modal
+    chegar, mas sem o leve zoom.*/
+  .detalhe {
+    transition: opacity 0.15s ease, overlay 0.15s allow-discrete,
+                display 0.15s allow-discrete;
+  }
+
+  .detalhe,
+  .detalhe[open] {
     transform: none;
   }
 }

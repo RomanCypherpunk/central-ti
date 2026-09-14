@@ -506,8 +506,11 @@ body.portal-pagina {
   flex-shrink: 0;
   width: 13.5rem;
   /*CABE UM PUNHADO DE CARDS ANTES DE ROLAR POR DENTRO; sem isso uma fila
-    cheia passaria do rodape da tela.*/
-  max-height: calc(100dvh - 11rem);
+    cheia passaria do rodape da tela. So o termo dvh precisa dividir pelo
+    zoom (ele mede a tela real); o 11rem ja escala sozinho, por estar
+    dentro do .portal (zoom nao herda, mas o rem do proprio elemento
+    segue o zoom aplicado nele normalmente).*/
+  max-height: calc((100dvh / var(--zoom-portal, 1)) - 11rem);
   border: 1px solid var(--borda);
   border-radius: 9px;
   background-color: var(--superficie-2);
@@ -770,23 +773,55 @@ body.portal-pagina {
 /*<dialog> ja traz o fundo esmaecido, o Esc e o foco preso de graça*/
 .detalhe {
   width: min(60rem, 92vw);
-  max-height: 88dvh;
+  /*O ZOOM DO QUADRO (var(--zoom-portal)) ESCALA ESTE DIALOG JUNTO — mesmo
+    o <dialog> estando fora da arvore de renderizacao normal (showModal()
+    o promove ao "top layer"), o zoom do ancestral .portal ainda se propaga
+    visualmente nele. NAO declarar zoom aqui de novo: duplicaria o fator
+    (visto no navegador — 1.5 do pai x 1.5 daqui = escala de facto 2.16).
+    dvh mede a tela real, nao o quadro — sem dividir, 88dvh vira maior que
+    a tela quando o zoom passa de 100% e o topo do modal e cortado.*/
+  max-height: calc(88dvh / var(--zoom-portal, 1));
   padding: 0;
   border: 0;
   border-radius: 12px;
   background-color: var(--superficie);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
   overflow: hidden;
+  /*CHEGA COMO MATERIAL, NAO SO UM FADE: opacidade + leve escala junto.
+    allow-discrete deixa a transicao rodar antes do display:none sumir
+    o elemento (senao nao haveria tempo de anima-lo saindo).*/
+  transition: opacity 0.18s ease, transform 0.18s ease,
+              overlay 0.18s allow-discrete, display 0.18s allow-discrete;
+  opacity: 1;
+  transform: scale(1);
 }
 
 .detalhe::backdrop {
   background-color: rgba(16, 10, 8, 0.62);
+  transition: background-color 0.18s ease, overlay 0.18s allow-discrete,
+              display 0.18s allow-discrete;
+}
+
+/*ESTADO INICIAL NO MOMENTO DE ABRIR (fecha some direto — @starting-style
+  so se aplica a entrada, entao a saida fica no navegador).*/
+@starting-style {
+  .detalhe[open] {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  .detalhe[open]::backdrop {
+    background-color: transparent;
+  }
 }
 
 .detalhe__conteudo {
   display: flex;
   flex-direction: column;
-  max-height: 88dvh;
+  /*Mesma conta do .detalhe: zoom nao herda, dvh mede a tela real — sem
+    dividir aqui, o conteudo interno estoura o container pai (que ja esta
+    dividido) e o dialog cresce alem do que o max-height dele permite.*/
+  max-height: calc(88dvh / var(--zoom-portal, 1));
 }
 
 .detalhe__topo {
@@ -926,6 +961,125 @@ body.portal-pagina {
 .dados__marca--sim {
   background-color: var(--selo-sim-fundo);
   color: var(--selo-sim-texto);
+}
+
+/* ==========================================================================
+   APROVACAO DE ACESSO — ficha enxuta no lugar do card padrao
+   ========================================================================== */
+
+.aprovacao {
+  max-width: 26rem;
+}
+
+.aprovacao__aviso {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  color: var(--texto-3);
+}
+
+.aprovacao__aviso:empty {
+  display: none;
+}
+
+.aprovacao__aviso--feito {
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.aprovacao__aviso--erro {
+  color: var(--erro-texto);
+}
+
+.aprovacao__campo {
+  margin: 0 0 1.25rem;
+}
+
+.aprovacao__rotulo {
+  display: block;
+  margin: 0 0 0.3125rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--texto-2);
+}
+
+.aprovacao__select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background-color: var(--superficie);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: var(--texto);
+  cursor: pointer;
+}
+
+.aprovacao__select:focus-visible {
+  outline: 2px solid var(--laranja);
+  outline-offset: 1px;
+}
+
+.aprovacao__acoes {
+  display: flex;
+  gap: 0.625rem;
+}
+
+.aprovacao__aprovar,
+.aprovacao__rejeitar {
+  flex: 1;
+  padding: 0.5625rem 1rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.aprovacao__aprovar {
+  border-color: var(--laranja);
+  background-color: var(--laranja);
+  color: #fff;
+}
+
+.aprovacao__aprovar:hover:not(:disabled) {
+  border-color: #c24f00;
+  background-color: #c24f00;
+}
+
+/*REJEITAR: VERMELHO FIXO NOS DOIS TEMAS, MESMA RAZAO DO BOTAO DE EXCLUIR
+  (o --erro-texto do escuro e rosa claro, ilegivel com fundo solido).*/
+.aprovacao__rejeitar {
+  border-color: #d64545;
+  background-color: var(--superficie);
+  color: #d64545;
+}
+
+.aprovacao__rejeitar:hover:not(:disabled) {
+  background-color: rgba(214, 69, 69, 0.1);
+}
+
+.aprovacao__aprovar:disabled,
+.aprovacao__rejeitar:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.aprovacao__aprovar:active:not(:disabled),
+.aprovacao__rejeitar:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aprovacao__aprovar,
+  .aprovacao__rejeitar,
+  .aprovacao__aprovar:active:not(:disabled),
+  .aprovacao__rejeitar:active:not(:disabled) {
+    transition: none;
+    transform: none;
+  }
 }
 
 /*PRIORIDADE E MEMBROS DIVIDEM A LINHA: ECONOMIZA ALTURA PARA O CHAT*/
@@ -1247,6 +1401,18 @@ body.portal-pagina {
   .detalhe__cor:hover {
     transform: none;
   }
+
+  /*SEM ESCALA, SO CROSS-FADE: quem pede menos movimento ainda ve o modal
+    chegar, mas sem o leve zoom.*/
+  .detalhe {
+    transition: opacity 0.15s ease, overlay 0.15s allow-discrete,
+                display 0.15s allow-discrete;
+  }
+
+  .detalhe,
+  .detalhe[open] {
+    transform: none;
+  }
 }
 
 .detalhe__descricao {
@@ -1486,8 +1652,12 @@ body.portal-pagina {
   O <dialog> em si e transparente e ocupa a tela toda: assim qualquer clique
   fora da imagem cai nele e fecha. Cores fixas — fundo escuro nos dois temas.*/
 .visualizador {
-  width: 100vw;
-  height: 100dvh;
+  /*Mesma conta dos outros dialogs: zoom do .portal se propaga visualmente
+    ate aqui, mas vw/dvh medem a tela real — dividir devolve a tela cheia
+    de verdade em qualquer zoom (sem isso, 100vw em zoom 150% vira 150%
+    da tela real e o visualizador sai cortado pelas bordas).*/
+  width: calc(100vw / var(--zoom-portal, 1));
+  height: calc(100dvh / var(--zoom-portal, 1));
   max-width: none;
   max-height: none;
   box-sizing: border-box;
@@ -1521,7 +1691,10 @@ body.portal-pagina {
 /*A IMAGEM CABE INTEIRA NA TELA, SEM CORTAR NEM DISTORCER*/
 .visualizador__imagem {
   max-width: 100%;
-  max-height: calc(100dvh - 8rem);
+  /*Mesma conta do .visualizador (que ja divide a largura/altura pelo
+    zoom): o 8rem de respiro tambem escala sozinho, so o dvh precisa
+    dividir.*/
+  max-height: calc((100dvh / var(--zoom-portal, 1)) - 8rem);
   object-fit: contain;
   border-radius: 6px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
@@ -1647,6 +1820,56 @@ body.portal-pagina {
 .anexo__quando {
   display: block;
   font-size: 0.5625rem;
+  color: var(--texto-4);
+}
+
+/*ANEXO QUE E IMAGEM: CARD VERTICAL COM A PREVIA EM CIMA — diferente do
+  card horizontal de arquivo generico, porque aqui a miniatura ja diz o
+  que e, o nome vira legenda.*/
+.anexo--imagem {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.375rem;
+  padding: 0.375rem;
+}
+
+.anexo__previa {
+  width: 100%;
+  height: 6.5rem;
+  border-radius: 4px;
+  background-color: var(--superficie-2);
+  object-fit: cover;
+  /*Enquanto a URL assinada nao chega (preencherImagens e em lote, depois
+    do card jah estar na tela) ou se falhar, o quadrado cinza do proprio
+    background-color segura o lugar sem pular o layout.*/
+}
+
+.anexo--imagem .anexo__texto {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.anexo--imagem .anexo__nome {
+  flex: 1;
+}
+
+/*PREVIA QUE FALHOU: sem imagem quebrada — o quadrado cinza fica, so
+  ganha um "sem prévia" para explicar o vazio.*/
+.anexo--imagem-falhou .anexo__previa {
+  display: none;
+}
+
+.anexo--imagem-falhou::before {
+  content: "Sem prévia";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 6.5rem;
+  border-radius: 4px;
+  background-color: var(--superficie-2);
+  font-size: 0.625rem;
   color: var(--texto-4);
 }
 
@@ -2579,7 +2802,7 @@ body.portal-pagina {
   right: 0;
   z-index: 5;
   width: 22rem;
-  max-height: min(34rem, 70dvh);
+  max-height: min(34rem, calc(70dvh / var(--zoom-portal, 1)));
   box-sizing: border-box;
   padding: 0.75rem;
   border: 1px solid var(--borda);
@@ -2955,7 +3178,10 @@ body.portal-pagina {
 
 .finalizados {
   width: min(38rem, 92vw);
-  max-height: 80dvh;
+  /*Mesma conta do .detalhe (ver comentario la): o zoom do .portal se
+    propaga visualmente ate este dialog, mas dvh mede a tela real —
+    dividir aqui devolve a mesma proporcao final em qualquer zoom.*/
+  max-height: calc(80dvh / var(--zoom-portal, 1));
   padding: 0;
   border: 0;
   border-radius: 12px;
@@ -2971,7 +3197,7 @@ body.portal-pagina {
 .finalizados__conteudo {
   display: flex;
   flex-direction: column;
-  max-height: 80dvh;
+  max-height: calc(80dvh / var(--zoom-portal, 1));
 }
 
 .finalizados__topo {
@@ -3851,6 +4077,32 @@ body.portal-pagina {
 
   .barra-portal .busca {
     width: 11rem;
+  }
+}
+
+/*CELULAR: a marca (logo+titulo) e as ferramentas nao cabem mais lado a
+  lado — quebram em duas linhas, marca em cima, ferramentas embaixo com a
+  busca esticando para ocupar a largura.*/
+@media (max-width: 640px) {
+  .barra-portal {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  .barra-portal .topo__produto,
+  .barra-portal__divisor-produto {
+    display: none;
+  }
+
+  .portal__ferramentas {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .barra-portal .busca {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 }
 

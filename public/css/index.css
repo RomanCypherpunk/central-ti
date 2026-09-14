@@ -11,6 +11,15 @@ body {
   font-family: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+/*display NA CLASSE VENCE O [hidden] DO NAVEGADOR (mesma especificidade,
+  quem vem depois no arquivo ganha): ISSO DEVOLVE A PRIORIDADE. Sem isto,
+  esconder algo que já nasce visível (ex.: [data-menu-base] via JS) não
+  funciona — só o padrão "nasce hidden, JS revela" (data-equipe-ti) escapava
+  do bug por acidente.*/
+[hidden] {
+  display: none !important;
+}
+
 /*ENTRADA DA PAGINA: BLOCOS SOBEM COM FADE, EM SEQUENCIA*/
 .entrada {
   opacity: 0;
@@ -415,6 +424,26 @@ body {
   outline-offset: 2px;
 }
 
+/*CADASTRO PENDENTE: cinza apagado, sem brilho nem hover — o link perde o
+  href (main.js), entao mesmo clicando nao navega. A cor avisa antes do
+  clique, sem precisar de tentativa e erro.*/
+.botao--desativado {
+  background-color: #d4d4d8;
+  color: #71717a;
+  cursor: not-allowed;
+}
+
+.botao--desativado:hover {
+  background-color: #d4d4d8;
+  transform: none;
+  box-shadow: none;
+}
+
+.botao--desativado::before,
+.botao--desativado:hover::before {
+  content: none;
+}
+
 /*DUAS COLUNAS DE BAIXO*/
 .colunas {
   display: grid;
@@ -489,6 +518,17 @@ body {
 
 .secao__link:hover::after {
   transform: scaleX(1);
+}
+
+/*CADASTRO PENDENTE: mesmo cinza apagado do botão sólido, adaptado pro
+  link de texto — sem sublinhado animado, sem cor de hover.*/
+.secao__link.botao--desativado {
+  background-color: transparent;
+  color: #a1a1aa;
+}
+
+.secao__link.botao--desativado::after {
+  content: none;
 }
 
 /*DESTAQUES DA BASE*/

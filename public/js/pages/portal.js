@@ -970,6 +970,17 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
   const botaoFecharChamado = document.querySelector("[data-detalhe-fechar-chamado]");
   const nomeDaFila = new Map(filas.map((fila) => [fila.id, fila.nome]));
 
+  //APROVACAO DE ACESSO: elementos do painel alternativo (ver comentario
+  //no HTML). So existe para o chamado nascido do cadastro.
+  const conteudoPadrao = document.querySelector("[data-detalhe-conteudo-padrao]");
+  const painelAprovacao = document.querySelector("[data-aprovacao]");
+  const campoAprovacaoDados = document.querySelector("[data-aprovacao-dados]");
+  const campoAprovacaoSetor = document.querySelector("[data-aprovacao-setor]");
+  const avisoAprovacao = document.querySelector("[data-aprovacao-aviso]");
+  const botaoAprovar = document.querySelector("[data-aprovacao-aprovar]");
+  const botaoRejeitar = document.querySelector("[data-aprovacao-rejeitar]");
+  let setoresDisponiveis = [];
+
   let aberto = null;
 
   function avisar(texto, erro = false) {
@@ -1555,23 +1566,17 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
       return;
     }
 
+    // As imagens pedem a URL assinada antes de aparecer; junta todas e
+    // busca numa unica chamada (preencherImagens ja faz isso em lote),
+    // em vez de uma assinatura por anexo.
+    const imagensParaCarregar = [];
+
     [...aberto.anexos]
       .sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em))
       .forEach((anexo) => {
         const botao = document.createElement("button");
         botao.type = "button";
-        botao.className = "anexo";
         botao.title = anexo.nome_arquivo;
-
-        const icone = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        icone.setAttribute("class", "anexo__icone");
-        icone.setAttribute("viewBox", "0 0 24 24");
-        icone.setAttribute("width", "14");
-        icone.setAttribute("height", "14");
-        icone.innerHTML = '<path d="M13.5 3.5H7a1.8 1.8 0 0 0-1.8 1.8v13.4A1.8 1.8 0 0 0 7 20.5h10a1.8 1.8 0 0 0 1.8-1.8V8.8Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13.5 3.5v5.3h5.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>';
-
-        const texto = document.createElement("span");
-        texto.className = "anexo__texto";
 
         const nome = document.createElement("span");
         nome.className = "anexo__nome";
@@ -1581,8 +1586,42 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
         quando.className = "anexo__quando";
         quando.textContent = formatarData(anexo.criado_em);
 
-        texto.append(nome, quando);
-        botao.append(icone, texto);
+        //IMAGEM: CARD VERTICAL COM PREVIA EM CIMA, NOME E DATA EMBAIXO —
+        //bate o olho no que e antes de precisar abrir.
+        if (ehImagem(anexo.nome_arquivo)) {
+          botao.className = "anexo anexo--imagem";
+
+          const previa = document.createElement("img");
+          previa.className = "anexo__previa";
+          previa.alt = "";
+          previa.loading = "lazy";
+          previa.dataset.caminho = anexo.storage_path;
+          // Sem preview, cai para o card de arquivo comum — melhor um
+          // icone generico do que um quadrado quebrado.
+          previa.addEventListener("error", () => botao.classList.add("anexo--imagem-falhou"));
+
+          const texto = document.createElement("span");
+          texto.className = "anexo__texto";
+          texto.append(nome, quando);
+
+          botao.append(previa, texto);
+          imagensParaCarregar.push(previa);
+        } else {
+          botao.className = "anexo";
+
+          const icone = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          icone.setAttribute("class", "anexo__icone");
+          icone.setAttribute("viewBox", "0 0 24 24");
+          icone.setAttribute("width", "14");
+          icone.setAttribute("height", "14");
+          icone.innerHTML = '<path d="M13.5 3.5H7a1.8 1.8 0 0 0-1.8 1.8v13.4A1.8 1.8 0 0 0 7 20.5h10a1.8 1.8 0 0 0 1.8-1.8V8.8Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13.5 3.5v5.3h5.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>';
+
+          const texto = document.createElement("span");
+          texto.className = "anexo__texto";
+          texto.append(nome, quando);
+
+          botao.append(icone, texto);
+        }
 
         botao.addEventListener("click", async () => {
           // Imagem abre no visualizador, na propria tela. PDF e o resto
@@ -1606,6 +1645,8 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
 
         campoAnexos.appendChild(botao);
       });
+
+    if (imagensParaCarregar.length) preencherImagens(imagensParaCarregar);
   }
 
   //RESPONDER AO SOLICITANTE. Tudo que se escreve aqui e conversa com ele —
@@ -2227,10 +2268,149 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
     });
   }
 
+  //E O CHAMADO QUE handle_new_user() ABRE SOZINHO NO CADASTRO — identifica
+  //pela categoria, que e o mesmo dado que a fila 'Internet, Conexão e
+  //Telefonia' usa para rotear (ver chamados_rotear_por_categoria no banco).
+  function ehAprovacaoDeAcesso(chamado) {
+    return chamado.categorias?.nome === "Aprovação de Acesso";
+  }
+
+  async function carregarSetores() {
+    if (setoresDisponiveis.length) return;
+
+    const { data } = await supabase.from("setores")
+      .select("id, nome").eq("ativo", true).order("nome");
+
+    setoresDisponiveis = data ?? [];
+
+    campoAprovacaoSetor.replaceChildren();
+    setoresDisponiveis.forEach((setor) => {
+      const opcao = document.createElement("option");
+      opcao.value = setor.id;
+      opcao.textContent = setor.nome;
+      campoAprovacaoSetor.appendChild(opcao);
+    });
+  }
+
+  //FICHA ENXUTA DA APROVACAO: so os campos que decidem se a conta e
+  //liberada. Setor vem de <select> porque e o unico editavel — os outros
+  //sao so conferencia (o que a pessoa preencheu no cadastro).
+  async function desenharAprovacao() {
+    await carregarSetores();
+
+    const solicitante = aberto.usuarios;
+    const aberturaEm = aberto.abertura_em
+      ? new Date(aberto.abertura_em).toLocaleString("pt-BR", {
+          day: "2-digit", month: "2-digit", year: "numeric",
+          hour: "2-digit", minute: "2-digit",
+        })
+      : null;
+
+    campoAprovacaoDados.replaceChildren();
+
+    [
+      { rotulo: "Solicitante", valor: nomeCompleto(solicitante) },
+      { rotulo: "Aberto em", valor: aberturaEm },
+      { rotulo: "E-mail", valor: solicitante?.email, largo: true },
+      { rotulo: "Unidade", valor: aberto.unidades?.nome },
+      { rotulo: "Categoria", valor: aberto.categorias?.nome },
+    ].forEach(({ rotulo, valor, largo }) => {
+      const item = document.createElement("div");
+      item.className = "dados__item";
+      if (largo) item.classList.add("dados__item--largo");
+
+      const termo = document.createElement("dt");
+      termo.className = "dados__rotulo";
+      termo.textContent = rotulo;
+
+      const definicao = document.createElement("dd");
+      definicao.className = "dados__valor";
+      if (!valor) definicao.classList.add("dados__valor--vazio");
+      definicao.textContent = valor || "Não informado";
+
+      item.append(termo, definicao);
+      campoAprovacaoDados.appendChild(item);
+    });
+
+    campoAprovacaoSetor.value = solicitante?.setor_id ?? "";
+
+    const jaDecidido = solicitante?.status_aprovacao && solicitante.status_aprovacao !== "pendente";
+
+    avisoAprovacao.textContent = jaDecidido
+      ? `Cadastro já ${solicitante.status_aprovacao === "aprovado" ? "aprovado" : "rejeitado"}.`
+      : "";
+    avisoAprovacao.classList.toggle("aprovacao__aviso--feito", Boolean(jaDecidido));
+
+    botaoAprovar.disabled = Boolean(jaDecidido);
+    botaoRejeitar.disabled = Boolean(jaDecidido);
+  }
+
+  //APROVAR/REJEITAR: grava em usuarios (nao em chamados) — o trigger do
+  //banco (notificar_aprovacao_cadastro) reage a mudanca de status_aprovacao
+  //e cuida do resto: mensagem automatica pro solicitante, o analista vira
+  //membro do chamado, e aprovar fecha o chamado. Aqui so falta recarregar
+  //a tela pra refletir o que o trigger ja fez no banco.
+  async function decidirAprovacao(aprovar) {
+    const solicitante = aberto.usuarios;
+
+    if (!solicitante?.id) return;
+
+    botaoAprovar.disabled = true;
+    botaoRejeitar.disabled = true;
+
+    const mudancas = { status_aprovacao: aprovar ? "aprovado" : "rejeitado" };
+    const setorEscolhido = campoAprovacaoSetor.value;
+
+    // So grava o setor se ele mudou — nao pisa em nada se o campo ficou
+    // no valor original.
+    if (setorEscolhido && setorEscolhido !== (solicitante.setor_id ?? "")) {
+      mudancas.setor_id = setorEscolhido;
+    }
+
+    const { error } = await supabase.from("usuarios").update(mudancas).eq("id", solicitante.id);
+
+    if (error) {
+      avisoAprovacao.textContent = "Não foi possível salvar. Tente de novo.";
+      avisoAprovacao.classList.add("aprovacao__aviso--erro");
+      botaoAprovar.disabled = false;
+      botaoRejeitar.disabled = false;
+      return;
+    }
+
+    avisarNoSite(
+      aprovar
+        ? `Cadastro de ${nomeCompleto(solicitante)} aprovado.`
+        : `Cadastro de ${nomeCompleto(solicitante)} rejeitado.`,
+      { tipo: "sucesso" },
+    );
+
+    janela.close();
+  }
+
+  botaoAprovar.addEventListener("click", () => decidirAprovacao(true));
+  botaoRejeitar.addEventListener("click", () => decidirAprovacao(false));
+
   function abrir(chamado) {
     aberto = chamado;
 
     campoFila.textContent = nomeDaFila.get(chamado.fila_id) ?? "Sem fila";
+
+    //APROVACAO DE ACESSO NAO USA O CARD PADRAO: ficha diferente, sem
+    //titulo/prioridade/membros/descricao/chat visiveis. O botao de fechar
+    //manual tambem some — quem fecha esse chamado e Aprovar (o trigger do
+    //banco cuida disso), nao um fechamento avulso.
+    const aprovacao = ehAprovacaoDeAcesso(chamado);
+    painelAprovacao.hidden = !aprovacao;
+    conteudoPadrao.hidden = aprovacao;
+    botaoFecharChamado.hidden = aprovacao;
+
+    if (aprovacao) {
+      desenharAprovacao();
+      desenharAnexos();
+      janela.showModal();
+      return;
+    }
+
     campoTitulo.textContent = tituloDoChamado(chamado);
     campoDescricao.textContent = chamado.descricao ?? "";
     campoMensagem.value = "";
@@ -3422,7 +3602,7 @@ const CAMPOS_CHAMADO = `
   acesso_remoto, cliente_na_loja, sistema_lento_ou_fora,
   categorias(nome),
   unidades(nome),
-  usuarios!chamados_solicitante_id_fkey(nome, sobrenome, email),
+  usuarios!chamados_solicitante_id_fkey(id, nome, sobrenome, email, status_aprovacao, setor_id, setores(id, nome)),
   chamado_membros(usuario_id, usuarios(id, nome, sobrenome, foto_path)),
   comentarios(id, autor_id, texto, visibilidade, tipo, criado_em, usuarios(nome, sobrenome, foto_path)),
   anexos(id, comentario_id, nome_arquivo, storage_path, criado_em)

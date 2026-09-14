@@ -180,9 +180,201 @@ html[data-sidebar="colapsada"] .sidebar__menu {
   left: 20%;
   right: 0;
   height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
   background-color: #ffffff;
   border-bottom: 1px solid #ececec;
   z-index: 900;
+}
+
+/* ==========================================================================
+   ACOES DO CABECALHO: FOTO, NOME, MENU E SAIR
+   Mesma estrutura do .topo do resto do site (index.css), com estilo
+   proprio aqui — igual ao mesmo bloco em base.css.
+   ========================================================================== */
+
+.topo__acoes {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-right: 50px;
+}
+
+.topo__perfil {
+  position: relative;
+}
+
+.topo__usuario {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.topo__usuario:hover {
+  background-color: #f5f5f5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(26, 26, 26, 0.08);
+}
+
+.topo__usuario:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: none;
+}
+
+.topo__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background-color: #dd5b12;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: #fff;
+  overflow: hidden;
+}
+
+/*FOTO DE PERFIL: PREENCHE O QUADRADO SEM DISTORCER*/
+.topo__avatar-foto {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.topo__usuario-texto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+}
+
+.topo__usuario-nome {
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: #1a1a1a;
+}
+
+.topo__usuario-setor {
+  font-size: 0.6875rem;
+  color: #dd5b12;
+}
+
+.topo__usuario-seta {
+  color: #8a8a8a;
+  transition: transform 0.2s ease;
+}
+
+.topo__usuario[aria-expanded="true"] .topo__usuario-seta {
+  transform: rotate(180deg);
+}
+
+/*MENU DO PERFIL*/
+.topo__menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 20;
+  min-width: 12.5rem;
+  padding: 0.375rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background-color: #fff;
+  box-shadow: 0 10px 30px rgba(26, 26, 26, 0.12);
+}
+
+.topo__menu--aberto {
+  display: block;
+  animation: topo-menu-abre 0.18s ease-out;
+}
+
+@keyframes topo-menu-abre {
+  from {
+    opacity: 0;
+    transform: translateY(-0.375rem);
+  }
+}
+
+.topo__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: #1a1a1a;
+  text-decoration: none;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.topo__menu-item svg {
+  color: #8a8a8a;
+  transition: color 0.2s ease;
+}
+
+.topo__menu-item:hover {
+  background-color: #f5f5f5;
+}
+
+.topo__menu-item:hover svg {
+  color: #dd5b12;
+}
+
+/*SAIR*/
+.topo__sair {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.topo__sair:hover {
+  background-color: #f5f5f5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(26, 26, 26, 0.08);
+}
+
+.topo__sair:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topo__usuario,
+  .topo__usuario:hover,
+  .topo__usuario:active,
+  .topo__sair,
+  .topo__sair:hover,
+  .topo__sair:active {
+    transition: none;
+    transform: none;
+  }
+
+  .topo__menu--aberto {
+    animation: none;
+  }
 }
 
 .sidebar__logo {

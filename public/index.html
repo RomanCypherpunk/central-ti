@@ -65,7 +65,7 @@
             </svg>
             Solicitações
           </a>
-          <a class="topo__menu-item" href="base.html">
+          <a class="topo__menu-item" href="base.html" data-menu-base>
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path d="M3.5 5.2A1.7 1.7 0 0 1 5.2 3.5H10a2.5 2.5 0 0 1 2 1v14a2.5 2.5 0 0 0-2-1H5.2a1.7 1.7 0 0 1-1.7-1.7Z"
                     fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
@@ -126,7 +126,11 @@
             </span>
           </div>
 
-          <a class="botao" href="base.html">
+          <!--PENDENTE DE APROVACAO: main.js troca para --desativado e tira o
+              href (o clique não navega). A garantia de verdade é o
+              acesso-guard.js na entrada da Base + a RLS de artigos —
+              isto aqui só evita oferecer um link que sempre ia barrar.-->
+          <a class="botao" href="base.html" data-porta-base-link>
             Acessar base
             <span aria-hidden="true">→</span>
           </a>
@@ -170,7 +174,7 @@
       <section class="coluna">
         <header class="secao__topo">
           <h2 class="secao__titulo">Soluções em destaque</h2>
-          <a class="secao__link" href="base.html">Ver tudo</a>
+          <a class="secao__link" href="base.html" data-porta-base-link>Ver tudo</a>
         </header>
 
         <ul class="artigos" data-destaques>

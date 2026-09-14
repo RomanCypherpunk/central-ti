@@ -18,3 +18,4 @@ Thumbs.db
 
 # Claude Code (config/estado local, não é do projeto)
 .claude/
+.playwright-mcp/

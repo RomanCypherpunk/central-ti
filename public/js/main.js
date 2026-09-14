@@ -118,6 +118,26 @@ async function preencherUsuario() {
       .forEach((elemento) => elemento.removeAttribute("hidden"));
   }
 
+  // BASE DE SOLUÇÕES PENDENTE: quem ainda não foi aprovado só vê o botão
+  // apagado, sem link — a Base já barra na entrada (acesso-guard.js) e a
+  // RLS de artigos também; isto aqui só evita oferecer algo que ia
+  // sempre voltar a pessoa pra cá.
+  const aprovado = perfil?.status_aprovacao === "aprovado" && perfil?.ativo;
+
+  if (!aprovado) {
+    document.querySelectorAll("[data-porta-base-link]").forEach((link) => {
+      link.classList.add("botao--desativado");
+      link.removeAttribute("href");
+      link.setAttribute("aria-disabled", "true");
+      link.addEventListener("click", (evento) => evento.preventDefault());
+    });
+
+    // Nas outras telas o item "Soluções" do menu simplesmente some — não
+    // é um destaque da home, é só navegação, não precisa do aviso visual.
+    document.querySelectorAll("[data-menu-base]")
+      .forEach((item) => item.setAttribute("hidden", ""));
+  }
+
   // main.js roda em toda pagina autenticada, e cada uma tem so parte destes
   // campos — a saudacao, por exemplo, existe so na home.
   // So o primeiro nome aparece no topo e na saudacao; o completo fica para

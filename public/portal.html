@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -214,7 +214,7 @@
             </svg>
             Solicitações
           </a>
-          <a class="topo__menu-item" href="base.html">
+          <a class="topo__menu-item" href="base.html" data-menu-base>
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path d="M3.5 5.2A1.7 1.7 0 0 1 5.2 3.5H10a2.5 2.5 0 0 1 2 1v14a2.5 2.5 0 0 0-2-1H5.2a1.7 1.7 0 0 1-1.7-1.7Z"
                     fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
@@ -262,319 +262,346 @@
       </div>
     </div>
 
-  </main>
+    <!--DETALHE DO CHAMADO: ABRE AO CLICAR NUM CARD, MONTADO PELO portal.js-->
+    <dialog class="detalhe" data-detalhe>
+      <div class="detalhe__conteudo">
+  
+        <header class="detalhe__topo">
+          <span class="detalhe__fila" data-detalhe-fila></span>
+  
+          <div class="detalhe__topo-acoes">
+            <!--FECHAR CHAMADO: SOME DO QUADRO E VAI PARA TICKETS FINALIZADOS-->
+            <button class="detalhe__fechar-chamado" type="button" data-detalhe-fechar-chamado>
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                <path d="m6 12 4 4 8-9" fill="none" stroke="currentColor" stroke-width="1.8"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Fechar chamado
+            </button>
+  
+            <button class="detalhe__fechar" type="button" data-detalhe-fechar aria-label="Fechar">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </header>
+  
+        <div class="detalhe__corpo">
+  
+          <!--COLUNA ESQUERDA: TITULO, ETIQUETAS, MEMBROS, DESCRICAO-->
+          <div class="detalhe__principal">
 
-  <!--DETALHE DO CHAMADO: ABRE AO CLICAR NUM CARD, MONTADO PELO portal.js-->
-  <dialog class="detalhe" data-detalhe>
-    <div class="detalhe__conteudo">
+            <!--APROVAÇÃO DE ACESSO: ficha enxuta + Aprovar/Rejeitar, no lugar
+                do card normal (título, prioridade, membros, descrição, chat).
+                Nasce escondida; o portal.js decide qual mostrar pela categoria
+                do chamado. Fica antes do bloco padrão para não pular o layout
+                quando o [hidden] alterna.-->
+            <div class="aprovacao" data-aprovacao hidden>
+              <p class="aprovacao__aviso" data-aprovacao-aviso role="status"></p>
 
-      <header class="detalhe__topo">
-        <span class="detalhe__fila" data-detalhe-fila></span>
+              <dl class="dados" data-aprovacao-dados></dl>
 
-        <div class="detalhe__topo-acoes">
-          <!--FECHAR CHAMADO: SOME DO QUADRO E VAI PARA TICKETS FINALIZADOS-->
-          <button class="detalhe__fechar-chamado" type="button" data-detalhe-fechar-chamado>
-            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-              <path d="m6 12 4 4 8-9" fill="none" stroke="currentColor" stroke-width="1.8"
-                    stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Fechar chamado
-          </button>
+              <div class="aprovacao__campo">
+                <label class="aprovacao__rotulo" for="aprovacao-setor">Setor</label>
+                <select class="aprovacao__select" id="aprovacao-setor" data-aprovacao-setor></select>
+              </div>
 
-          <button class="detalhe__fechar" type="button" data-detalhe-fechar aria-label="Fechar">
+              <div class="aprovacao__acoes">
+                <button class="aprovacao__rejeitar" type="button" data-aprovacao-rejeitar>
+                  Rejeitar
+                </button>
+                <button class="aprovacao__aprovar" type="button" data-aprovacao-aprovar>
+                  Aprovar
+                </button>
+              </div>
+            </div>
+
+            <div class="detalhe__conteudo-padrao" data-detalhe-conteudo-padrao>
+            <h2 class="detalhe__titulo" data-detalhe-titulo
+                contenteditable="true" role="textbox" aria-label="Título do chamado"></h2>
+
+            <!--DADOS DO CHAMADO: O QUE O ANALISTA PRECISA SABER DE RELANCE-->
+            <dl class="dados" data-detalhe-dados></dl>
+  
+            <div class="detalhe__lado-a-lado">
+              <div class="detalhe__bloco">
+                <h3 class="detalhe__rotulo">Prioridade</h3>
+                <div class="detalhe__etiquetas" data-detalhe-etiquetas></div>
+              </div>
+  
+              <div class="detalhe__bloco">
+                <h3 class="detalhe__rotulo">Membros</h3>
+                <div class="detalhe__membros" data-detalhe-membros></div>
+              </div>
+            </div>
+  
+            <div class="detalhe__bloco">
+              <h3 class="detalhe__rotulo">Descrição</h3>
+              <div class="detalhe__descricao" data-detalhe-descricao
+                   contenteditable="true" role="textbox" aria-label="Descrição do chamado"></div>
+            </div>
+  
+            <p class="detalhe__aviso" data-detalhe-aviso role="status"></p>
+  
+            <!--CORRESPONDENCIA COM O USUARIO: O CANAL DE ATENDIMENTO-->
+            <section class="conversa">
+              <h3 class="detalhe__rotulo">Correspondência</h3>
+  
+              <div class="conversa__mensagens" data-detalhe-conversa></div>
+  
+              <div class="conversa__escrever">
+                <textarea class="conversa__campo" data-conversa-campo rows="3"
+                          placeholder="Escrever para o solicitante…"
+                          aria-label="Mensagem para o solicitante"></textarea>
+  
+                <!--ANEXOS PENDENTES: O QUE VAI JUNTO COM A PROXIMA RESPOSTA.
+                    Preenchido pelo portal.js (botao Anexar ou Ctrl+V no campo).-->
+                <div class="conversa__pendentes" data-conversa-pendentes hidden></div>
+  
+                <div class="conversa__acoes">
+                  <label class="conversa__anexar">
+                    <input type="file" data-conversa-arquivo hidden multiple
+                           accept="image/*,application/pdf">
+                    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                      <path d="M16.5 8.5 9.7 15.3a2.4 2.4 0 0 0 3.4 3.4l7.3-7.3a4 4 0 0 0-5.7-5.7l-7.3 7.3a5.7 5.7 0 0 0 8 8l6.4-6.4"
+                            fill="none" stroke="currentColor" stroke-width="1.7"
+                            stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span data-conversa-arquivo-nome>Anexar</span>
+                  </label>
+  
+                  <!--TEXTOS RAPIDOS: RESPOSTAS PRONTAS DA EQUIPE-->
+                  <button class="conversa__rapidos" type="button" data-rapidos-abrir
+                          aria-haspopup="true" aria-expanded="false">
+                    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                      <path d="M20 4.5H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3v3.5l4-3.5h9a1 1 0 0 0 1-1v-10a1 1 0 0 0-1-1Z"
+                            fill="none" stroke="currentColor" stroke-width="1.7"
+                            stroke-linejoin="round"/>
+                      <path d="M7.5 8.5h9M7.5 12h5" stroke="currentColor" stroke-width="1.7"
+                            stroke-linecap="round"/>
+                    </svg>
+                    <span>Textos rápidos</span>
+                  </button>
+  
+                  <button class="conversa__enviar" type="button" data-conversa-enviar>
+                    Responder
+                  </button>
+                </div>
+  
+                <!--PAINEL DE TEXTOS RAPIDOS: LISTA, BUSCA E O FORMULARIO DE
+                    CRIAR/EDITAR. MONTADO PELO portal.js-->
+                <div class="rapidos" data-rapidos hidden>
+                  <header class="rapidos__topo">
+                    <h4 class="rapidos__titulo">Textos rápidos</h4>
+                    <button class="rapidos__fechar" type="button" data-rapidos-fechar
+                            aria-label="Fechar textos rápidos">
+                      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                        <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8"
+                              stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                  </header>
+  
+                  <button class="rapidos__novo" type="button" data-rapidos-novo>
+                    + Adicionar novo texto rápido
+                  </button>
+  
+                  <!--FORMULARIO: SERVE PARA CRIAR E PARA EDITAR-->
+                  <form class="rapidos__form" data-rapidos-form hidden>
+                    <input class="rapidos__campo" type="text" data-rapidos-titulo
+                           placeholder="Título (ex.: Falta de informações)"
+                           aria-label="Título do texto rápido" required>
+                    <textarea class="rapidos__campo rapidos__campo--corpo" rows="4"
+                              data-rapidos-corpo placeholder="Texto da resposta…"
+                              aria-label="Texto da resposta" required></textarea>
+                    <div class="rapidos__form-acoes">
+                      <button class="rapidos__cancelar" type="button" data-rapidos-cancelar>
+                        Cancelar
+                      </button>
+                      <button class="rapidos__salvar" type="submit">Salvar</button>
+                    </div>
+                  </form>
+  
+                  <input class="rapidos__campo rapidos__busca" type="search"
+                         data-rapidos-busca placeholder="Pesquisar textos rápidos"
+                         autocomplete="off" aria-label="Pesquisar textos rápidos">
+  
+                  <div class="rapidos__lista" data-rapidos-lista></div>
+                </div>
+              </div>
+            </section>
+            </div>
+          </div>
+
+          <!--COLUNA DIREITA: ANEXOS DO CHAMADO-->
+          <aside class="detalhe__lateral">
+            <h3 class="detalhe__rotulo">Anexos</h3>
+            <div class="anexos" data-detalhe-anexos></div>
+          </aside>
+  
+        </div>
+      </div>
+    </dialog>
+  
+    <!--TICKETS FINALIZADOS: CHAMADOS COM fechamento_em PREENCHIDO-->
+    <dialog class="finalizados" data-finalizados>
+      <div class="finalizados__conteudo">
+        <header class="finalizados__topo">
+          <h2 class="finalizados__titulo">Tickets finalizados</h2>
+          <button class="detalhe__fechar" type="button" data-finalizados-fechar aria-label="Fechar">
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
             </svg>
           </button>
-        </div>
-      </header>
-
-      <div class="detalhe__corpo">
-
-        <!--COLUNA ESQUERDA: TITULO, ETIQUETAS, MEMBROS, DESCRICAO-->
-        <div class="detalhe__principal">
-          <h2 class="detalhe__titulo" data-detalhe-titulo
-              contenteditable="true" role="textbox" aria-label="Título do chamado"></h2>
-
-          <!--DADOS DO CHAMADO: O QUE O ANALISTA PRECISA SABER DE RELANCE-->
-          <dl class="dados" data-detalhe-dados></dl>
-
-          <div class="detalhe__lado-a-lado">
-            <div class="detalhe__bloco">
-              <h3 class="detalhe__rotulo">Prioridade</h3>
-              <div class="detalhe__etiquetas" data-detalhe-etiquetas></div>
-            </div>
-
-            <div class="detalhe__bloco">
-              <h3 class="detalhe__rotulo">Membros</h3>
-              <div class="detalhe__membros" data-detalhe-membros></div>
-            </div>
-          </div>
-
-          <div class="detalhe__bloco">
-            <h3 class="detalhe__rotulo">Descrição</h3>
-            <div class="detalhe__descricao" data-detalhe-descricao
-                 contenteditable="true" role="textbox" aria-label="Descrição do chamado"></div>
-          </div>
-
-          <p class="detalhe__aviso" data-detalhe-aviso role="status"></p>
-
-          <!--CORRESPONDENCIA COM O USUARIO: O CANAL DE ATENDIMENTO-->
-          <section class="conversa">
-            <h3 class="detalhe__rotulo">Correspondência</h3>
-
-            <div class="conversa__mensagens" data-detalhe-conversa></div>
-
-            <div class="conversa__escrever">
-              <textarea class="conversa__campo" data-conversa-campo rows="3"
-                        placeholder="Escrever para o solicitante…"
-                        aria-label="Mensagem para o solicitante"></textarea>
-
-              <!--ANEXOS PENDENTES: O QUE VAI JUNTO COM A PROXIMA RESPOSTA.
-                  Preenchido pelo portal.js (botao Anexar ou Ctrl+V no campo).-->
-              <div class="conversa__pendentes" data-conversa-pendentes hidden></div>
-
-              <div class="conversa__acoes">
-                <label class="conversa__anexar">
-                  <input type="file" data-conversa-arquivo hidden multiple
-                         accept="image/*,application/pdf">
-                  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-                    <path d="M16.5 8.5 9.7 15.3a2.4 2.4 0 0 0 3.4 3.4l7.3-7.3a4 4 0 0 0-5.7-5.7l-7.3 7.3a5.7 5.7 0 0 0 8 8l6.4-6.4"
-                          fill="none" stroke="currentColor" stroke-width="1.7"
-                          stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                  <span data-conversa-arquivo-nome>Anexar</span>
-                </label>
-
-                <!--TEXTOS RAPIDOS: RESPOSTAS PRONTAS DA EQUIPE-->
-                <button class="conversa__rapidos" type="button" data-rapidos-abrir
-                        aria-haspopup="true" aria-expanded="false">
-                  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-                    <path d="M20 4.5H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3v3.5l4-3.5h9a1 1 0 0 0 1-1v-10a1 1 0 0 0-1-1Z"
-                          fill="none" stroke="currentColor" stroke-width="1.7"
-                          stroke-linejoin="round"/>
-                    <path d="M7.5 8.5h9M7.5 12h5" stroke="currentColor" stroke-width="1.7"
-                          stroke-linecap="round"/>
-                  </svg>
-                  <span>Textos rápidos</span>
-                </button>
-
-                <button class="conversa__enviar" type="button" data-conversa-enviar>
-                  Responder
-                </button>
-              </div>
-
-              <!--PAINEL DE TEXTOS RAPIDOS: LISTA, BUSCA E O FORMULARIO DE
-                  CRIAR/EDITAR. MONTADO PELO portal.js-->
-              <div class="rapidos" data-rapidos hidden>
-                <header class="rapidos__topo">
-                  <h4 class="rapidos__titulo">Textos rápidos</h4>
-                  <button class="rapidos__fechar" type="button" data-rapidos-fechar
-                          aria-label="Fechar textos rápidos">
-                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                      <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8"
-                            stroke-linecap="round"/>
-                    </svg>
-                  </button>
-                </header>
-
-                <button class="rapidos__novo" type="button" data-rapidos-novo>
-                  + Adicionar novo texto rápido
-                </button>
-
-                <!--FORMULARIO: SERVE PARA CRIAR E PARA EDITAR-->
-                <form class="rapidos__form" data-rapidos-form hidden>
-                  <input class="rapidos__campo" type="text" data-rapidos-titulo
-                         placeholder="Título (ex.: Falta de informações)"
-                         aria-label="Título do texto rápido" required>
-                  <textarea class="rapidos__campo rapidos__campo--corpo" rows="4"
-                            data-rapidos-corpo placeholder="Texto da resposta…"
-                            aria-label="Texto da resposta" required></textarea>
-                  <div class="rapidos__form-acoes">
-                    <button class="rapidos__cancelar" type="button" data-rapidos-cancelar>
-                      Cancelar
-                    </button>
-                    <button class="rapidos__salvar" type="submit">Salvar</button>
-                  </div>
-                </form>
-
-                <input class="rapidos__campo rapidos__busca" type="search"
-                       data-rapidos-busca placeholder="Pesquisar textos rápidos"
-                       autocomplete="off" aria-label="Pesquisar textos rápidos">
-
-                <div class="rapidos__lista" data-rapidos-lista></div>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <!--COLUNA DIREITA: ANEXOS DO CHAMADO-->
-        <aside class="detalhe__lateral">
-          <h3 class="detalhe__rotulo">Anexos</h3>
-          <div class="anexos" data-detalhe-anexos></div>
-        </aside>
-
+        </header>
+  
+        <div class="finalizados__lista" data-finalizados-lista></div>
       </div>
-    </div>
-  </dialog>
-
-  <!--TICKETS FINALIZADOS: CHAMADOS COM fechamento_em PREENCHIDO-->
-  <dialog class="finalizados" data-finalizados>
-    <div class="finalizados__conteudo">
-      <header class="finalizados__topo">
-        <h2 class="finalizados__titulo">Tickets finalizados</h2>
-        <button class="detalhe__fechar" type="button" data-finalizados-fechar aria-label="Fechar">
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </dialog>
+  
+    <!--PLANO DE FUNDO: FOTO PROPRIA DO USUARIO, SALVA NO STORAGE PRIVADO-->
+    <dialog class="fundo-modal" data-fundo-modal>
+      <div class="fundo-modal__conteudo">
+        <header class="fundo-modal__topo">
+          <div>
+            <h2 class="fundo-modal__titulo">Plano de fundo</h2>
+            <p class="fundo-modal__subtitulo">Só você vê. Fica salvo na sua conta, em qualquer computador.</p>
+          </div>
+          <button class="detalhe__fechar" type="button" data-fundo-fechar aria-label="Fechar">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </header>
+  
+        <!--PREVIA: MINIATURA DO QUADRO COM O FUNDO POR TRAS, PARA VER COMO FICA ANTES DE APLICAR-->
+        <div class="fundo-modal__previa fundo-modal__previa--padrao" data-fundo-previa aria-hidden="true">
+          <div class="fundo-modal__previa-barra"></div>
+          <div class="fundo-modal__previa-colunas"><span></span><span></span><span></span><span></span></div>
+          <span class="fundo-modal__previa-selo" data-fundo-previa-selo>Padrão</span>
+        </div>
+  
+        <p class="fundo-modal__resolucao" data-fundo-resolucao hidden></p>
+  
+        <!--ESCOLHER: CLIQUE, ARRASTAR E SOLTAR, OU CTRL+V COM A JANELA ABERTA-->
+        <label class="fundo-modal__soltar" data-fundo-soltar>
+          <input type="file" data-fundo-arquivo hidden accept="image/*">
+          <svg class="fundo-modal__soltar-icone" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M12 15.5v-10M8 9l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4.5 15.5v2.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2.5" fill="none" stroke="currentColor"
+                  stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <span class="fundo-modal__soltar-titulo">Arraste uma imagem ou <u>escolha do computador</u></span>
+          <span class="fundo-modal__soltar-dica">Também dá para colar com Ctrl+V · JPG, PNG ou WebP até 15 MB</span>
+        </label>
+  
+        <button class="fundo-modal__padrao" type="button" data-fundo-restaurar>
+          <span class="fundo-modal__padrao-amostra" aria-hidden="true"></span>
+          <span class="fundo-modal__padrao-texto">Degradê padrão</span>
+          <svg class="fundo-modal__padrao-check" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="m5.5 12.5 4 4 9-9" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
-      </header>
-
-      <div class="finalizados__lista" data-finalizados-lista></div>
-    </div>
-  </dialog>
-
-  <!--PLANO DE FUNDO: FOTO PROPRIA DO USUARIO, SALVA NO STORAGE PRIVADO-->
-  <dialog class="fundo-modal" data-fundo-modal>
-    <div class="fundo-modal__conteudo">
-      <header class="fundo-modal__topo">
-        <div>
-          <h2 class="fundo-modal__titulo">Plano de fundo</h2>
-          <p class="fundo-modal__subtitulo">Só você vê. Fica salvo na sua conta, em qualquer computador.</p>
-        </div>
-        <button class="detalhe__fechar" type="button" data-fundo-fechar aria-label="Fechar">
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-        </button>
-      </header>
-
-      <!--PREVIA: MINIATURA DO QUADRO COM O FUNDO POR TRAS, PARA VER COMO FICA ANTES DE APLICAR-->
-      <div class="fundo-modal__previa fundo-modal__previa--padrao" data-fundo-previa aria-hidden="true">
-        <div class="fundo-modal__previa-barra"></div>
-        <div class="fundo-modal__previa-colunas"><span></span><span></span><span></span><span></span></div>
-        <span class="fundo-modal__previa-selo" data-fundo-previa-selo>Padrão</span>
+  
+        <p class="fundo-modal__aviso" data-fundo-aviso role="status"></p>
+  
+        <!--SO APARECE DEPOIS DE ESCOLHER UMA IMAGEM-->
+        <footer class="fundo-modal__rodape" data-fundo-rodape hidden>
+          <button class="fundo-modal__botao" type="button" data-fundo-cancelar>Cancelar</button>
+          <button class="fundo-modal__botao fundo-modal__botao--principal" type="button" data-fundo-aplicar>Aplicar fundo</button>
+        </footer>
       </div>
-
-      <p class="fundo-modal__resolucao" data-fundo-resolucao hidden></p>
-
-      <!--ESCOLHER: CLIQUE, ARRASTAR E SOLTAR, OU CTRL+V COM A JANELA ABERTA-->
-      <label class="fundo-modal__soltar" data-fundo-soltar>
-        <input type="file" data-fundo-arquivo hidden accept="image/*">
-        <svg class="fundo-modal__soltar-icone" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-          <path d="M12 15.5v-10M8 9l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8"
-                stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M4.5 15.5v2.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2.5" fill="none" stroke="currentColor"
-                stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-        <span class="fundo-modal__soltar-titulo">Arraste uma imagem ou <u>escolha do computador</u></span>
-        <span class="fundo-modal__soltar-dica">Também dá para colar com Ctrl+V · JPG, PNG ou WebP até 15 MB</span>
-      </label>
-
-      <button class="fundo-modal__padrao" type="button" data-fundo-restaurar>
-        <span class="fundo-modal__padrao-amostra" aria-hidden="true"></span>
-        <span class="fundo-modal__padrao-texto">Degradê padrão</span>
-        <svg class="fundo-modal__padrao-check" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-          <path d="m5.5 12.5 4 4 9-9" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round"/>
+    </dialog>
+  
+    <!--EXPORTAR: PLANILHA CSV DOS CHAMADOS CRIADOS NUM PERIODO. Aberto pelo item
+        Exportar do menu de 3 pontinhos; o portal.js monta o arquivo com os
+        chamados que ja estao carregados na tela.-->
+    <dialog class="fundo-modal exportar" data-exportar>
+      <div class="fundo-modal__conteudo">
+        <header class="fundo-modal__topo">
+          <div>
+            <h2 class="fundo-modal__titulo">Exportar chamados</h2>
+            <p class="fundo-modal__subtitulo">Planilha CSV com os chamados criados no período, em aberto e finalizados.</p>
+          </div>
+          <button class="detalhe__fechar" type="button" data-exportar-fechar aria-label="Fechar">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </header>
+  
+        <div class="exportar__atalhos" role="group" aria-label="Períodos prontos">
+          <button class="exportar__atalho" type="button" data-periodo="hoje">Hoje</button>
+          <button class="exportar__atalho" type="button" data-periodo="7">Últimos 7 dias</button>
+          <button class="exportar__atalho" type="button" data-periodo="30">Últimos 30 dias</button>
+          <button class="exportar__atalho" type="button" data-periodo="mes">Este mês</button>
+          <button class="exportar__atalho" type="button" data-periodo="tudo">Tudo</button>
+        </div>
+  
+        <div class="exportar__datas">
+          <label class="exportar__campo">
+            <span>De</span>
+            <input type="date" data-exportar-de>
+          </label>
+          <label class="exportar__campo">
+            <span>Até</span>
+            <input type="date" data-exportar-ate>
+          </label>
+        </div>
+  
+        <p class="exportar__resumo" data-exportar-resumo role="status"></p>
+  
+        <footer class="fundo-modal__rodape">
+          <button class="fundo-modal__botao" type="button" data-exportar-cancelar>Cancelar</button>
+          <button class="fundo-modal__botao fundo-modal__botao--principal" type="button" data-exportar-baixar>Baixar CSV</button>
+        </footer>
+      </div>
+    </dialog>
+  
+    <!--VISUALIZADOR DE IMAGEM: ABRE NA PROPRIA TELA, POR CIMA DO CHAMADO.
+        Clicar fora da imagem, no x ou Esc fecha e volta para o chamado.-->
+    <dialog class="visualizador" data-visualizador aria-label="Visualizar imagem">
+      <img class="visualizador__imagem" data-visualizador-imagem alt="">
+      <p class="visualizador__nome" data-visualizador-nome></p>
+      <button class="visualizador__fechar" type="button" aria-label="Fechar imagem">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
         </svg>
       </button>
-
-      <p class="fundo-modal__aviso" data-fundo-aviso role="status"></p>
-
-      <!--SO APARECE DEPOIS DE ESCOLHER UMA IMAGEM-->
-      <footer class="fundo-modal__rodape" data-fundo-rodape hidden>
-        <button class="fundo-modal__botao" type="button" data-fundo-cancelar>Cancelar</button>
-        <button class="fundo-modal__botao fundo-modal__botao--principal" type="button" data-fundo-aplicar>Aplicar fundo</button>
-      </footer>
+    </dialog>
+  
+    <!--AVISO DO SITE: SUBSTITUI O alert() DO NAVEGADOR. popover="manual" poe o
+        aviso na camada de cima da pagina, entao ele aparece ate por cima de um
+        <dialog> aberto (o detalhe do chamado, por exemplo).-->
+    <div class="aviso-site" data-aviso-site popover="manual" role="status" aria-live="polite">
+      <span class="aviso-site__icone" data-aviso-site-icone aria-hidden="true"></span>
+      <p class="aviso-site__texto" data-aviso-site-texto></p>
+      <button class="aviso-site__acao" type="button" data-aviso-site-acao hidden></button>
+      <button class="aviso-site__fechar" type="button" data-aviso-site-fechar aria-label="Fechar aviso">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+          <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
     </div>
-  </dialog>
-
-  <!--EXPORTAR: PLANILHA CSV DOS CHAMADOS CRIADOS NUM PERIODO. Aberto pelo item
-      Exportar do menu de 3 pontinhos; o portal.js monta o arquivo com os
-      chamados que ja estao carregados na tela.-->
-  <dialog class="fundo-modal exportar" data-exportar>
-    <div class="fundo-modal__conteudo">
-      <header class="fundo-modal__topo">
-        <div>
-          <h2 class="fundo-modal__titulo">Exportar chamados</h2>
-          <p class="fundo-modal__subtitulo">Planilha CSV com os chamados criados no período, em aberto e finalizados.</p>
+  
+    <!--CONFIRMACAO DO SITE: SUBSTITUI O confirm() DO NAVEGADOR. method="dialog"
+        fecha o <dialog> com o value do botao clicado; Esc e clique fora contam
+        como cancelar.-->
+    <dialog class="confirmacao" data-confirmacao>
+      <form class="confirmacao__conteudo" method="dialog">
+        <h2 class="confirmacao__titulo" data-confirmacao-titulo></h2>
+        <p class="confirmacao__mensagem" data-confirmacao-mensagem></p>
+        <div class="confirmacao__acoes">
+          <button class="confirmacao__botao" type="submit" value="cancelar">Cancelar</button>
+          <button class="confirmacao__botao confirmacao__botao--principal" type="submit" value="confirmar"
+                  data-confirmacao-confirmar>Confirmar</button>
         </div>
-        <button class="detalhe__fechar" type="button" data-exportar-fechar aria-label="Fechar">
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-        </button>
-      </header>
-
-      <div class="exportar__atalhos" role="group" aria-label="Períodos prontos">
-        <button class="exportar__atalho" type="button" data-periodo="hoje">Hoje</button>
-        <button class="exportar__atalho" type="button" data-periodo="7">Últimos 7 dias</button>
-        <button class="exportar__atalho" type="button" data-periodo="30">Últimos 30 dias</button>
-        <button class="exportar__atalho" type="button" data-periodo="mes">Este mês</button>
-        <button class="exportar__atalho" type="button" data-periodo="tudo">Tudo</button>
-      </div>
-
-      <div class="exportar__datas">
-        <label class="exportar__campo">
-          <span>De</span>
-          <input type="date" data-exportar-de>
-        </label>
-        <label class="exportar__campo">
-          <span>Até</span>
-          <input type="date" data-exportar-ate>
-        </label>
-      </div>
-
-      <p class="exportar__resumo" data-exportar-resumo role="status"></p>
-
-      <footer class="fundo-modal__rodape">
-        <button class="fundo-modal__botao" type="button" data-exportar-cancelar>Cancelar</button>
-        <button class="fundo-modal__botao fundo-modal__botao--principal" type="button" data-exportar-baixar>Baixar CSV</button>
-      </footer>
-    </div>
-  </dialog>
-
-  <!--VISUALIZADOR DE IMAGEM: ABRE NA PROPRIA TELA, POR CIMA DO CHAMADO.
-      Clicar fora da imagem, no x ou Esc fecha e volta para o chamado.-->
-  <dialog class="visualizador" data-visualizador aria-label="Visualizar imagem">
-    <img class="visualizador__imagem" data-visualizador-imagem alt="">
-    <p class="visualizador__nome" data-visualizador-nome></p>
-    <button class="visualizador__fechar" type="button" aria-label="Fechar imagem">
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
-      </svg>
-    </button>
-  </dialog>
-
-  <!--AVISO DO SITE: SUBSTITUI O alert() DO NAVEGADOR. popover="manual" poe o
-      aviso na camada de cima da pagina, entao ele aparece ate por cima de um
-      <dialog> aberto (o detalhe do chamado, por exemplo).-->
-  <div class="aviso-site" data-aviso-site popover="manual" role="status" aria-live="polite">
-    <span class="aviso-site__icone" data-aviso-site-icone aria-hidden="true"></span>
-    <p class="aviso-site__texto" data-aviso-site-texto></p>
-    <button class="aviso-site__acao" type="button" data-aviso-site-acao hidden></button>
-    <button class="aviso-site__fechar" type="button" data-aviso-site-fechar aria-label="Fechar aviso">
-      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-        <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-      </svg>
-    </button>
-  </div>
-
-  <!--CONFIRMACAO DO SITE: SUBSTITUI O confirm() DO NAVEGADOR. method="dialog"
-      fecha o <dialog> com o value do botao clicado; Esc e clique fora contam
-      como cancelar.-->
-  <dialog class="confirmacao" data-confirmacao>
-    <form class="confirmacao__conteudo" method="dialog">
-      <h2 class="confirmacao__titulo" data-confirmacao-titulo></h2>
-      <p class="confirmacao__mensagem" data-confirmacao-mensagem></p>
-      <div class="confirmacao__acoes">
-        <button class="confirmacao__botao" type="submit" value="cancelar">Cancelar</button>
-        <button class="confirmacao__botao confirmacao__botao--principal" type="submit" value="confirmar"
-                data-confirmacao-confirmar>Confirmar</button>
-      </div>
-    </form>
-  </dialog>
+      </form>
+    </dialog>
+  </main>
 
   <script type="module" src="js/auth-guard.js"></script>
   <script type="module" src="js/main.js"></script>
