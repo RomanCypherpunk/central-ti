@@ -44,7 +44,7 @@ async function preencherUsuario() {
   // cadastro e nao acompanha quem edita o nome em "Dados pessoais".
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("nome, sobrenome, perfil, setores(nome)")
+    .select("nome, sobrenome, perfil, status_aprovacao, ativo, setores(nome)")
     .eq("id", user.id)
     .single();
 
@@ -56,6 +56,20 @@ async function preencherUsuario() {
   // porque esconder link no menu nao e controle de acesso.
   if (perfil?.perfil === "admin") {
     document.querySelector("[data-menu-portal]")?.removeAttribute("hidden");
+  }
+
+  // EQUIPE DE TI: mesma regra do RLS (is_equipe_ti no banco) — admin,
+  // analista ou parceiro, aprovado e ativo. Usado na Base de Soluções:
+  // só quem pode cadastrar/editar vê "Nova Solução" e os botões de
+  // editar/excluir do painel. Esconder não substitui o RLS — é só pra
+  // não mostrar um botão que sempre vai falhar.
+  const ehEquipeTi = ["admin", "analista", "parceiro"].includes(perfil?.perfil)
+    && perfil?.status_aprovacao === "aprovado"
+    && perfil?.ativo;
+
+  if (ehEquipeTi) {
+    document.querySelectorAll("[data-equipe-ti]")
+      .forEach((elemento) => elemento.removeAttribute("hidden"));
   }
 
   // main.js roda em toda pagina autenticada, e cada uma tem so parte destes

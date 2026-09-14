@@ -689,6 +689,37 @@ html[data-sidebar="colapsada"] .sidebar__logo {
   padding: 24px 20px;
 }
 
+/*RODAPE FIXO: fora do flex:1 do corpo, fica colado embaixo mesmo quando
+  a solucao tem bastante conteudo e o corpo rola.*/
+.painel__rodape {
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.painel__baixar {
+  flex: 1;
+  border: none;
+  background-color: #dd5b12;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.painel__baixar:hover {
+  background-color: #c24f00;
+}
+
+.painel__baixar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .painel__titulo {
   font-size: 20px;
   font-weight: 600;

@@ -223,6 +223,7 @@ const painelEditarBtn = document.getElementById("painel-editar");
 const painelExcluirBtn = document.getElementById("painel-excluir");
 const painelExpandirBtn = document.getElementById("painel-expandir");
 const painelFecharBtn = document.getElementById("painel-fechar");
+const painelBaixarBtn = document.getElementById("painel-baixar-pdf");
 
 let artigoAberto = null;
 
@@ -391,6 +392,243 @@ document.addEventListener("keydown", (evento) => {
   if (!lightboxEl.hidden) fecharLightbox();
   else if (!confirmarOverlay.hidden) fecharConfirmacaoExclusao(false);
   else if (!painelOverlay.hidden) fecharPainel();
+});
+
+//BAIXAR PDF
+//Portado do projeto GASO (base de soluções antiga). Monta o documento no
+//navegador com jsPDF, sem servidor — o PDF reflete exatamente o que está
+//na tela: título, autor/data, código de erro, passo a passo com imagens.
+function nomeArquivoPdf(titulo) {
+  const base = (titulo || "solucao")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-+|-+$)/g, "");
+
+  return `${base || "solucao"}.pdf`;
+}
+
+async function carregarImagemBase64(url) {
+  try {
+    const resposta = await fetch(url);
+
+    if (!resposta.ok) throw new Error(`Resposta ${resposta.status}`);
+
+    const blob = await resposta.blob();
+
+    return await new Promise((resolve, reject) => {
+      const leitor = new FileReader();
+
+      leitor.onloadend = () => resolve(leitor.result);
+      leitor.onerror = () => reject(new Error("Falha ao ler imagem"));
+      leitor.readAsDataURL(blob);
+    });
+  } catch (erro) {
+    console.error("Não foi possível carregar imagem para o PDF:", url, erro);
+    return null;
+  }
+}
+
+function medirImagem(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+
+    img.onload = () => resolve({ largura: img.naturalWidth || 4, altura: img.naturalHeight || 3 });
+    img.onerror = () => resolve({ largura: 4, altura: 3 });
+    img.src = dataUrl;
+  });
+}
+
+function formatoDaDataUrl(dataUrl) {
+  const match = /^data:image\/(\w+);base64,/.exec(dataUrl);
+
+  if (!match) return "JPEG";
+
+  const tipo = match[1].toUpperCase();
+
+  return tipo === "JPG" ? "JPEG" : tipo;
+}
+
+async function baixarPdfSolucao(artigo) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+
+  const margem = 18;
+  const larguraUtil = 210 - margem * 2;
+  const corMarca = [232, 78, 14];
+  const corTexto = [30, 30, 30];
+  const corTextoSuave = [120, 120, 120];
+  let y = 20;
+
+  function avancar(altura) {
+    y += altura;
+
+    if (y > 275) {
+      doc.addPage();
+      y = 20;
+    }
+  }
+
+  function garantirEspaco(altura) {
+    if (y + altura > 285) {
+      doc.addPage();
+      y = 20;
+    }
+  }
+
+  function secaoTitulo(texto) {
+    garantirEspaco(12);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...corMarca);
+    doc.text(texto.toUpperCase(), margem, y);
+    avancar(2);
+    doc.setDrawColor(...corMarca);
+    doc.setLineWidth(0.4);
+    doc.line(margem, y, margem + larguraUtil, y);
+    avancar(6);
+  }
+
+  function paragrafo(texto, tamanho = 10, fonte = "helvetica") {
+    if (!texto) return;
+
+    doc.setFont(fonte, "normal");
+    doc.setFontSize(tamanho);
+    doc.setTextColor(...corTexto);
+    doc.splitTextToSize(texto, larguraUtil).forEach((linha) => {
+      garantirEspaco(tamanho / 1.8);
+      doc.text(linha, margem, y);
+      avancar(tamanho / 1.8);
+    });
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.setTextColor(...corTexto);
+  doc.splitTextToSize(artigo.titulo || "Sem título", larguraUtil).forEach((linha) => {
+    doc.text(linha, margem, y);
+    avancar(8);
+  });
+  avancar(2);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...corTextoSuave);
+  doc.text(`${artigo.autor || "Autor não informado"}  ·  ${formatarData(artigo.criado_em)}`, margem, y);
+  avancar(4);
+
+  doc.setDrawColor(230, 230, 230);
+  doc.setLineWidth(0.3);
+  doc.line(margem, y, margem + larguraUtil, y);
+  avancar(8);
+
+  if (artigo.codigo_erro) {
+    secaoTitulo("Código ou mensagem de erro");
+    paragrafo(artigo.codigo_erro, 9, "courier");
+    avancar(4);
+  }
+
+  const passos = artigo.passos || [];
+
+  if (passos.length > 0) {
+    secaoTitulo("Passo a passo da solução");
+
+    for (const passo of passos) {
+      garantirEspaco(6);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(...corMarca);
+      doc.text(`${passo.ordem}.`, margem, y);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...corTexto);
+
+      const linhasTexto = doc.splitTextToSize(passo.texto || "", larguraUtil - 8);
+
+      linhasTexto.forEach((linha, indice) => {
+        garantirEspaco(5);
+        doc.text(linha, margem + 8, y);
+        if (indice < linhasTexto.length - 1) avancar(5);
+      });
+      avancar(6);
+
+      const imagens = passo.imagens || [];
+
+      if (imagens.length > 0) {
+        let x = margem + 8;
+        const larguraMaxImg = 150;
+        const alturaMaxImg = 130;
+        let maiorAlturaLinha = 0;
+
+        for (const imagem of imagens) {
+          const dataUrl = await carregarImagemBase64(imagem.url);
+
+          if (!dataUrl) continue;
+
+          const { largura, altura } = await medirImagem(dataUrl);
+          let larguraImg = larguraMaxImg;
+          let alturaImg = (altura / largura) * larguraImg;
+
+          if (alturaImg > alturaMaxImg) {
+            alturaImg = alturaMaxImg;
+            larguraImg = (largura / altura) * alturaImg;
+          }
+
+          if (x + larguraImg > margem + larguraUtil) {
+            x = margem + 8;
+            avancar(maiorAlturaLinha + 4);
+            maiorAlturaLinha = 0;
+          }
+
+          garantirEspaco(alturaImg + 4);
+
+          try {
+            doc.addImage(dataUrl, formatoDaDataUrl(dataUrl), x, y, larguraImg, alturaImg);
+          } catch (erro) {
+            console.error("Não foi possível inserir imagem no PDF:", erro);
+          }
+
+          x += larguraImg + 4;
+          maiorAlturaLinha = Math.max(maiorAlturaLinha, alturaImg);
+        }
+
+        avancar(maiorAlturaLinha + 8);
+      } else {
+        avancar(4);
+      }
+    }
+
+    avancar(2);
+  }
+
+  doc.save(nomeArquivoPdf(artigo.titulo));
+}
+
+painelBaixarBtn.addEventListener("click", async () => {
+  if (!artigoAberto) return;
+
+  if (!window.jspdf) {
+    console.error("Biblioteca de geração de PDF não carregou.");
+    painelErroEl.textContent = "Não foi possível gerar o PDF. Recarregue a página.";
+    return;
+  }
+
+  const textoOriginal = painelBaixarBtn.textContent;
+
+  painelErroEl.textContent = "";
+  painelBaixarBtn.disabled = true;
+  painelBaixarBtn.textContent = "Gerando PDF...";
+
+  try {
+    await baixarPdfSolucao(artigoAberto);
+  } catch (erro) {
+    console.error("Erro ao gerar PDF:", erro);
+    painelErroEl.textContent = "Não foi possível gerar o PDF.";
+  } finally {
+    painelBaixarBtn.disabled = false;
+    painelBaixarBtn.textContent = textoOriginal;
+  }
 });
 
 painelEditarBtn.addEventListener("click", () => {
