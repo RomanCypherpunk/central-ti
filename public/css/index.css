@@ -529,6 +529,13 @@ body {
   font-size: 0.75rem;
   color: #a8794f;
 }
+
+.artigos__carregando,
+.artigos__vazio {
+  padding: 0.875rem 0.25rem;
+  font-size: 0.875rem;
+  color: #a1a1aa;
+}
 /*TABELA DE CHAMADOS*/
 .tabela {
   width: 100%;
@@ -590,16 +597,20 @@ body {
   width: 4px;
 }
 
+.tabela tbody tr[data-status="aberto"] td:first-child::before {
+  background-color: #2c5c96;
+}
+
 .tabela tbody tr[data-status="andamento"] td:first-child::before {
   background-color: #d4a017;
 }
 
-.tabela tbody tr[data-status="resolvido"] td:first-child::before {
-  background-color: #2f9e44;
-}
-
 .tabela tbody tr[data-status="aguardando"] td:first-child::before {
   background-color: #d64545;
+}
+
+.tabela tbody tr[data-status="fechado"] td:first-child::before {
+  background-color: #8a8a8a;
 }
 
 .tabela__numero {
@@ -623,6 +634,13 @@ body {
   color: #8a8a8a;
 }
 
+.tabela__carregando,
+.tabela__vazio {
+  padding: 1.25rem 0;
+  text-align: center;
+  color: #a1a1aa;
+}
+
 /*STATUS: TEXTO SIMPLES COM UM PONTO DA COR CORRESPONDENTE*/
 .selo {
   display: inline-flex;
@@ -641,16 +659,20 @@ body {
   background-color: currentColor;
 }
 
+.selo--aberto {
+  color: #2c5c96;
+}
+
 .selo--andamento {
   color: #a37a0a;
 }
 
-.selo--resolvido {
-  color: #2f9e44;
-}
-
 .selo--aguardando {
   color: #d64545;
+}
+
+.selo--fechado {
+  color: #8a8a8a;
 }
 
 /* ==========================================================================

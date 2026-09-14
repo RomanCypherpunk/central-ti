@@ -384,12 +384,49 @@ nome, foto/iniciais + nome + cargo + e-mail, cada card no padrão shadcn.
 
 ### Fora de escopo nesta fase
 
-- Ligar "Destaques da base" e "Meus chamados recentes" a queries reais no
-  Supabase — os dados de exemplo continuam fixos no HTML até a Base de
-  Soluções (Fase 2) e o Portal do TI (Fase 4) existirem de fato.
 - Páginas linkadas pelo menu de perfil e pelas portas (`perfil.html`,
   `base.html`, `portal.html`, `triagem.html`) — ainda são esqueletos
   vazios ou não existem.
+
+### "Soluções em destaque" e "Suas últimas solicitações" com dados reais (2026-09-14)
+
+As duas seções eram HTML fixo (3 soluções e 4 chamados de exemplo,
+hardcoded). `public/js/pages/index.js`, novo — antes a home não tinha
+JS próprio, só reaproveitava `main.js`.
+
+**Soluções em destaque**: `select("*")` simples em `artigos`, sem
+filtro de setor no cliente — a RLS de `artigos_leitura` (a mesma da
+Fase 2, `is_equipe_ti() OR autor_id = auth.uid() OR meu_setor_id() =
+any(setores)`) já resolve sozinha quem vê o quê. Testei isso de forma
+rigorosa: simulei sessão de um solicitante do setor Vendas direto no
+Postgres (`set_config('request.jwt.claims', ...)`) com dois artigos de
+setores diferentes cadastrados — ele só recebeu o do próprio setor.
+Quem é equipe de TI (`is_equipe_ti()`) vê de todos os setores, sem
+precisar de nenhuma lógica extra na página: é a mesma regra de sempre,
+só herdada.
+
+**Suas últimas solicitações**: os chamados do próprio usuário
+(`solicitante_id = auth.uid()`), com o status derivado do mesmo jeito
+que o Portal (`derivarStatus`, olhando quem foi o último a comentar
+publicamente) — mas em **vocabulário de solicitante**, não de
+analista. É a mesma informação, lida de dois lados:
+
+| Portal (visão do analista) | Home (visão do solicitante) | Cor |
+|---|---|---|
+| Aberto | Aberto | azul `#2c5c96` |
+| Usuário respondeu (a bola virou da equipe) | Em andamento | amarelo `#a37a0a` |
+| Aguardando retorno (equipe já respondeu, espera o usuário) | Aguardando você | vermelho `#d64545` |
+| Fechado | Fechado | cinza `#8a8a8a` |
+
+O resumo do cabeçalho ("N em andamento · N aguardando você") conta
+sobre *todos* os chamados abertos da pessoa, não só os 4 que aparecem
+na tabela — por isso é uma segunda consulta, mais enxuta (só as colunas
+que decidem o status). Chamado fechado não entra no resumo.
+
+Testado no navegador, os 4 estados um por um (fechando o chamado e
+inserindo comentários de teste direto no banco, depois revertido):
+cada selo apareceu com o texto e a cor certos, a barra colorida à
+esquerda da linha bateu, e o resumo atualizou. Zero erro no console.
 
 ---
 

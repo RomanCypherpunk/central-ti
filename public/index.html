@@ -166,7 +166,7 @@
 
     <div class="colunas">
 
-      <!--DESTAQUES DA BASE: VEM DO SUPABASE-->
+      <!--DESTAQUES DA BASE: DO SETOR DE QUEM ESTA LOGADO; TI VE DE TODOS-->
       <section class="coluna">
         <header class="secao__topo">
           <h2 class="secao__titulo">Soluções em destaque</h2>
@@ -174,31 +174,18 @@
         </header>
 
         <ul class="artigos" data-destaques>
-          <li><a class="artigo" href="base.html">
-            <span class="artigo__titulo">Ativar VPN</span>
-            <span class="artigo__setor">TI</span>
-          </a></li>
-
-          <li><a class="artigo" href="base.html">
-            <span class="artigo__titulo">Reembolso de Viagem</span>
-            <span class="artigo__setor">Financeiro</span>
-          </a></li>
-
-          <li><a class="artigo" href="base.html">
-            <span class="artigo__titulo">Emitir 2ª via do holerite</span>
-            <span class="artigo__setor">RH</span>
-          </a></li>
+          <li class="artigos__carregando">Carregando…</li>
         </ul>
       </section>
 
-      <!--MEUS CHAMADOS: VEM DO SUPABASE-->
+      <!--MEUS CHAMADOS: OS QUE ESSE USUARIO ABRIU-->
       <section class="coluna coluna--chamados">
         <header class="secao__topo">
           <h2 class="secao__titulo">
             Suas últimas solicitações
-            <span class="secao__resumo" data-resumo-chamados>2 em andamento · 1 aguardando você</span>
+            <span class="secao__resumo" data-resumo-chamados></span>
           </h2>
-          <a class="secao__link" href="portal.html">Ver todos</a>
+          <a class="secao__link" href="solicitacoes.html">Ver todos</a>
         </header>
 
         <table class="tabela">
@@ -211,30 +198,7 @@
             </tr>
           </thead>
           <tbody data-chamados>
-            <tr data-status="andamento">
-              <td class="tabela__numero">#1234</td>
-              <td><a class="tabela__link" href="portal.html">Problema de acesso ao módulo de compras</a></td>
-              <td><span class="selo selo--andamento">Em andamento</span></td>
-              <td class="tabela__data">10/09</td>
-            </tr>
-            <tr data-status="resolvido">
-              <td class="tabela__numero">#1233</td>
-              <td><a class="tabela__link" href="portal.html">Folha de pagamento com desconto indevido</a></td>
-              <td><span class="selo selo--resolvido">Resolvido</span></td>
-              <td class="tabela__data">09/09</td>
-            </tr>
-            <tr data-status="aguardando">
-              <td class="tabela__numero">#1231</td>
-              <td><a class="tabela__link" href="portal.html">Impressora do setor fora da rede</a></td>
-              <td><span class="selo selo--aguardando">Aguardando você</span></td>
-              <td class="tabela__data">08/09</td>
-            </tr>
-            <tr data-status="resolvido">
-              <td class="tabela__numero">#1228</td>
-              <td><a class="tabela__link" href="portal.html">Ar-condicionado da sala 12 pingando</a></td>
-              <td><span class="selo selo--resolvido">Resolvido</span></td>
-              <td class="tabela__data">05/09</td>
-            </tr>
+            <tr><td colspan="4" class="tabela__carregando">Carregando…</td></tr>
           </tbody>
         </table>
       </section>
@@ -406,5 +370,6 @@
 
   <script type="module" src="js/auth-guard.js"></script>
   <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/pages/index.js"></script>
 </body>
 </html>
