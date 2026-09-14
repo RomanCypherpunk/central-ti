@@ -2,7 +2,8 @@
 //
 // Portado da tela de início do projeto GASO, com três diferenças:
 //   - lê da tabela `artigos` deste projeto, não de `solucoes`;
-//   - a descrição vem de `conteudo` e a categoria de uma junção com `categorias`;
+//   - a descrição vem de `conteudo` e os setores de `setores` (ids resolvidos
+//     para nome); a RLS só devolve o que o setor de quem está logado pode ver;
 //   - o tipo Script/SQL não existe aqui, então código, parâmetros e risco saíram.
 
 import { supabase } from "../config/supabase-config.js";
@@ -13,11 +14,10 @@ const grade = document.getElementById("solucoes-grade");
 const vazioEl = document.getElementById("solucoes-vazio");
 
 const filtroTipo = document.getElementById("filtro-tipo");
-const filtroCategoria = document.getElementById("filtro-categoria");
-const filtroCriticidade = document.getElementById("filtro-criticidade");
+const filtroSetor = document.getElementById("filtro-setor");
 const filtroAutor = document.getElementById("filtro-autor");
 const filtroPeriodo = document.getElementById("filtro-periodo");
-const filtros = [filtroTipo, filtroCategoria, filtroCriticidade, filtroAutor, filtroPeriodo];
+const filtros = [filtroTipo, filtroSetor, filtroAutor, filtroPeriodo];
 
 const filtrosAplicadosEl = document.getElementById("filtros-aplicados");
 const filtrosChipsEl = document.getElementById("filtros-aplicados-chips");
@@ -49,16 +49,8 @@ const TIPO_INFO = {
   }
 };
 
-const CRITICIDADE_INFO = {
-  baixa: { label: "Baixa", cor: "#8a8a8a" },
-  media: { label: "Média", cor: "#9a5b00" },
-  alta: { label: "Alta", cor: "#c24f00" },
-  critica: { label: "Crítica", cor: "#b02a2a" }
-};
-
-const ICONE_TAG_CATEGORIA = '<path d="M3 21h18"/><path d="M5 21V10M9 21V10M15 21V10M19 21V10"/><path d="M3 10l9-6 9 6"/>';
+const ICONE_TAG_SETOR = '<path d="M3 21h18"/><path d="M5 21V10M9 21V10M15 21V10M19 21V10"/><path d="M3 10l9-6 9 6"/>';
 const ICONE_TAG_SINTOMA = '<path d="M20.59 13.41L11 3.83A2 2 0 0 0 9.59 3H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.59-4.59a2 2 0 0 0 0-2.83z"/><circle cx="7.5" cy="7.5" r="1"/>';
-const ICONE_TAG_TABELA = '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>';
 
 // Tudo que vem do banco passa por aqui antes de virar HTML.
 function escapar(texto) {
@@ -118,22 +110,13 @@ function renderizarLinhaTags(itens, limite) {
 
 function criarCard(artigo) {
   const tipoInfo = TIPO_INFO[artigo.tipo] || { label: artigo.tipo || "—", cor: "#6b7280", fundo: "#f2f3f5", icone: "" };
-  const criticidadeInfo = CRITICIDADE_INFO[artigo.criticidade];
   const emLista = grade.classList.contains("solucoes-grade--lista");
 
   const itensNegocio = [];
 
-  if (artigo.categoria) itensNegocio.push({ texto: artigo.categoria, icone: ICONE_TAG_CATEGORIA });
+  artigo.setoresNomes.forEach((s) => itensNegocio.push({ texto: s, icone: ICONE_TAG_SETOR }));
 
   (artigo.sintomas || []).forEach((s) => s && itensNegocio.push({ texto: s, icone: ICONE_TAG_SINTOMA }));
-
-  const itensTecnicos = (artigo.tabelas_campos || [])
-    .filter(Boolean)
-    .map((t) => ({ texto: t, icone: ICONE_TAG_TABELA }));
-
-  const criticidadeHtml = criticidadeInfo
-    ? `<span class="criticidade-pill"><span class="criticidade-pill__ponto" style="background-color:${criticidadeInfo.cor};"></span>${criticidadeInfo.label}</span>`
-    : "";
 
   const card = document.createElement("div");
 
@@ -144,15 +127,12 @@ function criarCard(artigo) {
         <svg class="tipo-pill__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${tipoInfo.icone}</svg>
         ${tipoInfo.label}
       </span>
-      ${criticidadeHtml}
     </div>
 
     <h3 class="solucao-card__titulo">${escapar(artigo.titulo || "Sem título")}</h3>
     <p class="solucao-card__descricao">${escapar(artigo.conteudo)}</p>
 
     ${renderizarLinhaTags(itensNegocio, emLista ? itensNegocio.length : 2)}
-    ${renderizarLinhaTags(itensTecnicos, emLista ? itensTecnicos.length : 1)}
-
     <div class="solucao-card__rodape">
       <span class="solucao-card__avatar">${escapar(iniciaisAutor(artigo.autor))}</span>
       <span class="solucao-card__autor">${escapar(artigo.autor || "Autor não informado")}</span>
@@ -324,8 +304,6 @@ function abrirPainel(artigo) {
   painelErroEl.textContent = "";
 
   const tipoInfo = TIPO_INFO[artigo.tipo] || { label: artigo.tipo || "—", cor: "#6b7280", fundo: "#f2f3f5" };
-  const criticidadeInfo = CRITICIDADE_INFO[artigo.criticidade];
-
   painelTipoEl.textContent = tipoInfo.label;
   painelTipoEl.style.backgroundColor = tipoInfo.fundo;
   painelTipoEl.style.color = tipoInfo.cor;
@@ -338,12 +316,8 @@ function abrirPainel(artigo) {
 
     <div class="painel__info-grid">
       <div>
-        <span class="painel__campo-label">Prioridade</span>
-        <p class="painel__campo-valor" style="color:${criticidadeInfo?.cor || "inherit"};">${criticidadeInfo?.label || "Não informado"}</p>
-      </div>
-      <div>
-        <span class="painel__campo-label">Categoria</span>
-        <p class="painel__campo-valor">${escapar(artigo.categoria || "Não informado")}</p>
+        <span class="painel__campo-label">Setores</span>
+        <p class="painel__campo-valor">${escapar(artigo.setoresNomes.join(", ") || "Não informado")}</p>
       </div>
       <div>
         <span class="painel__campo-label">Autor</span>
@@ -367,9 +341,7 @@ function abrirPainel(artigo) {
       <div class="painel-passos">${renderizarPassos(artigo.passos)}</div>
     </div>
 
-    ${renderizarSecaoTags("Sintomas e palavras-chave", artigo.sintomas)}
-    ${renderizarSecaoTags("Tabelas e campos envolvidos", artigo.tabelas_campos)}
-    ${renderizarAnexos(artigo.anexos)}
+    ${renderizarSecaoTags("Sintomas e palavras-chave", artigo.sintomas)}    ${renderizarAnexos(artigo.anexos)}
     ${renderizarRelacionadas(artigo.relacionadas)}
   `;
 
@@ -456,8 +428,7 @@ painelExcluirBtn.addEventListener("click", async () => {
 //FILTROS
 const LABELS_FILTRO = {
   tipo: "Tipo",
-  categoria: "Categoria",
-  criticidade: "Prioridade",
+  setor: "Setor",
   autor: "Autor",
   periodo: "Período"
 };
@@ -465,8 +436,7 @@ const LABELS_FILTRO = {
 function obterFiltrosAtivos() {
   return {
     tipo: filtroTipo.value,
-    categoria: filtroCategoria.value,
-    criticidade: filtroCriticidade.value,
+    setor: filtroSetor.value,
     autor: filtroAutor.value,
     periodo: filtroPeriodo.value
   };
@@ -474,7 +444,6 @@ function obterFiltrosAtivos() {
 
 function rotuloDoFiltro(chave, valor) {
   if (chave === "periodo") return `Período · Últimos ${valor} dias`;
-  if (chave === "criticidade") return `Prioridade · ${CRITICIDADE_INFO[valor]?.label || valor}`;
   if (chave === "tipo") return `Tipo · ${TIPO_INFO[valor]?.label || valor}`;
 
   return `${LABELS_FILTRO[chave]} · ${valor}`;
@@ -543,11 +512,10 @@ function pontuar(artigo, termos, termoCompleto) {
   const nome = normalizar(artigo.titulo);
   const descricao = normalizar(artigo.conteudo);
   const outros = normalizar([
-    artigo.categoria,
+    ...artigo.setoresNomes,
     artigo.modulo,
     artigo.codigo_erro,
-    ...(Array.isArray(artigo.sintomas) ? artigo.sintomas : []),
-    ...(Array.isArray(artigo.tabelas_campos) ? artigo.tabelas_campos : [])
+    ...(Array.isArray(artigo.sintomas) ? artigo.sintomas : [])
   ].filter(Boolean).join(" "));
 
   let pontuacao = 0;
@@ -574,8 +542,7 @@ function renderizarLista() {
 
   let filtradas = artigosTodos.filter((artigo) => {
     if (ativos.tipo && artigo.tipo !== ativos.tipo) return false;
-    if (ativos.categoria && artigo.categoria !== ativos.categoria) return false;
-    if (ativos.criticidade && artigo.criticidade !== ativos.criticidade) return false;
+    if (ativos.setor && !artigo.setoresNomes.includes(ativos.setor)) return false;
     if (ativos.autor && artigo.autor !== ativos.autor) return false;
 
     if (ativos.periodo) {
@@ -629,11 +596,15 @@ function atualizarContagem() {
 
 //CARGA INICIAL
 async function carregarArtigos() {
-  const { data, error } = await supabase
-    .from("artigos")
-    .select("*, categorias(nome)")
-    .eq("ativo", true)
-    .order("criado_em", { ascending: false });
+  // `setores` é uuid[]: não dá junção direta, então os nomes vêm à parte.
+  const [{ data, error }, { data: setores }] = await Promise.all([
+    supabase
+      .from("artigos")
+      .select("*")
+      .eq("ativo", true)
+      .order("criado_em", { ascending: false }),
+    supabase.from("setores").select("id,nome")
+  ]);
 
   if (error) {
     console.error("Erro ao carregar soluções:", error);
@@ -642,16 +613,16 @@ async function carregarArtigos() {
     return;
   }
 
-  // A junção devolve { categorias: { nome } }; o resto do código espera uma
-  // string simples em `categoria`.
+  const nomeDoSetor = new Map((setores || []).map((s) => [s.id, s.nome]));
+
   artigosTodos = (data || []).map((artigo) => ({
     ...artigo,
-    categoria: artigo.categorias?.nome || null
+    setoresNomes: (artigo.setores || []).map((id) => nomeDoSetor.get(id)).filter(Boolean).sort()
   }));
 
   atualizarContagem();
   preencherSelect(filtroAutor, artigosTodos.map((a) => a.autor));
-  preencherSelect(filtroCategoria, artigosTodos.map((a) => a.categoria));
+  preencherSelect(filtroSetor, artigosTodos.flatMap((a) => a.setoresNomes));
   renderizarLista();
 
   // Link direto para uma solução abre o painel dela.

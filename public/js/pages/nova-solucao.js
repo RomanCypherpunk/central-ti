@@ -2,7 +2,8 @@
 //
 // Portado da tela equivalente do projeto GASO, com três diferenças:
 //   - grava na tabela `artigos` deste projeto, não em `solucoes`;
-//   - a categoria é chave estrangeira (categoria_id), não texto livre;
+//   - no lugar da categoria há setores (artigos.setores): a solução só aparece
+//     para quem é de um dos setores marcados, regra aplicada na RLS;
 //   - o tipo Script/SQL não existe aqui, então bloco de código, parâmetros e
 //     nível de risco ficaram de fora.
 
@@ -154,7 +155,7 @@ function ativarSolucoesRelacionadas(relacionadasIniciais) {
   relacionadasApi = { coletar: () => selecionadas.map((s) => s.id) };
 }
 
-//ETIQUETAS (SINTOMAS E TABELAS)
+//ETIQUETAS (SINTOMAS)
 function ativarCampoTags(containerId, inputId) {
   const container = document.getElementById(containerId);
   const input = document.getElementById(inputId);
@@ -480,13 +481,6 @@ function criarCampos(artigo, tipo) {
       <button class="btn-adicionar-passo" type="button" id="add-passo">+ Adicionar passo</button>
     </div>
 
-    <div class="campo-grupo">
-      <label class="campo-label">Tabelas e campos envolvidos</label>
-      <div class="tags-campo" id="tabelas-campo">
-        <input class="tags-input tags-input--mono" type="text" id="tabelas-input" placeholder="adicionar...">
-      </div>
-    </div>
-
     <div class="campo-linha-dupla">
       <div class="campo-grupo">
         <label class="campo-label">Anexos</label>
@@ -510,7 +504,6 @@ function criarCampos(artigo, tipo) {
   `;
 
   const tagsApi = ativarCampoTags("tags-campo", "tags-input");
-  const tabelasApi = ativarCampoTags("tabelas-campo", "tabelas-input");
 
   ativarPassoAPasso(artigo?.passos);
   ativarAnexos(artigo?.anexos);
@@ -525,9 +518,7 @@ function criarCampos(artigo, tipo) {
 
   if (codigoErroInput) codigoErroInput.value = artigo.codigo_erro || "";
 
-  (artigo.sintomas || []).forEach((tag) => tagsApi.adicionarTag(tag));
-  (artigo.tabelas_campos || []).forEach((tag) => tabelasApi.adicionarTag(tag));
-}
+  (artigo.sintomas || []).forEach((tag) => tagsApi.adicionarTag(tag));}
 
 //ESCOLHA DO TIPO
 tipoCards.forEach((card) => {
@@ -542,91 +533,90 @@ tipoCards.forEach((card) => {
   });
 });
 
-//PRIORIDADE
-const criticidadeBtns = document.querySelectorAll(".criticidade-btn");
+//SETORES: SO QUEM E DOS SETORES MARCADOS VE A SOLUCAO
+// Setor não se cria daqui: é dado da empresa, o mesmo do cadastro de usuário.
+const setoresDropdown = document.getElementById("setores-dropdown");
+const setoresBotao = document.getElementById("setores-botao");
+const setoresTexto = document.getElementById("setores-texto");
+const setoresPainel = document.getElementById("setores-painel");
+const setoresLista = document.getElementById("setores-lista");
+const setoresTodosBtn = document.getElementById("setores-todos");
 
-criticidadeBtns.forEach((botao) => {
-  botao.addEventListener("click", () => {
-    criticidadeBtns.forEach((b) => b.classList.remove("criticidade-btn--ativo"));
-    botao.classList.add("criticidade-btn--ativo");
-  });
-});
-
-//CATEGORIA: O "+" CADASTRA UMA NOVA NA HORA
-const categoriaSelect = document.getElementById("categoria-select");
-
-async function carregarCategorias() {
-  const { data } = await supabase.from("categorias").select("id,nome").eq("ativo", true).order("nome");
-
-  categoriaSelect.innerHTML = "";
-
-  const vazia = document.createElement("option");
-  vazia.value = "";
-  vazia.textContent = "Selecione a categoria";
-  categoriaSelect.appendChild(vazia);
-
-  (data || []).forEach((registro) => {
-    const opcao = document.createElement("option");
-    opcao.value = registro.id;
-    opcao.textContent = registro.nome;
-    categoriaSelect.appendChild(opcao);
-  });
+function checkboxesDeSetor() {
+  return Array.from(setoresLista.querySelectorAll("input[type='checkbox']"));
 }
 
-const categoriasProntas = carregarCategorias();
+// Fechado, o botão resume a escolha: até dois nomes, depois só a contagem.
+function atualizarResumoSetores() {
+  const checkboxes = checkboxesDeSetor();
+  const marcados = checkboxes.filter((c) => c.checked);
+  const nomes = marcados.map((c) => c.parentElement.textContent.trim());
 
-(function ativarCadastroDeCategoria() {
-  const addBtn = document.getElementById("categoria-add-btn");
-  const form = document.getElementById("categoria-novo-form");
-  const input = document.getElementById("categoria-novo-input");
-  const confirmar = document.getElementById("categoria-novo-confirmar");
-  const cancelar = document.getElementById("categoria-novo-cancelar");
+  let resumo = "Selecione os setores";
 
-  function fechar() {
-    form.hidden = true;
-    input.value = "";
-  }
+  if (marcados.length > 0 && marcados.length === checkboxes.length) resumo = "Todos os setores";
+  else if (marcados.length > 2) resumo = `${marcados.length} setores`;
+  else if (marcados.length > 0) resumo = nomes.join(", ");
 
-  addBtn.addEventListener("click", () => {
-    form.hidden = false;
-    input.focus();
+  setoresTexto.textContent = resumo;
+  setoresTexto.classList.toggle("setores-dropdown__texto--vazio", marcados.length === 0);
+  setoresTodosBtn.textContent = marcados.length === checkboxes.length ? "Desmarcar todos" : "Marcar todos";
+}
+
+function abrirSetores(aberto) {
+  setoresPainel.hidden = !aberto;
+  setoresBotao.setAttribute("aria-expanded", String(aberto));
+}
+
+async function carregarSetores() {
+  const { data, error } = await supabase.from("setores").select("id,nome").eq("ativo", true).order("nome");
+
+  if (error) console.error("Erro ao carregar setores:", error);
+
+  setoresLista.innerHTML = "";
+
+  (data || []).forEach((registro) => {
+    const opcao = document.createElement("label");
+    opcao.className = "setor-opcao";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = registro.id;
+    checkbox.addEventListener("change", atualizarResumoSetores);
+
+    opcao.append(checkbox, registro.nome);
+    setoresLista.appendChild(opcao);
   });
 
-  cancelar.addEventListener("click", fechar);
+  atualizarResumoSetores();
+}
 
-  confirmar.addEventListener("click", async () => {
-    const nome = input.value.trim();
+const setoresProntos = carregarSetores();
 
-    if (!nome) return;
+setoresBotao.addEventListener("click", () => abrirSetores(setoresPainel.hidden));
 
-    confirmar.disabled = true;
+setoresTodosBtn.addEventListener("click", () => {
+  const checkboxes = checkboxesDeSetor();
+  const todosMarcados = checkboxes.every((c) => c.checked);
 
-    const { data, error } = await supabase
-      .from("categorias")
-      .insert({ nome })
-      .select("id")
-      .single();
+  checkboxes.forEach((c) => { c.checked = !todosMarcados; });
+  atualizarResumoSetores();
+});
 
-    confirmar.disabled = false;
+document.addEventListener("click", (evento) => {
+  if (!setoresDropdown.contains(evento.target)) abrirSetores(false);
+});
 
-    if (error) {
-      publicacaoErro.textContent = "Não foi possível criar a categoria.";
-      console.error("Erro ao cadastrar categoria:", error);
-      return;
-    }
+document.addEventListener("keydown", (evento) => {
+  if (evento.key !== "Escape" || setoresPainel.hidden) return;
 
-    await carregarCategorias();
-    categoriaSelect.value = data.id;
-    fechar();
-  });
+  abrirSetores(false);
+  setoresBotao.focus();
+});
 
-  input.addEventListener("keydown", (evento) => {
-    if (evento.key !== "Enter") return;
-
-    evento.preventDefault();
-    confirmar.click();
-  });
-})();
+function coletarSetores() {
+  return checkboxesDeSetor().filter((c) => c.checked).map((c) => c.value);
+}
 
 //ENVIO DE ARQUIVOS
 async function enviarArquivo(artigoId, nomeArquivo, arquivo) {
@@ -699,6 +689,13 @@ salvarBtn.addEventListener("click", async () => {
     return;
   }
 
+  const setores = coletarSetores();
+
+  if (setores.length === 0) {
+    publicacaoErro.textContent = "Marque ao menos um setor que pode ver a solução.";
+    return;
+  }
+
   salvarBtn.disabled = true;
   salvarBtn.textContent = idEdicao ? "Salvando edição..." : "Salvando...";
 
@@ -721,16 +718,14 @@ salvarBtn.addEventListener("click", async () => {
       conteudo: document.querySelector(".campo-textarea")?.value.trim() || "",
       codigo_erro: document.querySelector(".campo-input--codigo")?.value.trim() || null,
       sintomas: coletarTags("tags-campo"),
-      tabelas_campos: coletarTags("tabelas-campo"),
       passos,
       anexos,
       autor: document.getElementById("autor-input").value.trim() || null,
-      categoria_id: categoriaSelect.value || null,
+      setores,
       modulo: montarCaminho(
         document.getElementById("caminho-pagina-input")?.value.trim(),
         document.getElementById("caminho-texto-input")?.value.trim()
       ),
-      criticidade: document.querySelector(".criticidade-btn--ativo")?.dataset.criticidade || null,
       relacionadas: relacionadasApi ? relacionadasApi.coletar() : []
     };
 
@@ -784,17 +779,12 @@ async function iniciarModoEdicao() {
   document.getElementById("caminho-pagina-input").value = pagina;
   document.getElementById("caminho-texto-input").value = caminho;
 
-  if (data.criticidade) {
-    criticidadeBtns.forEach((b) => b.classList.remove("criticidade-btn--ativo"));
-    document.querySelector(`.criticidade-btn[data-criticidade="${data.criticidade}"]`)
-      ?.classList.add("criticidade-btn--ativo");
-  }
-
   document.getElementById("autor-input").value = data.autor || "";
 
-  await categoriasProntas;
+  await setoresProntos;
 
-  if (data.categoria_id) categoriaSelect.value = data.categoria_id;
+  checkboxesDeSetor().forEach((c) => { c.checked = (data.setores || []).includes(c.value); });
+  atualizarResumoSetores();
 }
 
 iniciarModoEdicao();

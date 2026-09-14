@@ -93,27 +93,16 @@
         </div>
 
         <div class="publicacao-campo">
-          <label class="publicacao-label">Categoria</label>
-          <div class="publicacao-campo-linha">
-            <select class="publicacao-select" id="categoria-select">
-              <option>Faturamento / NF-e</option>
-            </select>
-            <button class="publicacao-add" type="button" id="categoria-add-btn" aria-label="Adicionar categoria">+</button>
-          </div>
-          <div class="publicacao-novo-item" id="categoria-novo-form" hidden>
-            <input class="publicacao-select" type="text" id="categoria-novo-input" placeholder="Nome da nova categoria">
-            <button class="btn-secundario-pequeno" type="button" id="categoria-novo-confirmar">Adicionar</button>
-            <button class="btn-secundario-pequeno" type="button" id="categoria-novo-cancelar">Cancelar</button>
-          </div>
-        </div>
-
-        <div class="publicacao-campo">
-          <label class="publicacao-label">Prioridade</label>
-          <div class="criticidade-grupo">
-            <button class="criticidade-btn criticidade-btn--baixa" data-criticidade="baixa" type="button">Baixa</button>
-            <button class="criticidade-btn criticidade-btn--media" data-criticidade="media" type="button">Média</button>
-            <button class="criticidade-btn criticidade-btn--alta criticidade-btn--ativo" data-criticidade="alta" type="button">Alta</button>
-            <button class="criticidade-btn criticidade-btn--critica" data-criticidade="critica" type="button">Crítica</button>
+          <label class="publicacao-label" id="setores-label">Setores</label>
+          <!--SO QUEM E DOS SETORES MARCADOS VE A SOLUCAO; OPCOES VEM DO SUPABASE-->
+          <div class="setores-dropdown" id="setores-dropdown">
+            <button class="publicacao-select setores-dropdown__botao" type="button" id="setores-botao" aria-haspopup="true" aria-expanded="false" aria-labelledby="setores-label setores-botao">
+              <span class="setores-dropdown__texto" id="setores-texto">Selecione os setores</span>
+            </button>
+            <div class="setores-dropdown__painel" id="setores-painel" hidden>
+              <button class="setores-dropdown__todos" type="button" id="setores-todos">Marcar todos</button>
+              <div class="setores-dropdown__lista" id="setores-lista"></div>
+            </div>
           </div>
         </div>
 

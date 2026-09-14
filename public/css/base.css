@@ -85,7 +85,6 @@ body {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
-  border-left: 3px solid transparent;
   color: #5a5a5a;
   font-size: 14px;
   font-weight: 500;
@@ -98,7 +97,6 @@ body {
 
 .sidebar__link--ativo {
   background-color: #f4f4f5;
-  border-left-color: #dd5b12;
   color: #1a1a1a;
   font-weight: 600;
 }
@@ -181,7 +179,7 @@ html[data-sidebar="colapsada"] .sidebar__menu {
   left: 20%;
   right: 0;
   height: 84px;
-  background-color: #ffffff;
+  background-color: #ffffff; 
   border-bottom: 1px solid #ececec;
   z-index: 900;
 }
@@ -497,21 +495,6 @@ html[data-sidebar="colapsada"] .sidebar__logo {
   width: 13px;
   height: 13px;
   flex-shrink: 0;
-}
-
-.criticidade-pill {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.criticidade-pill__ponto {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
 }
 
 .solucao-card__titulo {
@@ -1068,8 +1051,54 @@ html[data-sidebar="colapsada"] .sidebar__logo {
   color: #ffffff;
 }
 
+/*SELECIONADO: MESMO BOTAO DO LOGIN E DO INICIO (COR, BRILHO E SUBIDA NO HOVER)*/
 .sidebar__link--ativo {
-  background-color: rgba(255, 255, 255, 0.16);
-  border-left-color: #ffffff;
+  position: relative;
+  overflow: hidden;
+  border-radius: 3px;
+  background-color: #c77240;
   color: #ffffff;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sidebar__link--ativo::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+}
+
+.sidebar__link--ativo:hover::before {
+  animation: sidebar-brilho 0.7s ease;
+}
+
+@keyframes sidebar-brilho {
+  from { left: -60%; }
+  to { left: 130%; }
+}
+
+.sidebar__link--ativo:hover {
+  background-color: #b0602f;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(199, 114, 64, 0.32);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar__link--ativo:hover {
+    transform: none;
+  }
+
+  .sidebar__link--ativo:hover::before {
+    animation: none;
+  }
 }
