@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/solicitacoes.css">
 </head>
 <body style="visibility: hidden">
 
@@ -92,15 +93,86 @@
     </div>
   </header>
 
-  <!--ESTRUTURA CRUA: A LISTA DOS CHAMADOS DO USUARIO ENTRA AQUI DEPOIS.
-      Falta: buscar em `chamados` por solicitante_id, mostrar numero,
-      titulo, status derivado e data, e abrir o detalhe ao clicar.-->
   <main class="solicitacoes">
-    <h1>Solicitações</h1>
-    <p>Os chamados que você abriu aparecerão aqui.</p>
+    <div class="solicitacoes__area">
+
+      <header class="solicitacoes__cabecalho">
+        <div>
+          <h1 class="solicitacoes__titulo">Solicitações</h1>
+          <p class="solicitacoes__resumo" data-resumo>Carregando…</p>
+        </div>
+
+        <label class="solicitacoes__busca">
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="m15.5 15.5 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <input type="search" data-busca placeholder="Buscar por número ou assunto"
+                 autocomplete="off" aria-label="Buscar nas suas solicitações">
+        </label>
+      </header>
+
+      <!--FILTRO POR STATUS: a pergunta mais comum e "o que depende de mim?",
+          entao "Aguardando você" vem logo depois de "Todas".-->
+      <div class="filtros" role="group" aria-label="Filtrar por status">
+        <button class="filtro filtro--ativo" type="button" data-filtro="">Todas</button>
+        <button class="filtro" type="button" data-filtro="aguardando">Aguardando você</button>
+        <button class="filtro" type="button" data-filtro="andamento">Em andamento</button>
+        <button class="filtro" type="button" data-filtro="aberto">Abertas</button>
+        <button class="filtro" type="button" data-filtro="fechado">Fechadas</button>
+      </div>
+
+      <p class="solicitacoes__erro" data-erro role="alert"></p>
+
+      <ul class="chamados" data-lista></ul>
+
+      <p class="chamados__vazio" data-vazio hidden></p>
+
+    </div>
   </main>
+
+  <!--DETALHE: A CONVERSA DO CHAMADO. <dialog> traz fundo esmaecido,
+      Esc e foco preso de graça.-->
+  <dialog class="detalhe" data-detalhe>
+    <article class="detalhe__conteudo">
+
+      <header class="detalhe__topo">
+        <div class="detalhe__identificacao">
+          <span class="detalhe__numero" data-detalhe-numero></span>
+          <h2 class="detalhe__titulo" data-detalhe-titulo></h2>
+          <p class="detalhe__meta" data-detalhe-meta></p>
+        </div>
+
+        <button class="detalhe__fechar" type="button" data-detalhe-fechar aria-label="Fechar">
+          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+            <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </header>
+
+      <div class="conversa" data-conversa></div>
+
+      <!--RESPONDER: o RLS ja permitia o solicitante comentar no proprio
+          chamado; faltava a tela. Chamado fechado esconde o campo.-->
+      <form class="responder" data-responder>
+        <textarea class="responder__campo" data-responder-campo rows="2"
+                  placeholder="Escrever para a equipe de TI…"
+                  aria-label="Sua resposta"></textarea>
+        <div class="responder__acoes">
+          <p class="responder__aviso" data-responder-aviso role="status"></p>
+          <button class="responder__enviar" type="submit">Enviar</button>
+        </div>
+      </form>
+
+      <p class="detalhe__fechado" data-detalhe-fechado hidden>
+        Este chamado foi finalizado. Para retomar, abra um novo chamado.
+      </p>
+
+    </article>
+  </dialog>
 
   <script type="module" src="js/auth-guard.js"></script>
   <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/pages/solicitacoes.js"></script>
 </body>
 </html>

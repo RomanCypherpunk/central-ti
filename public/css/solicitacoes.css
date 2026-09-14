@@ -1,0 +1,570 @@
+/* ==========================================================================
+   SOLICITAÇÕES — a mesma informação do Portal, do lado de quem abriu.
+   O topo vem de index.css. A escolha central desta tela: quem abriu um
+   chamado tem poucos, e uma pergunta só ("e o meu?"). Por isso é uma
+   pilha de cartões com o status carregado numa barra colorida à esquerda
+   — e não a tabela densa que o Portal usa para varrer centenas de linhas.
+   ========================================================================== */
+
+.solicitacoes {
+  flex: 1;
+  /*min-height garante que o campo cinza vai ate o fim da tela mesmo com
+    uma linha só — sem isso sobra branco embaixo e a pagina parece cortada.
+    84px e a altura do topo.*/
+  min-height: calc(100dvh - 84px);
+  box-sizing: border-box;
+  padding: 2.5rem 1.5rem 4rem;
+  background-color: #fafafa;
+}
+
+.solicitacoes__area {
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+/* --------------------------------------------------------------------------
+   CABEÇALHO
+   -------------------------------------------------------------------------- */
+
+.solicitacoes__cabecalho {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.solicitacoes__titulo {
+  margin: 0 0 0.1875rem;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 1.3125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #1a1a1a;
+}
+
+.solicitacoes__resumo {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #8a8a8a;
+}
+
+.solicitacoes__busca {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 14rem;
+  max-width: 20rem;
+}
+
+.solicitacoes__busca svg {
+  position: absolute;
+  left: 0.6875rem;
+  color: #a1a1aa;
+  pointer-events: none;
+}
+
+.solicitacoes__busca input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.75rem 0.5rem 2.125rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background-color: #fff;
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.8125rem;
+  color: #1a1a1a;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.solicitacoes__busca input::placeholder {
+  color: #a1a1aa;
+}
+
+.solicitacoes__busca input:focus {
+  outline: none;
+  border-color: #dd5b12;
+  box-shadow: 0 0 0 3px rgba(221, 91, 18, 0.13);
+}
+
+.solicitacoes__busca input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* --------------------------------------------------------------------------
+   FILTROS
+   -------------------------------------------------------------------------- */
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-bottom: 1.25rem;
+}
+
+.filtro {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 999px;
+  background-color: #fff;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: #5a5a5a;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+
+.filtro:hover {
+  border-color: #d4d4d8;
+  color: #1a1a1a;
+}
+
+.filtro--ativo,
+.filtro--ativo:hover {
+  border-color: #1a1a1a;
+  background-color: #1a1a1a;
+  color: #fff;
+}
+
+.filtro:focus-visible {
+  outline: 2px solid #dd5b12;
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   LISTA DE CHAMADOS
+   -------------------------------------------------------------------------- */
+
+.chamados {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*O CARTAO INTEIRO E O ALVO DE CLIQUE: a area de toque acompanha o que o
+  olho entende como "um chamado".*/
+.chamado {
+  display: grid;
+  grid-template-columns: 5px 1fr auto;
+  align-items: center;
+  gap: 0 1rem;
+  width: 100%;
+  padding: 0;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background-color: #fff;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.chamado:hover {
+  border-color: #d4d4d8;
+  box-shadow: 0 2px 10px rgba(26, 26, 26, 0.06);
+  transform: translateY(-1px);
+}
+
+.chamado:focus-visible {
+  outline: 2px solid #dd5b12;
+  outline-offset: 2px;
+}
+
+/*A BARRA E O ELEMENTO FORTE DA TELA: e por ela que se varre a lista.
+  Vai de ponta a ponta do cartao, sem respiro, pra ler como marcador.*/
+.chamado__barra {
+  align-self: stretch;
+  background-color: #8a8a8a;
+}
+
+.chamado--aberto .chamado__barra { background-color: #2c5c96; }
+.chamado--andamento .chamado__barra { background-color: #a37a0a; }
+.chamado--aguardando .chamado__barra { background-color: #d64545; }
+.chamado--fechado .chamado__barra { background-color: #8a8a8a; }
+
+.chamado__conteudo {
+  min-width: 0;
+  padding: 0.875rem 0 0.875rem 1.125rem;
+}
+
+.chamado__assunto {
+  display: block;
+  margin-bottom: 0.1875rem;
+  font-size: 0.9375rem;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chamado__meta {
+  display: block;
+  font-size: 0.75rem;
+  color: #8a8a8a;
+}
+
+/*O NUMERO E REFERENCIA, NAO TITULO: fica em tom de apoio dentro do meta.*/
+.chamado__numero {
+  font-variant-numeric: tabular-nums;
+}
+
+.chamado__lado {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding-right: 1.125rem;
+}
+
+/*SINAL DE MENSAGEM NOVA: so aparece quando a bola esta com o usuario.*/
+.chamado__aviso {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 999px;
+  background-color: #fdeceb;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #b02a2a;
+  white-space: nowrap;
+}
+
+.chamado__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.chamado__status::before {
+  content: "";
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.chamado--aberto .chamado__status { color: #2c5c96; }
+.chamado--andamento .chamado__status { color: #a37a0a; }
+.chamado--aguardando .chamado__status { color: #d64545; }
+.chamado--fechado .chamado__status { color: #8a8a8a; }
+
+.chamados__vazio {
+  margin: 0;
+  padding: 3rem 1rem;
+  border: 1px dashed #e0e0e0;
+  border-radius: 12px;
+  background-color: #fff;
+  font-size: 0.875rem;
+  text-align: center;
+  color: #8a8a8a;
+}
+
+.solicitacoes__erro {
+  display: none;
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid #f3bcbc;
+  border-radius: 8px;
+  background-color: #fdeceb;
+  font-size: 0.8125rem;
+  color: #b02a2a;
+}
+
+.solicitacoes__erro--visivel {
+  display: block;
+}
+
+/* ==========================================================================
+   DETALHE: A CONVERSA
+   ========================================================================== */
+
+.detalhe {
+  width: min(38rem, 92vw);
+  max-height: 86dvh;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background-color: #fff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+}
+
+.detalhe::backdrop {
+  background-color: rgba(16, 10, 8, 0.55);
+}
+
+.detalhe__conteudo {
+  display: flex;
+  flex-direction: column;
+  max-height: 86dvh;
+}
+
+.detalhe__topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+  padding: 1.125rem 1.25rem 1rem;
+  border-bottom: 1px solid #ececec;
+}
+
+.detalhe__identificacao {
+  min-width: 0;
+}
+
+.detalhe__numero {
+  display: block;
+  margin-bottom: 0.125rem;
+  font-size: 0.75rem;
+  color: #8a8a8a;
+  font-variant-numeric: tabular-nums;
+}
+
+.detalhe__titulo {
+  margin: 0 0 0.25rem;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #1a1a1a;
+}
+
+.detalhe__meta {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #8a8a8a;
+}
+
+.detalhe__fechar {
+  display: flex;
+  flex-shrink: 0;
+  padding: 0.3125rem;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: #8a8a8a;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.detalhe__fechar:hover {
+  background-color: #f4f4f5;
+  color: #1a1a1a;
+}
+
+/*CONVERSA: mesmos baloes do Portal, so que espelhados — aqui quem fala
+  do lado direito e o usuario, nao a equipe.*/
+.conversa {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 1.125rem 1.25rem;
+  overflow-y: auto;
+}
+
+.mensagem {
+  display: flex;
+  flex-direction: column;
+  max-width: 82%;
+}
+
+.mensagem--minha {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.mensagem__balao {
+  padding: 0.5rem 0.6875rem 0.5625rem;
+  border-radius: 12px;
+  background-color: #e4e4e5;
+}
+
+.mensagem--minha .mensagem__balao {
+  background-color: #facfc0;
+}
+
+/*AUTOMATICA: e do sistema, nao de uma pessoa — tracejado avisa isso.
+  O texto fica mais claro que o das pessoas de proposito: no Portal o
+  analista audita essas mensagens, aqui elas sao so protocolo e nao
+  podem competir com a conversa de verdade.*/
+.mensagem--sistema .mensagem__balao {
+  border: 1px dashed #d9d9dc;
+  background-color: #f7f7f8;
+}
+
+.mensagem--sistema .mensagem__texto {
+  color: #6a6a6a;
+}
+
+.mensagem__autor {
+  display: block;
+  margin-bottom: 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.mensagem__texto {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #1a1a1a;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mensagem__quando {
+  margin-top: 0.1875rem;
+  font-size: 0.625rem;
+  color: #a1a1aa;
+}
+
+.conversa__vazia {
+  margin: auto;
+  font-size: 0.8125rem;
+  color: #a1a1aa;
+}
+
+/* --------------------------------------------------------------------------
+   RESPONDER
+   -------------------------------------------------------------------------- */
+
+.responder {
+  flex-shrink: 0;
+  padding: 0.875rem 1.25rem 1.125rem;
+  border-top: 1px solid #ececec;
+}
+
+.responder[hidden] {
+  display: none;
+}
+
+.responder__campo {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  background-color: #fff;
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #1a1a1a;
+  resize: vertical;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.responder__campo::placeholder {
+  color: #a1a1aa;
+}
+
+.responder__campo:focus {
+  outline: none;
+  border-color: #dd5b12;
+  box-shadow: 0 0 0 3px rgba(221, 91, 18, 0.13);
+}
+
+.responder__acoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.responder__aviso {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #2f9e44;
+}
+
+.responder__aviso--erro {
+  color: #b02a2a;
+}
+
+.responder__enviar {
+  flex-shrink: 0;
+  padding: 0.5rem 1.125rem;
+  border: 0;
+  border-radius: 8px;
+  background-color: #dd5b12;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.responder__enviar:hover:not(:disabled) {
+  background-color: #c24f00;
+}
+
+.responder__enviar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.detalhe__fechado {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.875rem 1.25rem 1.125rem;
+  border-top: 1px solid #ececec;
+  font-size: 0.75rem;
+  color: #8a8a8a;
+}
+
+.detalhe__fechado[hidden] {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   RESPONSIVO
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 34rem) {
+  .solicitacoes {
+    padding: 1.75rem 1rem 3rem;
+  }
+
+  .solicitacoes__busca {
+    max-width: none;
+  }
+
+  /*NO CELULAR O STATUS DESCE PARA O META: nao cabe ao lado sem espremer
+    o assunto, que e o que importa.*/
+  .chamado {
+    grid-template-columns: 5px 1fr;
+  }
+
+  .chamado__lado {
+    grid-column: 2;
+    padding: 0 1.125rem 0.875rem;
+  }
+
+  .chamado__conteudo {
+    padding-bottom: 0.5rem;
+  }
+
+  .mensagem {
+    max-width: 92%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chamado,
+  .chamado:hover {
+    transition: none;
+    transform: none;
+  }
+}
