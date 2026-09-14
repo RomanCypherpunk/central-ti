@@ -1796,8 +1796,48 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
     if (evento.target === janela) janela.close();
   });
 
-  // Exposto para Tickets finalizados abrir o mesmo modal a partir da lista.
-  return { abrir };
+  //TEMPO REAL: ALGUEM MUDOU O CHAMADO QUE ESTA ABERTO NA TELA. O objeto em
+  //memoria ja foi atualizado (e o mesmo que `aberto`); aqui so redesenha.
+  //Nao atrapalha quem esta digitando: titulo e descricao em edicao nao sao
+  //sobrescritos, e a mensagem sendo escrita nunca e tocada.
+  function atualizarSeAberto(chamado) {
+    if (!janela.open || aberto?.id !== chamado.id) return;
+
+    campoFila.textContent = nomeDaFila.get(aberto.fila_id) ?? "Sem fila";
+
+    if (document.activeElement !== campoTitulo) {
+      campoTitulo.textContent = tituloDoChamado(aberto);
+    }
+
+    if (document.activeElement !== campoDescricao) {
+      campoDescricao.textContent = aberto.descricao ?? "";
+    }
+
+    atualizarBotaoFechar();
+    desenharDados();
+    desenharEtiquetas();
+    desenharMembros();
+
+    // A conversa so desce sozinha se a pessoa ja estava no fim dela; quem
+    // esta lendo mensagens antigas continua onde estava.
+    const noFim = campoConversa.scrollHeight - campoConversa.scrollTop - campoConversa.clientHeight < 40;
+    const posicao = campoConversa.scrollTop;
+
+    desenharConversa();
+
+    if (!noFim) campoConversa.scrollTop = posicao;
+
+    desenharAnexos();
+  }
+
+  //TEMPO REAL: O CHAMADO ABERTO SUMIU (apagado, ou deixou de ser visivel).
+  function fecharSeRemovido(id) {
+    if (janela.open && aberto?.id === id) janela.close();
+  }
+
+  // abrir: Tickets finalizados e a busca abrem o mesmo modal.
+  // atualizarSeAberto / fecharSeRemovido: usados pelo tempo real.
+  return { abrir, atualizarSeAberto, fecharSeRemovido };
 }
 
 //MENU DO QUADRO: BOTAO DE 3 PONTINHOS. EXPORTAR, FUNDO, FINALIZADOS.
@@ -1943,6 +1983,14 @@ function ligarFinalizados(chamados, filas, detalhe) {
   // acabou de ser fechado ou reaberto pelo modal do card.
   document.querySelector("[data-acao-finalizados]")
     .addEventListener("click", desenhar);
+
+  // Tempo real: com a lista aberta, quem fecha ou reabre em outra tela
+  // aparece (ou some) na hora. Fechada, ela ja se recalcula ao abrir.
+  return {
+    atualizar() {
+      if (janela.open) desenhar();
+    },
+  };
 }
 
 //PLANO DE FUNDO: FOTO PROPRIA DO USUARIO, SALVA NO BUCKET PRIVADO
@@ -2066,6 +2114,272 @@ function atualizarResumo(chamados, totalFilas) {
     `${abertos} ${abertos === 1 ? "chamado aberto" : "chamados abertos"} em ${totalFilas} filas`;
 }
 
+//CAMPOS DE UM CHAMADO: A MESMA SELECAO NA CARGA DO QUADRO E NO TEMPO REAL,
+//para o chamado que chega por evento ter exatamente o formato dos outros.
+const CAMPOS_CHAMADO = `
+  id, numero, titulo, fila_id, solicitante_id, descricao,
+  eh_urgente, eh_prioridade, fechamento_em, abertura_em,
+  acesso_remoto, cliente_na_loja, sistema_lento_ou_fora,
+  categorias(nome),
+  unidades(nome),
+  usuarios!chamados_solicitante_id_fkey(nome, sobrenome, email),
+  chamado_membros(usuario_id, usuarios(id, nome, sobrenome, foto_path)),
+  comentarios(id, autor_id, texto, visibilidade, tipo, criado_em, usuarios(nome, sobrenome, foto_path)),
+  anexos(id, nome_arquivo, storage_path, criado_em)
+`;
+
+//TEMPO REAL (Supabase Realtime): O QUADRO ACOMPANHA O BANCO SEM RECARREGAR.
+//Qualquer mudanca em chamados, comentarios, membros ou anexos vira "busque
+//de novo este chamado": em vez de remendar o card com o pedaco que veio no
+//evento, a tela pede o chamado inteiro com a mesma consulta da carga — um
+//caminho so para desenhar, e o RLS continua decidindo o que cada um ve.
+//Mudanca em usuarios (cor, foto, nome) atualiza a pessoa onde ela aparece.
+//Precisa da migration 20260914160000_realtime_portal.sql aplicada.
+function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados }) {
+  const pendentes = new Map(); // chamado_id -> timeout da busca agendada
+  let esperaRessincronizar = null;
+  let jaConectou = false;
+
+  function aplicarCores(chamado) {
+    chamado.chamado_membros.forEach((membro) => {
+      if (membro.usuarios) membro.usuarios.cor_destaque = corDe.get(membro.usuario_id) ?? null;
+    });
+  }
+
+  function colunaDaFila(filaId) {
+    return quadro.querySelector(`.fila[data-fila="${filaId}"]`);
+  }
+
+  //O CARD NO QUADRO ACOMPANHA O CHAMADO EM MEMORIA: aparece, some, muda de
+  //fila ou so se redesenha no mesmo lugar.
+  function reconciliarCard(chamado) {
+    const atual = quadro.querySelector(`.card[data-chamado="${chamado.id}"]`);
+
+    // Card sendo arrastado agora: trocar o elemento cancelaria o arrasto.
+    // Busca de novo daqui a pouco, quando a pessoa ja tiver soltado.
+    if (atual?.classList.contains("card--arrastando")) {
+      agendar(chamado.id, 600);
+      return;
+    }
+
+    const colunaAntiga = atual?.closest(".fila") ?? null;
+
+    // Fechado vive em Tickets finalizados, nao no quadro.
+    if (chamado.fechamento_em) {
+      atual?.remove();
+      if (colunaAntiga) sincronizarColuna(colunaAntiga);
+      return;
+    }
+
+    const colunaNova = colunaDaFila(chamado.fila_id);
+    const novo = montarCard(chamado);
+
+    if (atual && colunaAntiga === colunaNova) {
+      // Mesma fila: troca por cima, sem mudar a posicao do card.
+      atual.replaceWith(novo);
+      return;
+    }
+
+    atual?.remove();
+    if (colunaAntiga) sincronizarColuna(colunaAntiga);
+
+    // Fila que nao esta no quadro (inativa): o chamado fica so em memoria.
+    if (!colunaNova) return;
+
+    // A carga ordena do mais novo para o mais antigo; quem chega entra na
+    // posicao que teria se a pagina fosse recarregada.
+    const lista = colunaNova.querySelector(".fila__cards");
+    const antesDe = [...lista.querySelectorAll(".card")].find((card) => {
+      const outro = chamados.find((item) => item.id === card.dataset.chamado);
+
+      return outro && new Date(outro.abertura_em) < new Date(chamado.abertura_em);
+    });
+
+    lista.insertBefore(novo, antesDe ?? null);
+    sincronizarColuna(colunaNova);
+  }
+
+  function removerChamado(id) {
+    const indice = chamados.findIndex((chamado) => chamado.id === id);
+
+    if (indice === -1) return;
+
+    chamados.splice(indice, 1);
+
+    const card = quadro.querySelector(`.card[data-chamado="${id}"]`);
+    const coluna = card?.closest(".fila");
+
+    card?.remove();
+    if (coluna) sincronizarColuna(coluna);
+
+    detalhe.fecharSeRemovido(id);
+  }
+
+  //O CHAMADO QUE VEIO DO BANCO ENTRA NO ARRAY. Chamado ja conhecido e
+  //atualizado no mesmo objeto (Object.assign), e nao trocado: o detalhe
+  //aberto e a busca seguram a referencia dele.
+  function guardarChamado(dados) {
+    aplicarCores(dados);
+
+    const existente = chamados.find((chamado) => chamado.id === dados.id);
+    const chamado = existente ? Object.assign(existente, dados) : dados;
+
+    if (!existente) chamados.unshift(chamado);
+
+    reconciliarCard(chamado);
+    detalhe.atualizarSeAberto(chamado);
+  }
+
+  function depoisDeMudar() {
+    atualizarResumo(chamados, filas.length);
+    finalizados.atualizar();
+  }
+
+  async function recarregarChamado(id) {
+    pendentes.delete(id);
+
+    const { data, error } = await supabase
+      .from("chamados")
+      .select(CAMPOS_CHAMADO)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Tempo real: não foi possível atualizar o chamado", id, error);
+      return;
+    }
+
+    // Sem linha: foi apagado, ou o RLS deixou de mostrar para esta pessoa.
+    if (data) guardarChamado(data); else removerChamado(id);
+
+    depoisDeMudar();
+  }
+
+  //VARIOS EVENTOS DO MESMO CHAMADO EM SEQUENCIA (responder com anexo gera
+  //comentario + anexo; abrir um chamado gera o chamado + a mensagem
+  //automatica) viram uma busca so.
+  function agendar(id, espera = 150) {
+    clearTimeout(pendentes.get(id));
+    pendentes.set(id, setTimeout(() => recarregarChamado(id), espera));
+  }
+
+  //TUDO DE NOVO: depois de uma reconexao, eventos podem ter se perdido.
+  function ressincronizar() {
+    clearTimeout(esperaRessincronizar);
+
+    esperaRessincronizar = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from("chamados")
+        .select(CAMPOS_CHAMADO)
+        .order("abertura_em", { ascending: false });
+
+      if (error) {
+        console.warn("Tempo real: não foi possível ressincronizar o quadro", error);
+        return;
+      }
+
+      const visiveis = new Set(data.map((chamado) => chamado.id));
+
+      [...chamados]
+        .filter((chamado) => !visiveis.has(chamado.id))
+        .forEach((chamado) => removerChamado(chamado.id));
+
+      data.forEach(guardarChamado);
+      depoisDeMudar();
+    }, 300);
+  }
+
+  //DE QUAL CHAMADO E O EVENTO. Em DELETE vem a linha antiga — inteira com a
+  //replica identity full da migration. Como reserva, procura em memoria de
+  //quem era aquele comentario ou anexo.
+  function chamadoDoEvento(tabela, payload) {
+    const linha = payload.eventType === "DELETE" ? payload.old : payload.new;
+
+    if (!linha) return null;
+    if (tabela === "chamados") return linha.id ?? null;
+    if (linha.chamado_id) return linha.chamado_id;
+    if (tabela === "chamado_membros") return null;
+
+    return chamados.find((chamado) =>
+      (chamado[tabela] ?? []).some((item) => item.id === linha.id))?.id ?? null;
+  }
+
+  //PESSOA MUDOU (cor, foto, nome): atualiza onde ela aparece — membro de
+  //card, autor de comentario, lista da equipe — e redesenha so o necessario.
+  function atualizarPessoa(pessoa) {
+    if (!pessoa?.id) return;
+
+    if ("cor_destaque" in pessoa) corDe.set(pessoa.id, pessoa.cor_destaque);
+
+    const campos = Object.fromEntries(
+      ["nome", "sobrenome", "foto_path", "cor_destaque"]
+        .filter((campo) => campo in pessoa)
+        .map((campo) => [campo, pessoa[campo]]),
+    );
+
+    equipe.forEach((membro) => {
+      if (membro.id === pessoa.id) Object.assign(membro, campos);
+    });
+
+    chamados.forEach((chamado) => {
+      let aparece = false;
+
+      chamado.chamado_membros.forEach((membro) => {
+        if (membro.usuario_id !== pessoa.id || !membro.usuarios) return;
+
+        Object.assign(membro.usuarios, campos);
+        aparece = true;
+      });
+
+      chamado.comentarios.forEach((comentario) => {
+        if (comentario.autor_id !== pessoa.id || !comentario.usuarios) return;
+
+        Object.assign(comentario.usuarios, campos);
+        aparece = true;
+      });
+
+      if (!aparece) return;
+
+      reconciliarCard(chamado);
+      detalhe.atualizarSeAberto(chamado);
+    });
+  }
+
+  const canal = supabase.channel("portal-chamados");
+
+  ["chamados", "comentarios", "chamado_membros", "anexos"].forEach((tabela) => {
+    canal.on("postgres_changes", { event: "*", schema: "public", table: tabela }, (payload) => {
+      const id = chamadoDoEvento(tabela, payload);
+
+      if (id) agendar(id); else ressincronizar();
+    });
+  });
+
+  canal.on("postgres_changes", { event: "UPDATE", schema: "public", table: "usuarios" }, (payload) => {
+    atualizarPessoa(payload.new);
+  });
+
+  canal.subscribe((status, erroCanal) => {
+    if (status === "SUBSCRIBED") {
+      // Na primeira vez a carga acabou de acontecer. Numa reconexao (rede
+      // caiu, computador dormiu), o que mudou nesse meio tempo nao chegou.
+      if (jaConectou) ressincronizar();
+      jaConectou = true;
+      return;
+    }
+
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+      console.warn("Tempo real desconectado; o Supabase tenta reconectar sozinho.", status, erroCanal);
+    }
+  });
+
+  // Aba que volta a ficar visivel: o navegador pode ter pausado a conexao
+  // enquanto ela estava escondida. Confere se nada ficou para tras.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && jaConectou) ressincronizar();
+  });
+}
+
 async function montarQuadro() {
   const atendente = await quemEstaAtendendo();
 
@@ -2078,17 +2392,7 @@ async function montarQuadro() {
     supabase.from("filas").select("id, nome").eq("ativo", true).order("ordem"),
     supabase
       .from("chamados")
-      .select(`
-        id, numero, titulo, fila_id, solicitante_id, descricao,
-        eh_urgente, eh_prioridade, fechamento_em, abertura_em,
-        acesso_remoto, cliente_na_loja, sistema_lento_ou_fora,
-        categorias(nome),
-        unidades(nome),
-        usuarios!chamados_solicitante_id_fkey(nome, sobrenome, email),
-        chamado_membros(usuario_id, usuarios(id, nome, sobrenome, foto_path)),
-        comentarios(id, autor_id, texto, visibilidade, tipo, criado_em, usuarios(nome, sobrenome, foto_path)),
-        anexos(id, nome_arquivo, storage_path, criado_em)
-      `)
+      .select(CAMPOS_CHAMADO)
       .order("abertura_em", { ascending: false }),
     // Quem pode ser posto num chamado: a propria equipe de TI.
     supabase
@@ -2110,11 +2414,14 @@ async function montarQuadro() {
     return;
   }
 
-  //COR DE DESTAQUE: SE A CONSULTA FALHOU, O QUADRO SEGUE SEM ANEL
+  //COR DE DESTAQUE: SE A CONSULTA FALHOU, O QUADRO SEGUE SEM COR. O mapa
+  //existe nos dois casos: o tempo real guarda nele as cores que mudarem.
+  const corDe = new Map();
+
   if (cores.error) {
     console.warn("Cor de destaque indisponível (a migration foi aplicada?):", cores.error);
   } else {
-    const corDe = new Map(cores.data.map((pessoa) => [pessoa.id, pessoa.cor_destaque]));
+    cores.data.forEach((pessoa) => corDe.set(pessoa.id, pessoa.cor_destaque));
 
     (equipe.data ?? []).forEach((pessoa) => {
       pessoa.cor_destaque = corDe.get(pessoa.id) ?? null;
@@ -2146,8 +2453,18 @@ async function montarQuadro() {
   // finalizado — esse nao tem card no quadro para rolar ate.
   ligarBusca(chamados.data, filas.data, detalhe);
   ligarQuadroMenu();
-  ligarFinalizados(chamados.data, filas.data, detalhe);
+  const finalizados = ligarFinalizados(chamados.data, filas.data, detalhe);
   ligarFundo();
+
+  // Por ultimo: so escuta o banco depois que o quadro inteiro ja esta na tela.
+  ligarTempoReal({
+    chamados: chamados.data,
+    filas: filas.data,
+    equipe: equipe.data ?? [],
+    corDe,
+    detalhe,
+    finalizados,
+  });
 }
 
 montarQuadro();
