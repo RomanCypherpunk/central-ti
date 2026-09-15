@@ -1142,6 +1142,531 @@ fundo removido por fora limpa o cache e despinta.
 upload (~300 KB) ajudaria a 1ª visita e quem tem internet fraca — fica
 para quando incomodar.
 
+### Painel: configuração do Portal (2026-09-15)
+
+Tela nova (`painel.html`), **só para admin**, inspirada no que o Hipporello
+oferece hoje, adaptada ao padrão do projeto. Entra pelo menu de 3 pontinhos
+do Portal.
+
+Três abas numa página só (troca sem recarregar; o `?aba=` fica na URL):
+
+- **Todos os tickets** — tabela de tudo que já entrou, inclusive fechado,
+  com busca por número/solicitante/unidade/categoria/descrição e filtros
+  (Todos, Abertos, Fechados, Urgentes, Prioridade). Clicar numa linha abre
+  o chamado.
+- **Contatos** — lista de `usuarios`; clicar abre o editor de nome,
+  sobrenome, e-mail, setor, unidade, perfil, status do cadastro e ativo.
+- **Configurações** — CRUD de filas, unidades, setores, categorias e textos
+  rápidos, cada um num cartão.
+
+**Formulários ficou de fora de propósito:** hoje não existe formulário
+configurável no banco (o chamado nasce de um form fixo). Modelar isso é a
+maior peça das quatro e vai ser desenhada em conversa separada.
+
+**Prioridade não virou tela:** não é tabela, são dois booleanos no chamado
+(`eh_prioridade`, `eh_urgente`). Entrou como filtro na aba de tickets — não
+há o que cadastrar.
+
+**O modal de detalhe não foi duplicado.** O `ligarDetalhe` do `portal.js`
+(~1.650 linhas: conversa, anexos, membros, textos rápidos, aprovação de
+acesso) passou a atender as duas telas:
+
+- Ganhou um 5º parâmetro opcional, `quadroApi`, com o que fazer quando algo
+  muda (`acharCard`, `aoMudarCard`, `aoMudarFechamento`, `aoContarChamados`).
+  O Portal passa as funções do quadro; o Painel, o redesenho da tabela.
+- O arranque do `portal.js` (tema, zoom, `montarQuadro`) foi para dentro de
+  um `if (quadro)`, e o arquivo passou a exportar `ligarDetalhe`. Numa página
+  sem `[data-quadro]` ele entra como biblioteca, sem levantar kanban.
+- Os helpers que as duas telas usam (`derivarStatus`, `montarAvatar`,
+  `tituloDoChamado`, `formatarData`, `CAMPOS_CHAMADO`…) saíram para
+  `public/js/componentes/chamado-comum.js`. Uma fonte da verdade: corrigir
+  o status numa tela corrige na outra.
+
+**Nenhuma migração nova.** As policies de escrita de `filas`, `unidades`,
+`setores`, `categorias` e `textos_rapidos` já eram `ALL` para equipe de TI,
+e `usuarios` já tinha UPDATE para equipe de TI — o Painel é 100% frontend
+sobre o que já existia.
+
+**Remover é desativar (`ativo = false`), não apagar**: um chamado antigo
+aponta para a categoria/unidade dele. O Portal já fazia assim com os textos
+rápidos; o Painel seguiu a mesma regra, e todas as listas leem só `ativo`.
+
+**Permissão em três camadas**, porque esconder link não é controle de acesso:
+item do menu escondido (`data-menu-painel`, revelado pelo `main.js`),
+`painel-guard.js` barrando na entrada, e a RLS no banco.
+
+**Bug achado e corrigido no caminho:** faltava `[hidden] { display: none
+!important; }` no `portal.css`. Sem ela, `.quadro-menu__item { display:
+flex }` vencia o atributo nativo na mesma especificidade e o item "Painel"
+apareceria para **todo mundo**, não só admin. É exatamente a armadilha já
+anotada em `docs/preferencias.md` — dessa vez com consequência de permissão.
+
+Testado no navegador (Playwright, dados de mentira — nada gravado no banco):
+as três abas desenham; o modal abre pela linha da tabela com título, fila e
+campos certos; o Portal continua montando quadro, cards e modal sem erro no
+console (sem regressão); tema escuro acompanha; a 390px o menu vira faixa de
+abas e não há rolagem horizontal; e o item do menu aparece para `admin` e
+fica escondido para `analista`/`solicitante`.
+
+**Ainda não feito:** a aba de tickets não tem tempo real (recarregar para ver
+o que mudou) nem paginação — com milhares de chamados a tabela vai pesar.
+
+### Painel: filtros e exportar em "Todos os tickets" (2026-09-15)
+
+Inspirado no Hipporello (print enviado pelo usuário): barra reorganizada como
+**busca -------- exportar -------- filtrar**, os dois últimos como botão de
+ícone que abre um painel — mesmo padrão do "Filtrar" do quadro no Portal,
+mas em classes próprias do Painel (`.painel-icone-botao`,
+`.painel-dropdown__painel`), porque o botão do Portal é estilizado para o
+degrade laranja do topo e aqui a barra está sobre uma superfície normal.
+
+**Filtrar** — seis grupos, todos combináveis (E entre grupos, OU dentro do
+grupo), nada disso reescreve a consulta ao banco: filtra em memória sobre os
+chamados já carregados, igual à busca:
+
+- **Status** — chip, mesmo `derivarStatus` do Portal (Aberto, Aguardando
+  retorno, Usuário respondeu, Fechado).
+- **Lista** — chip, uma por fila do quadro.
+- **Prioridade** — chip (Urgente, Prioridade, Normal); um chamado urgente E
+  prioridade entra nas duas.
+- **Solicitante** — checkbox com busca, todo mundo que já abriu chamado (não
+  só quem tem perfil "solicitante" — um admin também abre).
+- **Atendente** — checkbox com busca, a equipe de TI mais a opção "Sem
+  atendente" (chamado sem ninguém no `chamado_membros`).
+- **Data de abertura** — dois campos de data (De/Até), intervalo fechado.
+
+O botão de ícone fica laranja cheio com um contador quando algum filtro
+está ligado — mesmo comportamento do filtro do quadro no Portal.
+
+**Exportar** — três formatos, todos client-side (sem chamada ao banco além
+da que já carregou a tabela), do que está **filtrado na hora**, não de todo
+o banco:
+
+- **CSV** — mesmas colunas e regras de escape do exportador do Portal
+  (`;` como separador, BOM UTF-8, apóstrofo na frente de célula começando
+  com `=+-@` para não virar fórmula no Excel).
+- **Excel** — tabela HTML salva com extensão `.xls`; o Excel abre formatado
+  como planilha sem precisar de biblioteca.
+- **JSON** — um array de objetos, mesmas colunas como chaves.
+
+**Um cuidado que apareceu no caminho:** `atualizarLinha` (chamada quando o
+modal de detalhe edita um chamado aberto) trocava só a linha da tabela — com
+filtro ativo, isso podia deixar visível um chamado que acabou de sair do
+filtro (ex.: mudou de fila) ou esconder um que acabou de entrar. Com algum
+filtro ou busca ligados, a atualização agora refaz a tabela inteira em vez
+de trocar uma linha; sem filtro, continua trocando só a linha (mais rápido,
+e sem esse risco).
+
+Testado no navegador (Playwright, dados de mentira): os 6 grupos desenham;
+marcar "Aberto" filtra de 4 para 2 linhas e o contador mostra 1; limpar volta
+para 4; o intervalo de data filtra corretamente; abrir Exportar mostra os
+3 formatos; baixar CSV, Excel e JSON funciona (Playwright captura o
+download) — o CSV testado com descrição contendo `;` e aspas escapou certo
+(`"Fica ""travada""; direto"`); tema escuro acompanha; sem erro no console;
+sem regressão no Portal (que tem seu próprio exportar/filtrar, em
+`data-*` diferentes, sem colisão).
+
+### Painel: criar conta e gerenciar foto em Contatos (2026-09-15)
+
+Botão **Novo** no canto superior direito da aba Contatos (mesmo lugar do
+print de referência do Hipporello enviado pelo usuário), e no editor de
+pessoa, dois botões novos ao lado do avatar (**Trocar foto** / **Remover**).
+
+**Criar conta com senha esbarrou num limite real do Supabase**, discutido
+com o usuário antes de implementar: só a `service_role` key cria um usuário
+de login (`auth.users`) com senha definida na hora, e essa chave nunca pode
+chegar ao navegador — ela ignora toda RLS, então quem a tiver lê/edita
+qualquer dado de qualquer pessoa. Chamar `auth.signUp()` no mesmo client que
+o admin usa para estar logado também trocaria a sessão dele pela da conta
+nova. A solução, escolhida entre três opções apresentadas: **Edge Function**
+— primeira peça de infraestrutura server-side do projeto.
+
+`supabase/functions/criar-usuario/index.ts`:
+
+1. Recebe o token do admin (`Authorization`), confere com um client comum
+   (chave anon) que é uma sessão válida e que `perfil = 'admin'` — essa é a
+   ÚNICA linha de defesa aqui dentro, porque o resto do código roda com
+   `service_role` e não passa por RLS nenhuma.
+2. Cria o usuário via `auth.admin.createUser()` (client `service_role`),
+   o que dispara `handle_new_user()` — o mesmo trigger do autocadastro por
+   `cadastro.html`: insere a linha em `usuarios` e abre um chamado de
+   "Aprovação de Acesso".
+3. Atualiza `usuarios` com os campos que o admin escolheu no formulário
+   (setor, unidade, perfil, `status_aprovacao`).
+
+**O que fazer com o chamado de aprovação automático** também foi perguntado
+antes: como o admin já está decidindo perfil/status na hora de criar, não
+há nada para aprovar depois. Resolvido **sem código novo**: quando o passo 3
+grava `status_aprovacao = 'aprovado'`, o trigger `notificar_aprovacao_cadastro`
+que já existe (reage a UPDATE em `usuarios`) posta a nota de aprovação e
+fecha o chamado sozinho — mesmo caminho que qualquer aprovação manual pelo
+card usa. Confirmado numa transação com rollback: o chamado nasce, ganha 3
+mensagens de sistema (abertura, aprovação com o nome de quem criou, e
+fechamento) e termina fechado, com o admin como membro.
+
+**Troca/remoção de foto esbarrou noutro limite**: o bucket `avatares` só
+deixava cada pessoa mexer na própria foto (`split_part(name, '.', 1) =
+auth.uid()`), então o admin editando a foto de outra pessoa pelo Painel
+seria barrado pela RLS do Storage. Migração
+`20260915100000_avatares_admin_gerencia.sql` soma 3 policies (INSERT/UPDATE/
+DELETE) que liberam para quem é admin, aprovado e ativo — **somam**, não
+substituem: o dono continua podendo mexer na própria foto por "Dados
+pessoais" como sempre. Escopo deliberadamente estreito (só `admin`, não
+"equipe de TI" inteira) e checagem inline em vez de uma function
+`is_admin()` nova, por ser regra específica demais para virar peça reutilizável.
+Testado com `set_config`/rollback: admin passa no `with check`, solicitante
+não passa.
+
+Upload/remoção no Painel seguem o mesmo padrão de `perfil.js` (nome do
+arquivo = id da pessoa, limite de 2 MB) — só que operando sobre a pessoa que
+está sendo editada, não sobre "quem está logado".
+
+**Modo único do dialog:** o mesmo `<dialog data-pessoa>` atende os dois
+casos (criar/editar) — `editando` é `null` na criação. `aplicarModo()`
+decide o que aparece: campo de senha só na criação, botões de foto só na
+edição (sem id ainda não há onde subir o arquivo), texto do botão principal
+("Criar conta" / "Salvar"), e a dica do campo e-mail muda de tom.
+
+Testado no navegador (Playwright, dados de mentira, `supabase.functions.invoke`
+também mockado só para o teste de UI — a lógica real da function foi
+validada à parte, direto no banco, como descrito acima): botão Novo abre o
+dialog vazio com senha visível e foto escondida; criar fecha o dialog e
+soma uma linha na tabela; abrir para editar depois mostra o oposto (foto
+visível, sem campo de senha); zero erro no console.
+
+### Painel: paginação em "Todos os tickets" (2026-09-15)
+
+15 por página, igual ao print do Hipporello enviado pelo usuário —
+`‹ 1 2 … 16 ›`, sempre primeira, última, atual e uma vizinha de cada lado;
+o resto vira reticências (senão 227 chamados virariam 16 botões na tela).
+Paginação client-side: fatia (`slice`) a lista já filtrada/buscada em
+memória, não pagina a consulta ao banco — os chamados já vêm todos de uma
+vez no carregamento do Painel.
+
+Volta para a página 1 sempre que busca, filtro ou "Limpar filtros" mudam o
+resultado (senão a pessoa pode ficar numa página 4 que só tem 2 chamados
+depois de filtrar). **Não** volta quando o modal de detalhe atualiza um
+chamado em segundo plano (`atualizarLinha`) — ali a pessoa está olhando uma
+página específica e não deve ser puxada de volta.
+
+Some da tela sozinha quando cabe tudo numa página só (`totalPaginas <= 1`).
+
+Testado no navegador (Playwright, 37 e 227 chamados de mentira): página 1
+mostra os primeiros 15 com a seta "anterior" desabilitada; página 2 mostra
+os 15 seguintes; a última página (37 chamados = 3 páginas) mostra os 7
+restantes com "próxima" desabilitada; filtrar por Urgente reduz para 8
+resultados e a paginação some; com 227 chamados (16 páginas) as reticências
+aparecem corretas (`1 2 … 16`); tema escuro acompanha; sem rolagem
+horizontal a 390px; zero erro no console.
+
+### Painel: raiz do bug visual no dialog "Nova pessoa" + auditoria (2026-09-15)
+
+Usuário reportou com print: o dialog de criar/editar pessoa em Contatos
+tinha uma barra de rolagem horizontal cortando o formulário ao meio.
+Investigado com `superpowers:systematic-debugging` (medir antes de
+mexer, não chutar): script Playwright comparou `scrollWidth` vs
+`clientWidth` de cada elemento dentro do dialog até achar exatamente qual
+transbordava.
+
+**Causa raiz:** `.pessoa__entrada { width: 100%; padding: 0.55rem 0.7rem; }`
+sem `box-sizing: border-box`. No `content-box` padrão do navegador,
+`width: 100%` define a largura do *conteúdo*, e o padding some por cima —
+cada campo ficava ~24px mais largo que o container. **Não era um caso
+isolado**: o mesmo padrão (`width: 100%` + `padding`, sem `box-sizing`)
+também vazava em `.painel-busca__campo` (busca das 3 abas) e
+`.painel-item__corpo` (textarea de texto rápido) — achados pelo mesmo
+script rodado em cada seletor do arquivo.
+
+**Por que aconteceu:** nenhum arquivo CSS deste projeto tem um reset
+global — `portal.css`/`index.css` declaram `box-sizing: border-box` seletor
+por seletor (confirmado por busca: só ocorrências manuais, nenhuma regra
+`*`). Fácil de esquecer numa tela nova. Corrigido na raiz, só em
+`painel.css` (`* { box-sizing: border-box; }`, logo depois da regra de
+`[hidden]`) — como só `painel.html` carrega este arquivo, o Portal e as
+outras telas continuam exatamente como estavam, sem risco de regressão
+fora do Painel. Confirmado com o mesmo script: zero elementos
+transbordando em nenhuma das 3 abas, em 1400px e 390px.
+
+**Skills nomeadas pelo usuário:** `/frontend-design:frontend-design` foi
+invocada, mas é voltada para desenho visual do zero (paleta/tipografia/
+layout partindo de um brief) — não para auditar uma tela shadcn já
+construída. `/ui-ux-pro-max:ui-ux-pro-max` foi invocada e trouxe uma
+checklist realmente útil, mas o skill é para app nativo (iOS HIG, React
+Native, pt/dp) — algumas regras não se aplicam a um site vanilla-JS. Uma
+skill "apple design" pedida pelo usuário **não existe** em
+`~/.claude/skills` nem em nenhum plugin instalado — avisado direto em vez
+de inventar substituto. O que rendeu resultado de verdade foi medir no
+navegador de verdade (Playwright), não os textos das skills.
+
+**Duas melhorias a mais, achadas na mesma varredura:**
+
+- Remover item de lista (Configurações) e remover texto rápido usavam
+  `window.confirm()` — o alerta feio e nativo do navegador, quebrando o
+  visual shadcn do resto da tela. Trocado por `confirmarNoSite()`, que **já
+  existe** em `portal.js` (construída lá exatamente para isso) e já estava
+  exportada — só precisou importar em `painel.js`. Zero HTML novo: o
+  dialog `[data-confirmacao]` já tinha sido copiado para `painel.html` na
+  primeira leva.
+- Botões de ícone (Exportar, Filtrar) mediam 42×43px — 1-2px abaixo do
+  alvo de toque mínimo de 44×44 que a checklist do ui-ux-pro-max e o WCAG
+  recomendam. Ajustado para 44×44 exatas (`min-width`/`height: 2.75rem`).
+
+Testado no navegador (Playwright): as 3 abas sem vazamento horizontal em
+1400px e 390px; clicar em remover (lista de configuração e texto rápido)
+abre o dialog estilizado, não o `confirm()` nativo (confirmado escutando o
+evento `dialog` do Chromium — nunca disparou); botão com classe de perigo
+(vermelho) e texto "Remover"; cancelar fecha sem apagar; botões de ícone
+medindo 44×44 depois do ajuste; zero erro no console.
+
+### Painel: reestruturação do menu e das listas de configuração (2026-09-15)
+
+Usuário não gostou do layout anterior (5 cartões espremidos numa aba só
+"Configurações", print de referência do Hipporello anexado). Pedido:
+desmembrar cada lista numa aba própria, copiando a estrutura de Contatos
+(busca, botão "Novo", tabela, clique edita, lixeira remove), e reorganizar
+o menu lateral em dois grupos com uma linha separando — "Portal" e
+"Configurações".
+
+**Menu lateral**, agora com dois grupos:
+
+```
+---- PORTAL ----
+Todos os tickets · Contatos · Administradores
+
+---- CONFIGURAÇÕES ----
+Unidades · Setores · Categorias · Textos rápidos
+```
+
+Decisões tomadas com o usuário antes de mexer (perguntadas porque mudavam
+a arquitetura, não só o visual): **Filas saiu do Painel** — não estava na
+lista pedida, volta a ser só do Portal, como antes do Painel existir (a
+tabela de tickets continua buscando/filtrando por fila, só não virou aba).
+**Administradores é Contatos pré-filtrado** — mesma tabela `usuarios`,
+mesmo editor, só que a lista já chega só com quem atende chamado
+(`perfil != 'solicitante'`).
+
+**Cada lista de configuração virou uma aba própria** (Unidades, Setores,
+Categorias, Textos rápidos), na mesma estrutura de Contatos: título +
+contagem, botão "Novo" no canto superior direito, busca, tabela, clicar na
+linha abre o editor, ícone de lixeira remove (com a mesma regra de sempre:
+desativa — `ativo = false` — nunca apaga de verdade, por causa da chave
+estrangeira com chamados antigos).
+
+**Um bug de arquitetura achado e corrigido no meio do caminho:** o dialog
+de editar pessoa (`data-pessoa`) e o de editar item simples
+(`data-item-simples`) são únicos na página — só existe um de cada no HTML.
+A primeira versão do código ligava os listeners de cada aba (Contatos E
+Administradores; Unidades E Setores E Categorias) direto no dialog
+compartilhado, o que significava que salvar um formulário disparava o
+`submit` de **todas** as abas que já tinham passado por ali — cada uma
+tentando gravar na sua própria tabela com o `editando` de quem chamou por
+último. Corrigido reestruturando em "dialog compartilhado, ligado uma vez"
++ "lista, ligada por aba, que registra uma função de callback no dialog"
+(`ligarPessoaDialog`/`ligarListaDePessoas` e
+`ligarItemSimplesDialog`/`ligarListaSimples`) — o dialog nunca sabe qual
+aba o chamou, só devolve o resultado pra quem pediu.
+
+**Achado só depois de testar de verdade, não só de ler o código:** o teste
+inicial reportou "Rio das Pedras" aparecendo duas vezes na tabela após
+criar uma unidade — parecia confirmar o bug acima. Investigação mais funda
+(contagem de `.insert()` disparado, rastreamento de `appendChild`) mostrou
+que só **um** insert e **um** submit aconteciam; o duplicado vinha do mock
+de teste, cujo `.then()` não seguia o contrato de uma Promise real (era
+chamado várias vezes pelo mecanismo de `await`, e cada chamada relia a
+mesma referência de array já mutada por `push`). Corrigido o mock (devolver
+uma cópia do array a cada leitura), reconfirmado que a app estava correta
+o tempo todo — registrado aqui porque é exatamente o tipo de "parecia
+certo, não estava" (ou, neste caso, "parecia errado, não estava") que vale
+a pena não esquecer.
+
+**Dois bugs de CSS achados testando a 390px, sem relação com o pedido
+original mas que apareceriam na hora H:**
+
+- O item do menu ativo ("Todos os tickets") virava um retângulo alto e
+  torto na faixa de abas mobile. Causa: `.painel` é um CSS Grid de uma
+  coluna só nessa largura, e sem `grid-template-rows` explícito os dois
+  filhos (nav e conteúdo) disputavam a mesma linha implícita — o Grid
+  esticava os dois até a altura do mais alto. Corrigido com
+  `grid-template-rows: auto 1fr` (a faixa de abas do tamanho do próprio
+  conteúdo, o resto pro conteúdo).
+- O mesmo problema, ao ser corrigido da forma errada na primeira tentativa
+  (`align-items: start` no lugar do fix acima), quebrou a rolagem: o
+  `.painel__conteudo` parou de ficar preso à altura da viewport e a
+  **página inteira** passou a rolar em vez de só a área de conteúdo — 40
+  linhas de teste bastaram para expor isso. A correção certa
+  (`grid-template-rows`) resolve os dois ao mesmo tempo sem esse efeito
+  colateral.
+
+Testado no navegador (Playwright): menu com os dois grupos e a linha
+divisória; Administradores mostra só quem não é solicitante; criar/editar/
+excluir funciona em Unidades, Setores, Categorias e Textos rápidos; **o
+dialog compartilhado não vaza entre abas** (criar "Financeiro" em
+Categorias não aparece em Unidades); confirmação de remoção usa
+`confirmarNoSite`, não `confirm()` nativo; tema escuro acompanha; 390px sem
+rolagem horizontal nem vertical indevida, mesmo com 40 linhas na tabela;
+zero erro no console.
+
+### Painel: exportar e filtrar em Contatos e Administradores (2026-09-15)
+
+Mesmos dois botões de ícone da aba "Todos os tickets" (Exportar, Filtrar),
+agora também em Contatos e Administradores — pedido para poder filtrar por
+unidade, setor, perfil e situação, e exportar a lista.
+
+Como as duas abas já eram desenhadas pela mesma função genérica
+(`ligarListaDePessoas`, criada na reestruturação anterior para servir
+Contatos e Administradores ao mesmo tempo), o filtro e o exportar entraram
+ali dentro — as duas abas ganharam os dois recursos de uma vez, com o mesmo
+tanto de código que levaria fazer só uma.
+
+**Filtrar** — quatro grupos, todos chip (poucas opções cada, cabem como
+botãozinho, diferente do "Solicitante"/"Atendente" de tickets que têm busca
+por serem listas longas):
+
+- **Unidade** e **Setor** — toda unidade/setor cadastrado, não só os em uso
+  agora (mesma régua do filtro de tickets).
+- **Perfil** — Solicitante, Parceiro, Analista, Admin.
+- **Situação** — Inativo, Aprovado, Rejeitado, Pendente — deriva da mesma
+  regra que já decide o selo colorido da tabela (`ativo` vence
+  `status_aprovacao`: uma conta desativada aparece como "Inativo" mesmo que
+  o cadastro tivesse sido aprovado), repetida de propósito para o filtro
+  bater exatamente com o que a coluna Situação mostra.
+
+**Exportar** — CSV, Excel (.xls) e JSON, mesmas regras de escape do export
+de tickets (apóstrofo contra fórmula, aspas dobradas, BOM UTF-8). Colunas:
+Nome, E-mail, Setor, Unidade, Perfil, Situação, Cadastro em — a última
+exigiu buscar `created_at` de `usuarios`, que a consulta do Painel ainda
+não pedia (confirmado que a coluna existe antes de somar ao `select`).
+
+Testado no navegador (Playwright): os 4 grupos de filtro aparecem nas duas
+abas; filtro combinado (Unidade + Situação) restringe a interseção certa;
+"Limpar filtros" volta ao total; exportar CSV baixa com as colunas e dados
+certos; **filtro de uma aba não vaza para a outra** (filtrar Setor em
+Administradores não muda o que Contatos mostra sem filtro — mesmo teste de
+isolamento já feito para os dialogs compartilhados); tema escuro acompanha;
+sem rolagem horizontal a 390px; zero erro no console.
+
+### Portal: gerenciar listas do quadro — arrastar, criar, ordenar, arquivar (2026-09-15)
+
+Pedido com referência visual do Trello: arrastar lista pra trocar de posição,
+botão "+ Adicionar outra lista" no fim do quadro, menu de 3 pontinhos em
+cada lista com ordenação de cartões (inclusão/prioridade/número) e
+"Arquivar esta lista". **Sem migração nova**: `filas.ativo` já existia desde
+antes do Painel — a única coisa que faltava era o Portal e o Painel usarem
+esse campo pra isso.
+
+**Arrastar lista** (`ligarArrastarLista`) — HTML5 drag nativo no `<header
+class="fila__topo">` de cada coluna (não a coluna inteira, pra não competir
+com o arrastar-o-fundo-pra-rolar que já existia). Mesmo desenho do arrastar
+de card já em produção: move na tela a cada passagem por cima de outra
+coluna (não só ao soltar — o Trello também faz assim), grava `ordem` de
+todas as colunas no soltar (de 10 em 10, deixando folga pra inserir entre
+duas sem renumerar tudo depois).
+
+**"+ Adicionar outra lista"** — vira formulário inline ao clicar, cria em
+`filas` com `ordem` = maior atual + 10, monta a coluna na tela sempre antes
+do próprio botão (que é fixo no HTML, nunca se move).
+
+**Menu de 3 pontinhos por lista** — mesmo vocabulário visual do menu de 3
+pontinhos do quadro (`quadro-menu__*`), em classes próprias (`fila__menu__*`)
+por ficar em contexto menor. Um único listener delegado no `quadro` cobre
+todas as listas (nascem e somem — um por coluna teria que ser desligado e
+religado toda hora):
+
+- **Ordenar cartões por** — Data de inclusão (o padrão, ordem que já vem do
+  banco), Prioridade (urgente > urgente+prioridade > prioridade > normal),
+  Número do ticket. **Salvo por lista, só neste navegador**
+  (`localStorage`, chave `ordem-listas-portal`) — pedido explícito do
+  usuário, não mexe no banco. Trocar o critério redesenha só aquela coluna
+  na hora, sem recarregar.
+- **Arquivar esta lista** — `ativo = false`. **Bloqueia se tiver chamado
+  dentro** (decisão tomada com o usuário antes de implementar): mostra aviso
+  "mova os chamados antes de arquivar" em vez de arquivar com chamado preso
+  lá dentro. Lista vazia pede confirmação (`confirmarNoSite`) e some do
+  quadro na hora.
+
+**Um bug achado testando de verdade, não por leitura de código:** o clique
+no botão "+ Adicionar outra lista" não abria o formulário — o clique real
+do Playwright falhava, mas `elemento.click()` via JavaScript funcionava,
+o que apontava pra alguma coisa acontecendo no `pointerdown` antes do
+`click` completar. Causa: `ligarArrastoDoFundo` (o "segurar o fundo vazio e
+arrastar rola o quadro", já existente) tinha uma lista de exclusões
+(`.card`, depois `.fila__topo` — essa adicionada nesta sessão) mas não
+incluía `.fila-nova` — o pointerdown no botão chamava `setPointerCapture`
+no quadro inteiro antes do clique terminar, e o evento de clique nunca
+chegava no listener do botão. Corrigido somando `.fila-nova` à lista de
+exclusões.
+
+**Painel: aba "Listas" em Configurações** — leitura + reativar, nada de
+criar ou excluir por lá (criar é pelo quadro; "excluir" uma lista sempre
+foi arquivar, e isso já é o menu de 3 pontinhos). Mostra **ativas E
+arquivadas** — é o único lugar de onde uma lista arquivada volta a existir.
+Busca uma segunda vez de `filas` sem o filtro `.eq("ativo", true)` que as
+outras abas usam (a aba de tickets continua só com as ativas, pra fila do
+chamado e o filtro baterem com o que existe no quadro agora).
+
+Testado no navegador com `DragEvent` disparado via `dispatchEvent`: drag de
+lista reordena e persiste; ordenar por prioridade bate a hierarquia certa e
+**persiste depois de recarregar a página** (localStorage); adicionar lista
+aparece sempre antes do botão; arquivar bloqueia com chamado dentro e
+mostra o aviso; arquivar lista vazia pede confirmação e remove a coluna;
+aba Listas do Painel mostra ativa/inativa corretas e reativar funciona;
+regressão completa do Portal sem quebra.
+
+**Esse teste deu falso positivo no arrastar de lista — corrigido na sessão
+seguinte, quando o usuário reportou que não conseguia arrastar de verdade.**
+O `dispatchEvent(new DragEvent(...))` deixa escolher o `target` do evento à
+mão; um arrasto real do navegador não preserva esse nível de detalhe — veja
+a seção seguinte.
+
+### Portal: correção — arrastar lista não funcionava de verdade (2026-09-15)
+
+Usuário reportou: não conseguia arrastar "Em atendimento" pra antes de
+"Inbox". O teste da sessão anterior (`DragEvent` sintético) tinha validado
+a feature, mas escondia o bug de verdade — retestado com
+`locator.dragTo()` do Playwright (que simula o gesto de arrastar de
+verdade: mousedown, sequência de mousemove, mouseup, deixando o próprio
+Chromium decidir quando é um "drag" HTML5), e o arrasto não movia nada,
+zero grav ação no banco.
+
+**Root cause** (isolado por instrumentação: contando quais eventos
+disparavam, depois logando o `event.target` de cada um): o `dragstart` de
+um arrasto real do navegador **sempre reporta `event.target` como o
+elemento que tem `draggable="true"`** — no caso, a `<section class="fila">`
+inteira — **nunca um descendente**, não importa em qual pixel dentro dela o
+usuário pressionou o mouse. O código verificava
+`evento.target.closest(".fila__topo")` dentro do `dragstart` pra confirmar
+que o arrasto começou pelo cabeçalho (não por um card dentro da lista) —
+essa checagem sempre falhava, porque `target` nunca era um `.fila__topo`,
+sempre a `.fila` toda. `colunaArrastada` nunca era definida, e o resto do
+fluxo (`dragover`, `drop`) ficava sem efeito silenciosamente.
+
+O teste anterior não pegou isso porque despachava o `DragEvent` manualmente
+com `.fila__topo` como alvo explícito — um artefato do teste, não do
+comportamento real do navegador.
+
+**Correção:** não depender de `evento.target` no `dragstart`. Um listener
+de `mousedown` (que reporta o elemento exato pressionado, sem essa
+limitação) guarda se o clique começou dentro de `.fila__topo`; o
+`dragstart` só consulta essa flag.
+
+Testado com `locator.dragTo()` de verdade (não `DragEvent` sintético desta
+vez): os 4 eventos disparam em sequência completa
+(`dragstart → dragover → drop → dragend`); arrastar "Em atendimento" para
+antes de "Inbox" move de verdade (`['Em atendimento', 'Inbox',
+'Finalizado']`) e grava a `ordem` das 3 colunas no banco; testado duas
+vezes em sequência (arrastar a última lista pro início, depois arrastar a
+mesma pro meio) sem quebrar; **regressão do arrastar de card** (também
+retestado com `dragTo()` de verdade, não só o `DragEvent` sintético de
+antes) continua funcionando — os quatro eventos disparam, o card muda de
+fila; zero erro no console.
+
+**Lição levada para `docs/preferencias.md`:** testar arrastar-e-soltar
+HTML5 com `DragEvent` sintético via `dispatchEvent` pode mascarar bugs reais
+de detecção de alvo — o `target` de um evento disparado à mão é escolhido
+por quem escreve o teste, não pelo navegador. `locator.dragTo()` do
+Playwright (mousedown → mousemove → mouseup, deixando o Chromium decidir)
+é o que de fato exercita o mesmo caminho que um usuário real percorre.
+
 ### Próximos cortes (não feitos ainda)
 
 - Controle de SLA e alerta de vencimento.

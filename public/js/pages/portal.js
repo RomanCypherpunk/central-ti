@@ -1,6 +1,20 @@
 // Portal de Chamados: quadro kanban da equipe de TI — Fase 4.
 
 import { supabase } from "../config/supabase-config.js";
+// Peças que o Painel também usa: moram em componentes/ para as duas telas
+// mostrarem status, nome e avatar pela mesma regra.
+import {
+  derivarStatus,
+  primeiroNome,
+  nomeCompleto,
+  iniciais,
+  tituloDoChamado,
+  formatarData,
+  montarAvatar,
+  aplicarCorDestaque,
+  CORES_DESTAQUE,
+  CAMPOS_CHAMADO,
+} from "../componentes/chamado-comum.js";
 
 const quadro = document.querySelector("[data-quadro]");
 const resumo = document.querySelector("[data-resumo]");
@@ -30,8 +44,6 @@ function ligarTema() {
   // O <head> ja pintou o tema salvo; aqui so acerta o estado do botao.
   aplicar(document.documentElement.dataset.tema ?? "claro");
 }
-
-ligarTema();
 
 //ZOOM: SO O QUADRO (<main class="portal">), NUNCA O TOPO. O zoom do CSS
 //escala tudo que esta dentro dele; a escolha fica salva neste navegador,
@@ -98,8 +110,6 @@ function ligarZoom() {
   // O <head> ja aplicou o zoom salvo; aqui so acerta o numero, o slider e os limites.
   aplicar(atual());
 }
-
-ligarZoom();
 
 //Com zoom, clientX vem em pixels da tela, mas scrollLeft e clientWidth vem
 //em pixels do quadro. Quem soma um no outro divide pelo zoom, senao o quadro
@@ -180,7 +190,7 @@ avisoSite.addEventListener("mouseleave", () => {
 //"Desfazer" em vez de perguntar antes.
 const janelaConfirmacao = document.querySelector("[data-confirmacao]");
 
-janelaConfirmacao.addEventListener("click", (evento) => {
+janelaConfirmacao?.addEventListener("click", (evento) => {
   if (evento.target === janelaConfirmacao) janelaConfirmacao.close("cancelar");
 });
 
@@ -224,119 +234,6 @@ async function quemEstaAtendendo() {
 
   return perfil?.perfil === "admin" ? user.id : null;
 }
-
-//O STATUS NAO E UMA COLUNA: VEM DE QUEM FALOU POR ULTIMO NO CHAMADO.
-//So conta conversa de verdade — nota interna entre a equipe e mensagem
-//automatica de abertura nao mudam o status.
-function derivarStatus(chamado) {
-  if (chamado.fechamento_em) {
-    return { chave: "fechado", rotulo: "Fechado" };
-  }
-
-  const publicos = chamado.comentarios
-    .filter((comentario) => comentario.visibilidade === "publico" && comentario.tipo === "humano")
-    .sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em));
-
-  const ultimo = publicos[publicos.length - 1];
-
-  if (!ultimo) {
-    return { chave: "aberto", rotulo: "Aberto" };
-  }
-
-  // O solicitante e o dono do chamado; qualquer outro autor e a equipe.
-  return ultimo.autor_id === chamado.solicitante_id
-    ? { chave: "respondeu", rotulo: "Usuário respondeu" }
-    : { chave: "aguardando", rotulo: "Aguardando retorno" };
-}
-
-//O banco guarda nome e sobrenome separados. No quadro aparece so o nome —
-//e o que o analista precisa para reconhecer quem esta no card.
-function primeiroNome(pessoa) {
-  return pessoa?.nome ?? "Alguém";
-}
-
-//Nome completo: para identificar a pessoa sem ambiguidade (detalhe do
-//chamado) e para a busca achar por sobrenome.
-function nomeCompleto(pessoa) {
-  if (!pessoa?.nome) return null;
-
-  return [pessoa.nome, pessoa.sobrenome].filter(Boolean).join(" ");
-}
-
-function iniciais(nome, sobrenome) {
-  const primeira = (nome ?? "").trim().split(/\s+/)[0] ?? "";
-  const ultima = (sobrenome ?? "").trim().split(/\s+/).pop() ?? "";
-
-  return (primeira[0] ?? "").concat(ultima[0] ?? "").toUpperCase();
-}
-
-//O titulo e do banco; chamados antigos sem titulo caem no formato padrao.
-function tituloDoChamado(chamado) {
-  return chamado.titulo
-    ?? `${chamado.categorias?.nome ?? "Sem categoria"} | Ticket-${chamado.numero}`;
-}
-
-function formatarData(iso) {
-  return new Date(iso).toLocaleString("pt-BR", {
-    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
-  });
-}
-
-//AVATAR DA CONVERSA: A FOTO E A QUE A PESSOA ENVIOU EM "Dados pessoais".
-//Sem foto, ficam as iniciais.
-//classe: qual estilo de avatar usar — o balao do chat e o circulo do card
-//tem tamanhos diferentes, mas os dois mostram a mesma foto de perfil.
-function montarAvatar(pessoa, fotoPath, classe = "comentario__avatar") {
-  const avatar = document.createElement("span");
-  avatar.className = classe;
-  avatar.textContent = iniciais(pessoa?.nome, pessoa?.sobrenome);
-  // O balao mostra so o primeiro nome; o completo fica no title, ao passar o mouse.
-  avatar.title = nomeCompleto(pessoa) ?? "Alguém";
-
-  if (!fotoPath) return avatar;
-
-  const { data } = supabase.storage.from("avatares").getPublicUrl(fotoPath);
-
-  const foto = document.createElement("img");
-  foto.src = data.publicUrl;
-  foto.alt = "";
-  foto.loading = "lazy";
-  // Se o arquivo sumiu, a imagem sai e as iniciais que ja estao ali reaparecem.
-  foto.addEventListener("error", () => foto.remove());
-  foto.addEventListener("load", () => { avatar.textContent = ""; avatar.appendChild(foto); });
-
-  avatar.appendChild(foto);
-
-  return avatar;
-}
-
-//COR DE DESTAQUE: A COR QUE A PESSOA ESCOLHEU (usuarios.cor_destaque) VIRA
-//UM FUNDO CLARO DO COMECO DA FOTO ATE O FIM DO NOME. Recebe o elemento que
-//envolve foto e nome. Sem cor, sem fundo. O data-usuario deixa trocar a cor
-//em todos os lugares da tela de uma vez, sem redesenhar o quadro.
-function aplicarCorDestaque(elemento, pessoa) {
-  elemento.dataset.usuario = pessoa.id ?? "";
-  elemento.classList.toggle("membro--destaque", Boolean(pessoa.cor_destaque));
-
-  if (pessoa.cor_destaque) {
-    elemento.style.setProperty("--cor-destaque", pessoa.cor_destaque);
-  } else {
-    elemento.style.removeProperty("--cor-destaque");
-  }
-}
-
-//Cores oferecidas no detalhe do chamado. Todas fortes o bastante para o anel
-//aparecer tanto no card claro quanto no escuro.
-const CORES_DESTAQUE = [
-  { nome: "Laranja", valor: "#dd5b12" },
-  { nome: "Vermelho", valor: "#d64545" },
-  { nome: "Rosa", valor: "#d6457f" },
-  { nome: "Roxo", valor: "#7c5cf0" },
-  { nome: "Azul", valor: "#2c6fd6" },
-  { nome: "Ciano", valor: "#0f9bb3" },
-  { nome: "Verde", valor: "#2f9e44" },
-  { nome: "Amarelo", valor: "#d19a0a" },
-];
 
 //RODAPE DO CARD: QUEM ESTA ATENDENDO. Foto maior e o primeiro nome ao lado,
 //para dar para saber de quem e o ticket sem abrir. Usado ao montar o card e
@@ -501,10 +398,133 @@ function montarCard(chamado) {
   return card;
 }
 
+//ORDENACAO DOS CARDS DENTRO DE UMA LISTA: escolha por lista, so deste
+//navegador (nao mexe no banco — pedido explicito do usuario, "frontend
+//localstorage"). "inclusao" e a ordem natural que ja vem do banco
+//(abertura_em desc, mais novo primeiro); as outras reordenam por cima.
+const CHAVE_ORDEM_LISTAS = "ordem-listas-portal";
+
+function lerOrdensSalvas() {
+  try {
+    return JSON.parse(localStorage.getItem(CHAVE_ORDEM_LISTAS)) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function ordemSalvaDaLista(filaId) {
+  return lerOrdensSalvas()[filaId] ?? "inclusao";
+}
+
+function salvarOrdemDaLista(filaId, criterio) {
+  const todas = lerOrdensSalvas();
+
+  todas[filaId] = criterio;
+  localStorage.setItem(CHAVE_ORDEM_LISTAS, JSON.stringify(todas));
+}
+
+//eh_urgente E eh_urgente+eh_prioridade contam mais que so eh_prioridade —
+//mesma hierarquia visual que as etiquetas do card ja usam.
+function pesoDePrioridade(chamado) {
+  if (chamado.eh_urgente && chamado.eh_prioridade) return 3;
+  if (chamado.eh_urgente) return 2;
+  if (chamado.eh_prioridade) return 1;
+  return 0;
+}
+
+function ordenarChamados(chamados, criterio) {
+  const lista = [...chamados];
+
+  if (criterio === "prioridade") {
+    // Empate de prioridade mantem a ordem de inclusao (sort estavel).
+    return lista.sort((a, b) => pesoDePrioridade(b) - pesoDePrioridade(a));
+  }
+
+  if (criterio === "numero") {
+    return lista.sort((a, b) => a.numero - b.numero);
+  }
+
+  // "inclusao": e a ordem que ja chega (abertura_em desc) — nao mexe.
+  return lista;
+}
+
+const ROTULOS_ORDEM = { inclusao: "Data de inclusão", prioridade: "Prioridade", numero: "Número do ticket" };
+
+//MENU DE 3 PONTINHOS DA LISTA: ordenar (3 opcoes, marca a atual) + arquivar.
+//So monta o HTML — abrir/fechar/clicar e tudo delegado em ligarArrastarLista,
+//que ja escuta o quadro inteiro (mesmo motivo do ligarArrastar de cards:
+//um listener so, em vez de um por coluna, porque colunas nascem e somem).
+function montarMenuDaLista(fila) {
+  const menu = document.createElement("div");
+  menu.className = "fila__menu";
+
+  const botao = document.createElement("button");
+  botao.type = "button";
+  botao.className = "fila__menu-botao";
+  botao.dataset.filaMenuAbrir = fila.id;
+  botao.setAttribute("aria-haspopup", "true");
+  botao.setAttribute("aria-expanded", "false");
+  botao.setAttribute("aria-label", `Opções da lista ${fila.nome}`);
+  botao.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">'
+    + '<circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>'
+    + '<circle cx="12" cy="19" r="1.5" fill="currentColor"/></svg>';
+
+  const painel = document.createElement("div");
+  painel.className = "fila__menu-painel";
+  painel.hidden = true;
+
+  const titulo = document.createElement("p");
+  titulo.className = "fila__menu-titulo";
+  titulo.textContent = "Ordenar cartões por";
+  painel.appendChild(titulo);
+
+  const ordemAtual = ordemSalvaDaLista(fila.id);
+
+  Object.entries(ROTULOS_ORDEM).forEach(([criterio, rotulo]) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "fila__menu-item";
+    item.classList.toggle("fila__menu-item--marcado", criterio === ordemAtual);
+    item.dataset.filaMenuOrdenar = criterio;
+
+    const texto = document.createElement("span");
+    texto.textContent = rotulo;
+
+    const marca = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    marca.setAttribute("viewBox", "0 0 24 24");
+    marca.setAttribute("width", "14");
+    marca.setAttribute("height", "14");
+    marca.setAttribute("aria-hidden", "true");
+    marca.innerHTML = '<path d="m5 12.5 4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+
+    item.append(texto, marca);
+    painel.appendChild(item);
+  });
+
+  const divisor = document.createElement("span");
+  divisor.className = "fila__menu-divisor";
+  painel.appendChild(divisor);
+
+  const arquivar = document.createElement("button");
+  arquivar.type = "button";
+  arquivar.className = "fila__menu-item fila__menu-item--perigo";
+  arquivar.dataset.filaMenuArquivar = fila.id;
+  arquivar.textContent = "Arquivar esta lista";
+  painel.appendChild(arquivar);
+
+  menu.append(botao, painel);
+
+  return menu;
+}
+
 function montarFila(fila, chamados) {
   const coluna = document.createElement("section");
   coluna.className = "fila";
   coluna.dataset.fila = fila.id;
+  // draggable fica na COLUNA inteira, mas o listener de dragstart (em
+  // ligarArrastarLista) so aceita comecar pelo .fila__topo — arrastar um
+  // card nao pode also mover a lista inteira.
+  coluna.draggable = true;
 
   const topo = document.createElement("header");
   topo.className = "fila__topo";
@@ -513,18 +533,29 @@ function montarFila(fila, chamados) {
   nome.className = "fila__nome";
   nome.textContent = fila.nome;
 
+  const acoes = document.createElement("div");
+  acoes.className = "fila__topo-acoes";
+
   const contador = document.createElement("span");
   contador.className = "fila__contador";
   contador.textContent = chamados.length;
 
-  topo.append(nome, contador);
+  const menu = montarMenuDaLista(fila);
+
+  acoes.append(contador, menu);
+  // A COLUNA TEM cursor:grab NO TOPO INTEIRO; o clique no botao/menu nao
+  // pode iniciar um arrasto — impede propagar ate o listener de dragstart
+  // do quadro (ligarArrastarLista so aceita comecar de fora do .fila__menu).
+  topo.append(nome, acoes);
   coluna.appendChild(topo);
 
   const lista = document.createElement("ul");
   lista.className = "fila__cards";
 
-  if (chamados.length) {
-    chamados.forEach((chamado) => lista.appendChild(montarCard(chamado)));
+  const ordenados = ordenarChamados(chamados, ordemSalvaDaLista(fila.id));
+
+  if (ordenados.length) {
+    ordenados.forEach((chamado) => lista.appendChild(montarCard(chamado)));
   } else {
     const vazia = document.createElement("li");
     vazia.className = "fila__vazia";
@@ -538,6 +569,31 @@ function montarFila(fila, chamados) {
   sincronizarColuna(coluna);
 
   return coluna;
+}
+
+//REDESENHA SO OS CARDS DE UMA COLUNA JA NA TELA, na nova ordem — usado
+//quando a pessoa troca o criterio no menu (sem precisar recarregar tudo
+//nem buscar de novo no banco). `chamados` e a lista completa do quadro;
+//filtra so os desta coluna, reordena, e so troca a posicao dos <li> —
+//os elementos card em si nao sao recriados.
+function reordenarColunaNaTela(coluna, chamados, criterio) {
+  const filaId = coluna.dataset.fila;
+  const lista = coluna.querySelector(".fila__cards");
+
+  const daFila = chamados.filter(
+    (chamado) => chamado.fila_id === filaId && !chamado.fechamento_em,
+  );
+
+  if (!daFila.length) return;
+
+  const porId = new Map(
+    [...lista.querySelectorAll(".card")].map((card) => [card.dataset.chamado, card]),
+  );
+
+  ordenarChamados(daFila, criterio).forEach((chamado) => {
+    const card = porId.get(chamado.id);
+    if (card) lista.appendChild(card);
+  });
 }
 
 //ATUALIZA O CONTADOR E O AVISO DE VAZIO DE UMA COLUNA DEPOIS DE MOVER UM
@@ -701,6 +757,15 @@ function ligarArrastoDoFundo() {
   quadro.addEventListener("pointerdown", (evento) => {
     if (evento.button !== 0) return;
     if (evento.target.closest(".card")) return;
+    // .fila__topo arrasta a LISTA (ligarArrastarLista, HTML5 drag nativo);
+    // sem essa exclusao os dois arrastos comecavam juntos e brigavam.
+    if (evento.target.closest(".fila__topo")) return;
+    // .fila-nova e o botao/formulario de "Adicionar outra lista": sem esta
+    // exclusao, o pointerdown chamava setPointerCapture no quadro ANTES do
+    // clique no botao completar, e o clique nunca chegava no listener dele
+    // (achado testando de verdade — um clique simulado via elemento.click()
+    // funcionava, mas o clique de mouse real do Playwright nao).
+    if (evento.target.closest(".fila-nova")) return;
 
     puxando = true;
     inicioX = evento.clientX;
@@ -733,6 +798,288 @@ function ligarArrastoDoFundo() {
   quadro.addEventListener("pointercancel", soltar);
   // Soltar o botao fora do quadro tambem encerra o arrasto.
   document.addEventListener("pointerup", soltar);
+}
+
+//ARRASTAR LISTA: MUDA A ORDEM DAS COLUNAS. Mesma ideia do arrastar de card
+//(ligarArrastar) — move na tela na hora, grava `ordem` no banco, desfaz se
+//der erro. Um listener so no quadro (delegado), porque colunas nascem e
+//somem (arquivar, adicionar).
+//
+//O MESMO listener tambem cuida do menu de 3 pontinhos de cada lista (abrir/
+//fechar/clicar em ordenar ou arquivar) — nao e arrasto, mas mora aqui
+//porque os dois vivem no cabecalho da coluna (.fila__topo) e um so
+//addEventListener("click") no quadro cobre os dois.
+function ligarArrastarLista(filas, chamados) {
+  let colunaArrastada = null;
+
+  // O NAVEGADOR NAO PRESERVA ONDE DENTRO DA COLUNA O MOUSE FOI PRESSIONADO:
+  // draggable="true" esta na SECTION.fila inteira (tem que estar — e ela
+  // que se move), mas o dragstart sempre reporta evento.target = a propria
+  // SECTION, nunca um descendente como .fila__topo, nao importa em qual
+  // pixel dentro dela o arrasto comecou. Descoberto testando um arrasto de
+  // verdade (Playwright dragTo, nao um DragEvent sintetico — o sintetico
+  // deixa escolher o target a mao e escondia esse comportamento): olhar
+  // evento.target.closest(".fila__topo") no dragstart sempre falhava, e o
+  // arrasto nunca comecava.
+  //
+  // A saida e nao depender do target do dragstart: um mousedown (que SIM
+  // reporta o elemento exato pressionado) guarda se foi no cabecalho, e o
+  // dragstart so consulta essa flag.
+  let mousedownNoTopo = false;
+
+  quadro.addEventListener("mousedown", (evento) => {
+    mousedownNoTopo = Boolean(evento.target.closest(".fila__topo"));
+  });
+
+  quadro.addEventListener("dragstart", (evento) => {
+    // Um card tambem e draggable e fica DENTRO da coluna — sem essa
+    // checagem, arrastar um card tambem contaria como arrastar a lista
+    // (o dragstart do card nao sobe ate aqui, mas o mousedown sim: se o
+    // botao foi pressionado num card dentro do topo por engano nunca
+    // aconteceria, .fila__topo nao contem card nenhum).
+    if (!mousedownNoTopo) return;
+
+    const coluna = evento.target.closest(".fila");
+
+    if (!coluna) return;
+
+    colunaArrastada = coluna;
+    colunaArrastada.classList.add("fila--arrastando");
+    evento.dataTransfer.effectAllowed = "move";
+  });
+
+  // Coluna sobre a qual o mouse esta agora, durante o arrasto — so uma
+  // referencia visual (classe fila--alvo-lista), NADA e movido no DOM
+  // aqui. So mesmo move no drop, nunca no dragover — mesmo padrao que
+  // ligarArrastar (o dos cards) ja usava antes desta feature existir.
+  let colunaAlvo = null;
+
+  quadro.addEventListener("dragend", () => {
+    colunaArrastada?.classList.remove("fila--arrastando");
+    quadro.querySelectorAll(".fila--alvo-lista")
+      .forEach((coluna) => coluna.classList.remove("fila--alvo-lista"));
+    colunaArrastada = null;
+    mousedownNoTopo = false;
+    colunaAlvo = null;
+    pararAutoScroll();
+  });
+
+  quadro.addEventListener("dragover", (evento) => {
+    if (!colunaArrastada) return;
+
+    evento.preventDefault();
+    evento.dataTransfer.dropEffect = "move";
+    avaliarAutoScroll(evento.clientX);
+
+    const alvo = evento.target.closest(".fila");
+
+    if (!alvo || alvo === colunaArrastada) return;
+
+    if (alvo !== colunaAlvo) {
+      quadro.querySelectorAll(".fila--alvo-lista")
+        .forEach((outra) => outra.classList.remove("fila--alvo-lista"));
+      alvo.classList.add("fila--alvo-lista");
+      colunaAlvo = alvo;
+    }
+  });
+
+  quadro.addEventListener("drop", async (evento) => {
+    if (!colunaArrastada) return;
+
+    evento.preventDefault();
+    pararAutoScroll();
+
+    // SO AGORA move no DOM, ja com o gesto de arrastar encerrado (drop e
+    // o ultimo evento antes do dragend) — nao ha mais sessao de arrasto
+    // pra perder.
+    if (colunaAlvo && colunaAlvo !== colunaArrastada) {
+      const todasAsColunas = [...quadro.querySelectorAll(".fila")];
+      const antes = todasAsColunas.indexOf(colunaArrastada) < todasAsColunas.indexOf(colunaAlvo);
+
+      colunaAlvo.insertAdjacentElement(antes ? "afterend" : "beforebegin", colunaArrastada);
+    }
+
+    // `ordem` vira o indice, de 10 em 10: deixa espaco pra alguem soltar
+    // entre duas sem precisar renumerar tudo depois (nao e usado ainda,
+    // mas custa nada deixar a folga).
+    const novaOrdem = [...quadro.querySelectorAll(".fila")].map((coluna, indice) => ({
+      id: coluna.dataset.fila,
+      ordem: (indice + 1) * 10,
+    }));
+
+    // Atualiza local primeiro (os objetos que ligarFiltros/ligarBusca etc.
+    // ja tem referencia) para o proximo recarregamento de filtro nao
+    // reordenar errado antes do banco confirmar.
+    novaOrdem.forEach(({ id, ordem }) => {
+      const fila = filas.find((outra) => outra.id === id);
+      if (fila) fila.ordem = ordem;
+    });
+
+    const resultados = await Promise.all(
+      novaOrdem.map(({ id, ordem }) => supabase.from("filas").update({ ordem }).eq("id", id)),
+    );
+
+    if (resultados.some((resultado) => resultado.error)) {
+      mostrarErro("Não foi possível salvar a nova ordem das listas. Recarregue a página.");
+    }
+  });
+
+  /* ----------------------------------------------------------------------
+     MENU DE 3 PONTINHOS: abrir/fechar, ordenar, arquivar.
+     ---------------------------------------------------------------------- */
+
+  function fecharTodosOsMenus() {
+    quadro.querySelectorAll(".fila__menu-painel").forEach((painel) => { painel.hidden = true; });
+    quadro.querySelectorAll("[data-fila-menu-abrir]")
+      .forEach((botao) => botao.setAttribute("aria-expanded", "false"));
+  }
+
+  quadro.addEventListener("click", async (evento) => {
+    const botaoAbrir = evento.target.closest("[data-fila-menu-abrir]");
+
+    if (botaoAbrir) {
+      const painel = botaoAbrir.parentElement.querySelector(".fila__menu-painel");
+      const abrindo = painel.hidden;
+
+      fecharTodosOsMenus();
+      painel.hidden = !abrindo;
+      botaoAbrir.setAttribute("aria-expanded", String(abrindo));
+      return;
+    }
+
+    const itemOrdenar = evento.target.closest("[data-fila-menu-ordenar]");
+
+    if (itemOrdenar) {
+      const coluna = itemOrdenar.closest(".fila");
+      const criterio = itemOrdenar.dataset.filaMenuOrdenar;
+
+      salvarOrdemDaLista(coluna.dataset.fila, criterio);
+
+      coluna.querySelectorAll(".fila__menu-item[data-fila-menu-ordenar]").forEach((item) => {
+        item.classList.toggle("fila__menu-item--marcado", item.dataset.filaMenuOrdenar === criterio);
+      });
+
+      reordenarColunaNaTela(coluna, chamados, criterio);
+      fecharTodosOsMenus();
+      return;
+    }
+
+    const botaoArquivar = evento.target.closest("[data-fila-menu-arquivar]");
+
+    if (botaoArquivar) {
+      fecharTodosOsMenus();
+
+      const filaId = botaoArquivar.dataset.filaMenuArquivar;
+      const coluna = quadro.querySelector(`.fila[data-fila="${filaId}"]`);
+      const fila = filas.find((outra) => outra.id === filaId);
+      const temChamado = coluna?.querySelectorAll(".card").length > 0;
+
+      if (temChamado) {
+        avisarNoSite(
+          `"${fila?.nome ?? "Esta lista"}" tem chamado dentro. Mova os chamados antes de arquivar.`,
+          { tipo: "erro" },
+        );
+        return;
+      }
+
+      const confirmou = await confirmarNoSite({
+        titulo: "Arquivar lista?",
+        mensagem: `"${fila?.nome ?? "Esta lista"}" some do quadro. Reative pelo Painel > Listas quando precisar dela de volta.`,
+        confirmar: "Arquivar",
+        perigo: true,
+      });
+
+      if (!confirmou) return;
+
+      const { error } = await supabase.from("filas").update({ ativo: false }).eq("id", filaId);
+
+      if (error) {
+        avisarNoSite("Não foi possível arquivar a lista. Tente de novo.", { tipo: "erro" });
+        return;
+      }
+
+      coluna?.remove();
+      window.dispatchEvent(new Event("resize")); // a barra de rolagem propria recalcula
+      avisarNoSite(`"${fila?.nome ?? "Lista"}" foi arquivada.`, { tipo: "sucesso" });
+    }
+  });
+
+  // FECHA O MENU CLICANDO FORA OU COM ESC — mesma regra do menu de 3
+  // pontinhos do quadro (ligarQuadroMenu).
+  document.addEventListener("click", (evento) => {
+    if (evento.target.closest(".fila__menu")) return;
+    fecharTodosOsMenus();
+  });
+
+  document.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape") fecharTodosOsMenus();
+  });
+}
+
+//ADICIONAR NOVA LISTA: botao vira formulario, cria em filas e monta a
+//coluna na tela — sempre antes do proprio botao (que continua por ultimo).
+function ligarListaNova(filas) {
+  const caixa = document.querySelector("[data-fila-nova]");
+  const botaoAbrir = document.querySelector("[data-fila-nova-abrir]");
+  const formulario = document.querySelector("[data-fila-nova-form]");
+  const campo = document.querySelector("[data-fila-nova-campo]");
+  const botaoCancelar = document.querySelector("[data-fila-nova-cancelar]");
+
+  function abrirForm() {
+    botaoAbrir.hidden = true;
+    formulario.hidden = false;
+    campo.value = "";
+    campo.focus();
+  }
+
+  function fecharForm() {
+    formulario.hidden = true;
+    botaoAbrir.hidden = false;
+  }
+
+  botaoAbrir.addEventListener("click", abrirForm);
+  botaoCancelar.addEventListener("click", fecharForm);
+
+  campo.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape") fecharForm();
+  });
+
+  formulario.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+
+    const nome = campo.value.trim();
+
+    if (!nome) return;
+
+    const botaoSalvar = formulario.querySelector(".fila-nova__salvar");
+    botaoSalvar.disabled = true;
+
+    const proximaOrdem = Math.max(0, ...filas.map((fila) => fila.ordem ?? 0)) + 10;
+
+    const { data, error } = await supabase
+      .from("filas")
+      .insert({ nome, ordem: proximaOrdem, ativo: true })
+      .select("id, nome, ordem")
+      .single();
+
+    botaoSalvar.disabled = false;
+
+    if (error || !data) {
+      mostrarErro("Não foi possível criar a lista. Tente de novo.");
+      return;
+    }
+
+    filas.push(data);
+    caixa.parentElement.insertBefore(montarFila(data, []), caixa);
+    window.dispatchEvent(new Event("resize"));
+    fecharForm();
+  });
+
+  document.addEventListener("click", (evento) => {
+    if (formulario.hidden) return;
+    if (evento.target.closest("[data-fila-nova]")) return;
+    fecharForm();
+  });
 }
 
 //BARRA DE ROLAGEM PROPRIA: A NATIVA FICA ONDE A AREA DE ROLAGEM TERMINA,
@@ -951,7 +1298,21 @@ function ligarBusca(chamados, filas, detalhe) {
 
 //DETALHE DO CHAMADO: ABRE AO CLICAR NO CARD. EDITA TITULO, PRIORIDADE,
 //MEMBROS E DESCRICAO; A CONVERSA E SO LEITURA POR ENQUANTO.
-function ligarDetalhe(chamados, filas, equipe, atendente) {
+//quadroApi: o que fazer no quadro quando algo muda no detalhe. O Portal passa
+//as funcoes do quadro; o Painel (que nao tem quadro) passa um redesenho da
+//tabela dele. Assim o mesmo modal serve as duas telas sem duplicar as ~950
+//linhas de conversa, anexos, membros e aprovacao.
+function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}) {
+  const {
+    // Sem quadro, procurar card sempre devolve nada: cada uso ja trata isso.
+    acharCard = (id) => quadro?.querySelector(`[data-chamado="${id}"]`) ?? null,
+    aoMudarCard = () => {},
+    aoMudarFechamento = () => {},
+    // Sem o resumo do quadro na tela (Painel), nao ha o que recontar aqui:
+    // quem mostra o total e a propria tela, pelo aoContarChamados dela.
+    aoContarChamados = () => { if (resumo) atualizarResumo(chamados, filas.length); },
+  } = quadroApi;
+
   const janela = document.querySelector("[data-detalhe]");
   const campoFila = document.querySelector("[data-detalhe-fila]");
   const campoTitulo = document.querySelector("[data-detalhe-titulo]");
@@ -1148,9 +1509,10 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
     }
 
     // Ja trocou de ticket: atualiza so o rodape do card deste.
-    const card = quadro.querySelector(`.card[data-chamado="${chamado.id}"]`);
+    const card = acharCard(chamado.id);
 
     if (card) desenharMembrosDoCard(card.querySelector(".card__membros"), chamado.chamado_membros);
+    aoMudarCard(chamado);
   }
 
   async function adicionarMembro(pessoa) {
@@ -1763,7 +2125,10 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
 
   //O SELO DO CARD ACOMPANHA A CONVERSA
   function atualizarStatusDoCard() {
-    const card = quadro.querySelector(`[data-chamado="${aberto.id}"]`);
+    // O Painel redesenha a linha da tabela; o Portal, o selo do card.
+    aoMudarCard(aberto);
+
+    const card = acharCard(aberto.id);
 
     if (!card) return;
 
@@ -2151,7 +2516,10 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
 
   //O CARD NO QUADRO REFLETE O QUE MUDOU NO DETALHE
   function atualizarCard() {
-    const card = quadro.querySelector(`[data-chamado="${aberto.id}"]`);
+    // O Painel nao tem card: redesenha a linha da tabela e para por aqui.
+    aoMudarCard(aberto);
+
+    const card = acharCard(aberto.id);
 
     if (!card) return;
 
@@ -2178,7 +2546,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
     // Mudou etiqueta ou membro: o card pode ter entrado ou saido do filtro.
     card.classList.toggle("card--filtrado", !chamadoPassaNosFiltros(aberto));
     sincronizarColuna(card.closest(".fila"));
-    atualizarResumo(chamados, filas.length);
+    aoContarChamados();
   }
 
   //SALVA AO SAIR DO CAMPO, SE MUDOU
@@ -2464,13 +2832,15 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
 
     chamado.fechamento_em = fechamentoEm;
 
-    const cardAtual = quadro.querySelector(`.card[data-chamado="${chamado.id}"]`);
+    const cardAtual = acharCard(chamado.id);
     const colunaDoCard = cardAtual?.closest(".fila");
 
     cardAtual?.remove();
     if (colunaDoCard) sincronizarColuna(colunaDoCard);
 
-    if (!fechar) {
+    // Reabriu: o card volta para a coluna da fila dele. Sem quadro (Painel),
+    // quem cuida de mostrar a mudanca e o aoMudarFechamento.
+    if (!fechar && quadro) {
       const coluna = quadro.querySelector(`.fila[data-fila="${chamado.fila_id}"]`);
 
       if (coluna) {
@@ -2479,7 +2849,8 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
       }
     }
 
-    atualizarResumo(chamados, filas.length);
+    aoMudarFechamento(chamado, fechar);
+    aoContarChamados();
 
     if (janela.open && aberto?.id === chamado.id) atualizarBotaoFechar();
 
@@ -2510,14 +2881,15 @@ function ligarDetalhe(chamados, filas, equipe, atendente) {
   botaoFecharChamado.addEventListener("click", alternarFechamento);
 
   //CLICAR NO CARD ABRE; ARRASTAR NAO DEVE ABRIR
+  //So no Portal: no Painel quem abre o modal e o clique na linha da tabela.
   let arrastou = false;
 
-  quadro.addEventListener("dragstart", () => { arrastou = true; });
-  quadro.addEventListener("dragend", () => {
+  quadro?.addEventListener("dragstart", () => { arrastou = true; });
+  quadro?.addEventListener("dragend", () => {
     setTimeout(() => { arrastou = false; }, 0);
   });
 
-  quadro.addEventListener("click", (evento) => {
+  quadro?.addEventListener("click", (evento) => {
     const card = evento.target.closest(".card");
 
     if (!card || arrastou) return;
@@ -3599,17 +3971,6 @@ function atualizarResumo(chamados, totalFilas) {
 
 //CAMPOS DE UM CHAMADO: A MESMA SELECAO NA CARGA DO QUADRO E NO TEMPO REAL,
 //para o chamado que chega por evento ter exatamente o formato dos outros.
-const CAMPOS_CHAMADO = `
-  id, numero, titulo, fila_id, solicitante_id, descricao,
-  eh_urgente, eh_prioridade, fechamento_em, abertura_em,
-  acesso_remoto, cliente_na_loja, sistema_lento_ou_fora,
-  categorias(nome),
-  unidades(nome),
-  usuarios!chamados_solicitante_id_fkey(id, nome, sobrenome, email, status_aprovacao, setor_id, setores(id, nome)),
-  chamado_membros(usuario_id, usuarios(id, nome, sobrenome, foto_path)),
-  comentarios(id, autor_id, texto, visibilidade, tipo, criado_em, usuarios(nome, sobrenome, foto_path)),
-  anexos(id, comentario_id, nome_arquivo, storage_path, criado_em)
-`;
 
 //TEMPO REAL (Supabase Realtime): O QUADRO ACOMPANHA O BANCO SEM RECARREGAR.
 //Qualquer mudanca em chamados, comentarios, membros ou anexos vira "busque
@@ -3872,7 +4233,7 @@ async function montarQuadro() {
   }
 
   const [filas, chamados, equipe, cores] = await Promise.all([
-    supabase.from("filas").select("id, nome").eq("ativo", true).order("ordem"),
+    supabase.from("filas").select("id, nome, ordem").eq("ativo", true).order("ordem"),
     supabase
       .from("chamados")
       .select(CAMPOS_CHAMADO)
@@ -3917,13 +4278,18 @@ async function montarQuadro() {
     });
   }
 
+  //O BOTAO DE ADICIONAR LISTA JA ESTA NO HTML, sempre por ultimo — as
+  //colunas entram sempre ANTES dele (insertBefore), nunca appendChild no
+  //quadro direto, senao a coluna nova nasceria depois do botao.
+  const filaNova = document.querySelector("[data-fila-nova]");
+
   //FECHADO NAO APARECE NO QUADRO: vive em Tickets finalizados. O array
   //chamados.data continua com todos — o quadro so filtra na hora de montar.
   filas.data.forEach((fila) => {
     const daFila = chamados.data.filter(
       (chamado) => chamado.fila_id === fila.id && !chamado.fechamento_em,
     );
-    quadro.appendChild(montarFila(fila, daFila));
+    quadro.insertBefore(montarFila(fila, daFila), filaNova);
   });
 
   atualizarResumo(chamados.data, filas.data.length);
@@ -3940,6 +4306,8 @@ async function montarQuadro() {
   ligarFiltros(chamados.data, equipe.data ?? [], filas.data);
   const finalizados = ligarFinalizados(chamados.data, filas.data, detalhe);
   ligarFundo();
+  ligarListaNova(filas.data);
+  ligarArrastarLista(filas.data, chamados.data);
 
   // Por ultimo: so escuta o banco depois que o quadro inteiro ja esta na tela.
   ligarTempoReal({
@@ -3952,4 +4320,13 @@ async function montarQuadro() {
   });
 }
 
-montarQuadro();
+//SO MONTA O QUADRO NA TELA QUE TEM QUADRO. O Painel importa este arquivo
+//para reusar o modal de detalhe (ligarDetalhe) sem levantar kanban, zoom e
+//tema junto — por isso o arranque mora atras deste if.
+if (quadro) {
+  ligarTema();
+  ligarZoom();
+  montarQuadro();
+}
+
+export { ligarDetalhe, avisarNoSite, confirmarNoSite, quemEstaAtendendo };

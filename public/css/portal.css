@@ -4,6 +4,17 @@
    quadro, as colunas e os cards.
    ========================================================================== */
 
+/*ESCONDER DE VERDADE O QUE NASCE COM [hidden]. Sem esta regra, uma classe
+  com display explicito (.quadro-menu__item { display: flex }) vence o
+  atributo nativo na mesma especificidade, e o item continua na tela.
+  Vale para o item "Painel" do menu de 3 pontinhos, que so o admin pode ver:
+  o main.js tira o hidden de quem pode — sem isso, aparecia para todo mundo.
+  (index.css ja traz a regra, mas este arquivo carrega depois e as classes
+  daqui venceriam.)*/
+[hidden] {
+  display: none !important;
+}
+
 /* ==========================================================================
    TEMA
    O escuro e so desta tela: o toggle do topo grava [data-tema] no <html>,
@@ -552,6 +563,233 @@ body.portal-pagina {
   font-size: 0.625rem;
   text-align: center;
   color: var(--texto-2);
+}
+
+/*CONTADOR + MENU DE 3 PONTINHOS, AGRUPADOS NA PONTA DIREITA DO TOPO —
+  .fila__topo ja e space-between, entao so precisa desse wrapper pra virar
+  um grupo em vez de dois itens soltos.*/
+.fila__topo-acoes {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/*O NOME DA LISTA E O "PEGADOR" DO ARRASTAR — draggable fica no <header>
+  inteiro, entao o cursor muda so ali, nunca sobre os cards. O grab (mao
+  aberta) da a mesma dica visual que o Trello usa pra "isto se arrasta".*/
+.fila__topo {
+  cursor: grab;
+}
+
+.fila__topo:active {
+  cursor: grabbing;
+}
+
+/*DURANTE O ARRASTO: a coluna original fica soft, e um traco laranja marca
+  onde ela vai cair quando soltar — mesma ideia visual do card--arrastando,
+  mas na largura toda da coluna em vez do card.*/
+.fila--arrastando {
+  opacity: 0.4;
+}
+
+.fila--alvo-lista {
+  outline: 2px dashed var(--laranja);
+  outline-offset: 2px;
+}
+
+.fila__menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.fila__menu-botao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--texto-3);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.fila__menu-botao:hover,
+.fila__menu-botao[aria-expanded="true"] {
+  background-color: var(--borda);
+  color: var(--texto);
+}
+
+.fila__menu-painel {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  z-index: 6;
+  width: 13.5rem;
+  padding: 0.3125rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background-color: var(--superficie);
+  box-shadow: 0 12px 32px rgba(26, 26, 26, 0.22);
+  /*A COLUNA TEM cursor:grab; O MENU E CONTEUDO NORMAL POR CIMA*/
+  cursor: default;
+}
+
+.fila__menu-titulo {
+  margin: 0.125rem 0.5rem 0.375rem;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+
+.fila__menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.5625rem;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--texto);
+  text-align: left;
+  cursor: pointer;
+}
+
+.fila__menu-item:hover {
+  background-color: var(--superficie-2);
+}
+
+/*A MARCA DE SELECIONADO (ORDENACAO ATUAL): so aparece na opcao ativa*/
+.fila__menu-item svg {
+  flex-shrink: 0;
+  color: var(--laranja);
+  visibility: hidden;
+}
+
+.fila__menu-item--marcado svg {
+  visibility: visible;
+}
+
+.fila__menu-divisor {
+  display: block;
+  height: 1px;
+  margin: 0.3125rem 0.25rem;
+  background-color: var(--borda-suave);
+}
+
+.fila__menu-item--perigo {
+  color: var(--erro-texto);
+}
+
+.fila__menu-item--perigo:hover {
+  background-color: var(--erro-fundo);
+}
+
+/* ==========================================================================
+   ADICIONAR NOVA LISTA — botao/formulario no fim do quadro
+   ========================================================================== */
+
+.fila-nova {
+  flex-shrink: 0;
+  width: 13.5rem;
+}
+
+.fila-nova__botao {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.625rem 0.75rem;
+  border: 0;
+  border-radius: 9px;
+  background-color: rgba(255, 255, 255, 0.12);
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.fila-nova__botao:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.fila-nova__form {
+  box-sizing: border-box;
+  padding: 0.625rem;
+  border: 1px solid var(--borda);
+  border-radius: 9px;
+  background-color: var(--superficie-2);
+}
+
+.fila-nova__campo {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background-color: var(--superficie);
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--texto);
+}
+
+.fila-nova__campo:focus-visible {
+  outline: 2px solid var(--laranja);
+  outline-offset: 1px;
+}
+
+.fila-nova__acoes {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.fila-nova__salvar {
+  padding: 0.4375rem 0.75rem;
+  border: 0;
+  border-radius: 6px;
+  background-color: var(--laranja);
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+}
+
+.fila-nova__salvar:hover {
+  background-color: var(--laranja-forte);
+}
+
+.fila-nova__cancelar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--texto-3);
+  cursor: pointer;
+}
+
+.fila-nova__cancelar:hover {
+  background-color: var(--superficie);
+  color: var(--texto);
 }
 
 /*min-height GARANTE AREA DE SOLTURA MESMO NA FILA VAZIA*/

@@ -1,0 +1,1423 @@
+/* ==========================================================================
+   PAINEL: CONFIGURACAO DO PORTAL DE CHAMADOS (SO ADMIN)
+   Os tokens de cor e o tema escuro vem de portal.css — o <body> leva as duas
+   classes (portal-pagina + painel-pagina) de proposito, porque o modal de
+   detalhe do chamado e o MESMO componente das duas telas e precisa deles.
+   Aqui fica so o que e desta tela: menu lateral, tabelas e o editor de pessoa.
+
+   Sem quadro, sem zoom e sem fundo respirante: esta e uma tela de trabalho
+   administrativo, o conteudo e que tem que aparecer.
+   ========================================================================== */
+
+/*ESCONDER/REVELAR POR ABA DEPENDE DISSO: sem o !important uma classe com
+  display explicito (.painel-aba) vence o atributo [hidden] na mesma
+  especificidade, e a aba escondida continua na tela.*/
+[hidden] {
+  display: none !important;
+}
+
+/*BOX-SIZING: NENHUM ARQUIVO CSS DESTE PROJETO TINHA UM RESET GLOBAL — cada
+  selector que precisa de border-box declara na mao, e é fácil esquecer.
+  Foi o que aconteceu aqui: `.pessoa__entrada { width: 100%; padding: ... }`
+  sem border-box somava a largura da borda/padding por cima dos 100%, e o
+  campo ficava mais largo que o dialog — foi isso que criou a barra de
+  rolagem horizontal cortando o formulário de "Nova pessoa" ao meio.
+  Corrigido na raiz (todo elemento desta pagina), não so no seletor que
+  vazou — assim a proxima entrada/botao que alguem escrever aqui já nasce
+  protegida contra o mesmo erro.
+  Escopo: só afeta painel.html (é o único que carrega este arquivo) — o
+  Portal e as outras telas continuam com seu padrão atual de content-box +
+  box-sizing manual por seletor.*/
+* {
+  box-sizing: border-box;
+}
+
+/*A PAGINA TOMA A TELA E NAO ROLA: quem rola e a area de conteudo. Mesma
+  ideia do Portal, mas sem o overflow travado — aqui a tabela e longa.*/
+body.painel-pagina {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.painel {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  min-height: 0;
+  background: var(--superficie-2);
+}
+
+/* ==========================================================================
+   MENU LATERAL
+   ========================================================================== */
+
+.painel-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 1rem 0.75rem;
+  border-right: 1px solid var(--borda);
+  background: var(--superficie);
+  overflow-y: auto;
+}
+
+.painel-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--texto-2);
+  font: 500 0.875rem/1.2 "Poppins", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-nav__item svg {
+  flex-shrink: 0;
+  color: var(--texto-3);
+  transition: color 0.15s ease;
+}
+
+.painel-nav__item:hover {
+  background: var(--superficie-2);
+  color: var(--texto);
+}
+
+.painel-nav__item:active {
+  background: var(--borda-suave);
+}
+
+/*ABA ATUAL: fundo laranja claro e texto forte — um so destaque por vez.*/
+.painel-nav__item--atual,
+.painel-nav__item--atual:hover {
+  background: var(--realce);
+  color: var(--laranja-forte);
+}
+
+.painel-nav__item--atual svg {
+  color: var(--laranja);
+}
+
+/*RODULO DO GRUPO ("Portal" / "Configurações"): nao e clicavel, so agrupa
+  visualmente — mesma ideia dos titulos de secao do menu de 3 pontinhos do
+  Portal, letra pequena e espacada.*/
+.painel-nav__grupo-titulo {
+  margin: 0.9rem 0.75rem 0.35rem;
+  color: var(--texto-4);
+  font: 600 0.6875rem/1.2 "Poppins", sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.painel-nav__grupo-titulo:first-child {
+  margin-top: 0.15rem;
+}
+
+.painel-nav__divisor {
+  display: block;
+  height: 1px;
+  margin: 0.6rem 0.5rem 0;
+  background: var(--borda);
+}
+
+/* ==========================================================================
+   AREA DE CONTEUDO
+   ========================================================================== */
+
+.painel__conteudo {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 1.5rem 1.75rem;
+  overflow-y: auto;
+}
+
+.painel__erro {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--erro-borda);
+  border-radius: 10px;
+  background: var(--erro-fundo);
+  color: var(--erro-texto);
+  font: 500 0.875rem/1.4 "Poppins", sans-serif;
+}
+
+.painel-aba {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.painel-aba__topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.painel-aba__titulo {
+  margin: 0;
+  color: var(--texto);
+  font: 600 1.375rem/1.2 "Sora", sans-serif;
+}
+
+.painel-aba__resumo {
+  margin: 0.35rem 0 0;
+  max-width: 62ch;
+  color: var(--texto-3);
+  font: 400 0.8125rem/1.5 "Poppins", sans-serif;
+}
+
+/*BOTAO "NOVO": mesmo botao principal usado no editor de pessoa
+  (.pessoa__botao--principal), mas com icone — canto superior direito da
+  aba, ao lado do titulo.*/
+.painel-botao-novo {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.05rem;
+  border: 1px solid var(--laranja);
+  border-radius: 9px;
+  background: var(--laranja);
+  color: #fff;
+  font: 600 0.8125rem/1.2 "Poppins", sans-serif;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.painel-botao-novo:hover {
+  border-color: var(--laranja-forte);
+  background: var(--laranja-forte);
+}
+
+.painel-botao-novo:active {
+  transform: translateY(1px);
+}
+
+/* ==========================================================================
+   BUSCA E FILTROS
+   ========================================================================== */
+
+/*BARRA: BUSCA -------- EXPORTAR - FILTRAR. Os dois botoes da direita nao
+  crescem (flex-shrink: 0); a busca ocupa o resto.*/
+.painel-ferramentas {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.painel-busca {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.painel-busca__lupa {
+  position: absolute;
+  top: 50%;
+  left: 0.85rem;
+  color: var(--texto-3);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.painel-busca__campo {
+  width: 100%;
+  padding: 0.65rem 0.9rem 0.65rem 2.5rem;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background: var(--superficie);
+  color: var(--texto);
+  font: 400 0.875rem/1.3 "Poppins", sans-serif;
+}
+
+.painel-busca__campo::placeholder {
+  color: var(--texto-4);
+}
+
+.painel-busca__campo:focus-visible {
+  outline: 2px solid var(--laranja);
+  outline-offset: 1px;
+}
+
+.painel-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.painel-filtro {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  font: 500 0.8125rem/1.2 "Poppins", sans-serif;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-filtro:hover {
+  border-color: var(--realce-borda);
+  color: var(--texto);
+}
+
+.painel-filtro:active {
+  transform: translateY(1px);
+}
+
+.painel-filtro--ativo {
+  border-color: var(--laranja);
+  background: var(--realce);
+  color: var(--laranja-forte);
+}
+
+/* ==========================================================================
+   BOTOES DE ICONE (Exportar, Filtrar) E OS PAINEIS QUE ABREM DELES
+   Mesma ideia do menu de 3 pontinhos e do filtro do quadro no Portal, mas
+   numa superficie clara/escura normal em vez do degrade laranja do topo —
+   por isso classes proprias do Painel, e nao as .quadro-filtro__* do Portal.
+   ========================================================================== */
+
+.painel-dropdown {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.painel-icone-botao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  box-sizing: border-box;
+  padding: 0 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-icone-botao:hover {
+  border-color: var(--realce-borda);
+  background: var(--realce);
+  color: var(--laranja-forte);
+}
+
+.painel-icone-botao[aria-expanded="true"] {
+  border-color: var(--laranja);
+  background: var(--realce);
+  color: var(--laranja-forte);
+}
+
+/*COM FILTRO LIGADO: fundo laranja cheio, igual ao mesmo estado no Portal —
+  da para ver de longe que a tabela nao esta mostrando tudo.*/
+.painel-icone-botao--ativo,
+.painel-icone-botao--ativo:hover {
+  border-color: var(--laranja);
+  background: var(--laranja);
+  color: #fff;
+}
+
+.painel-icone-botao__contador {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  box-sizing: border-box;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--laranja-forte);
+  font: 600 0.6875rem/1 "Poppins", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.painel-dropdown__painel {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  right: 0;
+  z-index: 5;
+  width: 23rem;
+  max-width: calc(100vw - 2rem);
+  max-height: min(32rem, 70dvh);
+  box-sizing: border-box;
+  padding: 0.9rem;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  background: var(--superficie);
+  box-shadow: 0 14px 34px rgba(26, 26, 26, 0.16);
+  overflow-y: auto;
+}
+
+.painel-dropdown__painel--estreito {
+  width: 18rem;
+}
+
+.painel-dropdown__cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.7rem;
+  color: var(--texto);
+  font: 600 0.8125rem/1.2 "Sora", sans-serif;
+}
+
+.painel-dropdown__limpar {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--laranja);
+  font: 500 0.75rem/1.2 "Poppins", sans-serif;
+  cursor: pointer;
+}
+
+.painel-dropdown__limpar:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.painel-dropdown__limpar:disabled {
+  color: var(--texto-4);
+  cursor: default;
+}
+
+.painel-dropdown__dica {
+  margin: 0 0 0.75rem;
+  color: var(--texto-3);
+  font: 400 0.75rem/1.5 "Poppins", sans-serif;
+}
+
+/* ----- GRUPOS DE FILTRO: status, lista, prioridade (chips) ----- */
+
+.painel-filtro-grupo + .painel-filtro-grupo {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--borda-suave);
+}
+
+.painel-filtro-grupo__titulo {
+  margin: 0 0 0.45rem;
+  color: var(--texto-3);
+  font: 600 0.625rem/1.2 "Poppins", sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.painel-filtro-grupo__opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.painel-filtro-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  padding: 0.28rem 0.6rem;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  font: 500 0.75rem/1.2 "Poppins", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-filtro-chip:hover {
+  border-color: var(--realce-borda);
+  background: var(--realce);
+}
+
+.painel-filtro-chip--marcado {
+  border-color: var(--laranja);
+  background: var(--realce);
+  color: var(--laranja-forte);
+}
+
+/* ----- BUSCA DENTRO DE UM GRUPO (solicitante, atendente) ----- */
+
+.painel-filtro-grupo__busca {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--borda);
+  border-radius: 7px;
+  background: var(--superficie-3);
+  color: var(--texto);
+  font: 400 0.75rem/1.3 "Poppins", sans-serif;
+}
+
+.painel-filtro-grupo__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  max-height: 9.5rem;
+  overflow-y: auto;
+}
+
+.painel-filtro-grupo__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.3rem;
+  border-radius: 6px;
+  color: var(--texto-2);
+  font: 400 0.8125rem/1.3 "Poppins", sans-serif;
+  cursor: pointer;
+}
+
+.painel-filtro-grupo__item:hover {
+  background: var(--superficie-3);
+}
+
+.painel-filtro-grupo__item input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--laranja);
+}
+
+.painel-filtro-grupo__vazio {
+  margin: 0.3rem 0;
+  color: var(--texto-4);
+  font: 400 0.75rem/1.3 "Poppins", sans-serif;
+}
+
+/* ----- PERIODO (data de abertura, range de-ate) ----- */
+
+.painel-filtro-datas {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.painel-filtro-data {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.painel-filtro-data span {
+  color: var(--texto-3);
+  font: 500 0.6875rem/1.2 "Poppins", sans-serif;
+}
+
+.painel-filtro-data input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--borda);
+  border-radius: 7px;
+  background: var(--superficie);
+  color: var(--texto);
+  font: 400 0.75rem/1.3 "Poppins", sans-serif;
+  color-scheme: light;
+}
+
+[data-tema="escuro"] .painel-filtro-data input {
+  color-scheme: dark;
+}
+
+/* ----- EXPORTAR: OS TRES FORMATOS ----- */
+
+.painel-dropdown__acoes-formato {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.painel-formato {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 9px;
+  background: var(--superficie);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.painel-formato:hover {
+  border-color: var(--laranja);
+  background: var(--realce);
+}
+
+.painel-formato:active {
+  transform: translateY(1px);
+}
+
+.painel-formato__nome {
+  color: var(--texto);
+  font: 600 0.8125rem/1.2 "Sora", sans-serif;
+}
+
+.painel-formato__dica {
+  color: var(--texto-3);
+  font: 400 0.71875rem/1.3 "Poppins", sans-serif;
+}
+
+/* ==========================================================================
+   TABELA
+   Card no padrao shadcn: superficie branca, borda de 1px, canto generoso.
+   A linha inteira e clicavel; o hover mostra qual esta sob o mouse.
+   ========================================================================== */
+
+.painel-tabela__caixa {
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  background: var(--superficie);
+  box-shadow: var(--sombra-card);
+  overflow-x: auto;
+}
+
+.painel-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font: 400 0.8125rem/1.4 "Poppins", sans-serif;
+}
+
+.painel-tabela th {
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--borda);
+  color: var(--texto-3);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.painel-tabela td {
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--borda-suave);
+  color: var(--texto);
+  vertical-align: middle;
+}
+
+.painel-tabela tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.painel-tabela tbody tr {
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.painel-tabela tbody tr:hover {
+  background: var(--superficie-3);
+}
+
+.painel-tabela tbody tr:active {
+  background: var(--realce);
+}
+
+.painel-tabela tbody tr:focus-visible {
+  outline: 2px solid var(--laranja);
+  outline-offset: -2px;
+}
+
+.painel-tabela__numero {
+  color: var(--texto-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.painel-tabela__titulo {
+  display: block;
+  max-width: 34ch;
+  overflow: hidden;
+  color: var(--texto);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*COLUNA DA LIXEIRA: so o icone, sem cabecalho — encostada na borda direita,
+  largura minima para nao empurrar a coluna de nome.*/
+.painel-tabela__coluna-acao {
+  width: 2.75rem;
+}
+
+.painel-tabela__excluir {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--texto-4);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-tabela__excluir:hover {
+  background: var(--erro-fundo);
+  color: var(--erro-texto);
+}
+
+/*REATIVAR: botao de texto (nao icone) na aba Listas, so aparece na linha
+  de uma lista arquivada.*/
+.painel-tabela__reativar {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--borda);
+  border-radius: 7px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  font: 500 0.75rem/1.2 "Poppins", sans-serif;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-tabela__reativar:hover {
+  border-color: var(--laranja);
+  background: var(--realce);
+  color: var(--laranja-forte);
+}
+
+/*A PREVIA DO TEXTO RAPIDO NA LISTA: uma linha, corta com reticencias.*/
+.painel-tabela__previa {
+  display: block;
+  max-width: 46ch;
+  overflow: hidden;
+  color: var(--texto-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*PESSOA NA TABELA: FOTO + NOME, a mesma foto que aparece no chat.*/
+.painel-pessoa {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.painel-pessoa__avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--avatar-fundo);
+  color: var(--avatar-texto);
+  font: 600 0.6875rem/1 "Poppins", sans-serif;
+  overflow: hidden;
+}
+
+.painel-pessoa__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*SELO DE STATUS: mesmas cores do card do quadro — quem ve o Portal
+  reconhece o significado sem reaprender.*/
+.painel-selo {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--superficie-2);
+  color: var(--texto-2);
+  font: 500 0.75rem/1.3 "Poppins", sans-serif;
+  white-space: nowrap;
+}
+
+.painel-selo--aberto {
+  background: color-mix(in srgb, var(--status-aberto) 12%, transparent);
+  color: var(--status-aberto);
+}
+
+.painel-selo--aguardando {
+  background: color-mix(in srgb, var(--status-aguardando) 14%, transparent);
+  color: var(--status-aguardando);
+}
+
+.painel-selo--respondeu {
+  background: color-mix(in srgb, var(--status-respondeu) 16%, transparent);
+  color: var(--status-respondeu);
+}
+
+.painel-selo--fechado {
+  background: var(--superficie-2);
+  color: var(--texto-3);
+}
+
+.painel-vazio {
+  margin: 1.5rem 0;
+  color: var(--texto-4);
+  font: 400 0.875rem/1.4 "Poppins", sans-serif;
+  text-align: center;
+}
+
+/* ==========================================================================
+   PAGINACAO: 15 por pagina, igual ao "‹ 1 2 3 4 5 … 500 ›" do Hipporello.
+   ========================================================================== */
+
+.painel-paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  margin-top: 1rem;
+}
+
+.painel-paginacao__seta {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-paginacao__seta:hover:not(:disabled) {
+  border-color: var(--realce-borda);
+  background: var(--realce);
+  color: var(--laranja-forte);
+}
+
+.painel-paginacao__seta:disabled {
+  color: var(--texto-4);
+  cursor: default;
+  opacity: 0.5;
+}
+
+.painel-paginacao__numeros {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.painel-paginacao__pagina {
+  display: grid;
+  place-items: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--texto-2);
+  font: 500 0.8125rem/1 "Poppins", sans-serif;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-paginacao__pagina:hover {
+  border-color: var(--borda);
+  background: var(--superficie);
+}
+
+.painel-paginacao__pagina--atual,
+.painel-paginacao__pagina--atual:hover {
+  border-color: var(--laranja);
+  background: var(--laranja);
+  color: #fff;
+  cursor: default;
+}
+
+.painel-paginacao__reticencias {
+  display: grid;
+  place-items: center;
+  min-width: 1.5rem;
+  height: 2rem;
+  color: var(--texto-4);
+  font: 500 0.8125rem/1 "Poppins", sans-serif;
+}
+
+/* ==========================================================================
+   CONFIGURACOES: UMA LISTA POR TABELA DO BANCO
+   ========================================================================== */
+
+.painel-config {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  align-items: start;
+}
+
+.painel-grupo {
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  background: var(--superficie);
+  box-shadow: var(--sombra-card);
+  overflow: hidden;
+}
+
+.painel-grupo__topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--borda-suave);
+}
+
+.painel-grupo__titulo {
+  margin: 0;
+  color: var(--texto);
+  font: 600 0.9375rem/1.2 "Sora", sans-serif;
+}
+
+.painel-grupo__contador {
+  color: var(--texto-4);
+  font: 400 0.75rem/1 "Poppins", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.painel-grupo__lista {
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.painel-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem 0.5rem 1rem;
+  border-bottom: 1px solid var(--borda-suave);
+}
+
+.painel-item:last-child {
+  border-bottom: 0;
+}
+
+.painel-item__nome {
+  flex: 1;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  color: var(--texto);
+  font: 400 0.8125rem/1.3 "Poppins", sans-serif;
+}
+
+.painel-item__nome:hover {
+  border-color: var(--borda);
+}
+
+.painel-item__nome:focus-visible {
+  outline: none;
+  border-color: var(--laranja);
+  background: var(--superficie);
+}
+
+.painel-item__acao {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--texto-3);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-item__acao:hover {
+  background: var(--erro-fundo);
+  color: var(--erro-texto);
+}
+
+.painel-grupo__rodape {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem 0.85rem;
+  border-top: 1px solid var(--borda-suave);
+  background: var(--superficie-3);
+}
+
+.painel-grupo__campo {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--superficie);
+  color: var(--texto);
+  font: 400 0.8125rem/1.3 "Poppins", sans-serif;
+}
+
+.painel-grupo__campo:focus-visible {
+  outline: 2px solid var(--laranja);
+  outline-offset: 1px;
+}
+
+.painel-grupo__adicionar {
+  flex-shrink: 0;
+  padding: 0.5rem 0.9rem;
+  border: 0;
+  border-radius: 8px;
+  background: var(--laranja);
+  color: #fff;
+  font: 500 0.8125rem/1.3 "Poppins", sans-serif;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.painel-grupo__adicionar:hover {
+  background: var(--laranja-forte);
+}
+
+.painel-grupo__adicionar:active {
+  transform: translateY(1px);
+}
+
+.painel-grupo__adicionar:disabled {
+  background: #d4d4d8;
+  color: #71717a;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.painel-grupo__aviso {
+  margin: 0;
+  padding: 0 1rem 0.7rem;
+  color: var(--texto-3);
+  font: 400 0.75rem/1.4 "Poppins", sans-serif;
+}
+
+.painel-grupo__aviso--erro {
+  color: var(--erro-texto);
+}
+
+/*TEXTOS RAPIDOS: item mais alto, com o corpo da resposta embaixo do titulo.*/
+.painel-item--texto {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  padding: 0.7rem 1rem;
+}
+
+.painel-item__corpo {
+  width: 100%;
+  min-height: 3.2rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--superficie-3);
+  color: var(--texto-2);
+  font: 400 0.78125rem/1.45 "Poppins", sans-serif;
+  resize: vertical;
+}
+
+.painel-item__linha {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ==========================================================================
+   EDITAR PESSOA
+   ========================================================================== */
+
+.pessoa {
+  width: min(620px, 94vw);
+  padding: 0;
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  background: var(--superficie);
+  color: var(--texto);
+}
+
+.pessoa::backdrop {
+  background: rgba(20, 20, 22, 0.45);
+}
+
+.pessoa__conteudo {
+  display: flex;
+  flex-direction: column;
+  max-height: 88dvh;
+}
+
+.pessoa__topo {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid var(--borda-suave);
+}
+
+/*FOTO + BOTOES DE TROCAR/REMOVER, lado a lado — o avatar cresce um pouco
+  em relacao ao antigo (44px) porque agora carrega acao, nao so identidade.*/
+.pessoa__foto {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.pessoa__avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--avatar-fundo);
+  color: var(--avatar-texto);
+  font: 600 1.0625rem/1 "Poppins", sans-serif;
+  overflow: hidden;
+}
+
+.pessoa__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pessoa__foto-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.pessoa__foto-botao {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--borda);
+  border-radius: 7px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  font: 500 0.71875rem/1.2 "Poppins", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.pessoa__foto-botao:hover {
+  border-color: var(--realce-borda);
+  background: var(--realce);
+  color: var(--laranja-forte);
+}
+
+.pessoa__foto-botao:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.pessoa__foto-botao--remover {
+  color: var(--erro-texto);
+}
+
+.pessoa__foto-botao--remover:hover {
+  border-color: var(--erro-borda);
+  background: var(--erro-fundo);
+  color: var(--erro-texto);
+}
+
+.pessoa__identidade {
+  flex: 1;
+  min-width: 0;
+}
+
+.pessoa__nome {
+  margin: 0;
+  color: var(--texto);
+  font: 600 1.0625rem/1.25 "Sora", sans-serif;
+}
+
+.pessoa__email {
+  margin: 0.1rem 0 0;
+  overflow: hidden;
+  color: var(--texto-3);
+  font: 400 0.8125rem/1.3 "Poppins", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pessoa__campos {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: 1fr 1fr;
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+.pessoa__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.pessoa__campo--largo {
+  grid-column: 1 / -1;
+}
+
+.pessoa__rotulo {
+  color: var(--texto-2);
+  font: 500 0.8125rem/1.2 "Poppins", sans-serif;
+}
+
+.pessoa__entrada {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--superficie);
+  color: var(--texto);
+  font: 400 0.875rem/1.3 "Poppins", sans-serif;
+}
+
+.pessoa__entrada:focus-visible {
+  outline: 2px solid var(--laranja);
+  outline-offset: 1px;
+}
+
+.pessoa__dica {
+  color: var(--texto-4);
+  font: 400 0.75rem/1.4 "Poppins", sans-serif;
+}
+
+.pessoa__caixa {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+  color: var(--texto-2);
+  font: 400 0.875rem/1.3 "Poppins", sans-serif;
+  cursor: pointer;
+}
+
+.pessoa__caixa input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--laranja);
+}
+
+.pessoa__rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.25rem 1.1rem;
+  border-top: 1px solid var(--borda-suave);
+}
+
+.pessoa__aviso {
+  margin: 0;
+  color: var(--texto-3);
+  font: 400 0.8125rem/1.3 "Poppins", sans-serif;
+}
+
+.pessoa__aviso--erro {
+  color: var(--erro-texto);
+}
+
+.pessoa__acoes {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+
+.pessoa__botao {
+  padding: 0.55rem 1.05rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  font: 500 0.875rem/1.2 "Poppins", sans-serif;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.pessoa__botao:hover {
+  border-color: var(--texto-3);
+  color: var(--texto);
+}
+
+.pessoa__botao--principal {
+  border-color: var(--laranja);
+  background: var(--laranja);
+  color: #fff;
+}
+
+.pessoa__botao--principal:hover {
+  border-color: var(--laranja-forte);
+  background: var(--laranja-forte);
+  color: #fff;
+}
+
+.pessoa__botao:active {
+  transform: translateY(1px);
+}
+
+.pessoa__botao:disabled {
+  border-color: #d4d4d8;
+  background: #d4d4d8;
+  color: #71717a;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/*VOLTAR AO QUADRO: no topo, ao lado do perfil.*/
+.painel-voltar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  color: #fff;
+  font: 500 0.8125rem/1.2 "Poppins", sans-serif;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.painel-voltar:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* ==========================================================================
+   EDITAR/CRIAR ITEM SIMPLES (unidade, setor, categoria, texto rápido)
+   Mesmo vocabulario visual do dialog de pessoa (.pessoa__campo,
+   .pessoa__entrada, .pessoa__rodape, .pessoa__botao) — so o cabecalho e o
+   tamanho mudam, por ser um formulario bem menor (1-2 campos).
+   ========================================================================== */
+
+.item-simples {
+  width: min(420px, 94vw);
+  padding: 0;
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  background: var(--superficie);
+  color: var(--texto);
+}
+
+.item-simples::backdrop {
+  background: rgba(20, 20, 22, 0.45);
+}
+
+.item-simples__conteudo {
+  display: flex;
+  flex-direction: column;
+  max-height: 88dvh;
+}
+
+.item-simples__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid var(--borda-suave);
+}
+
+.item-simples__titulo {
+  margin: 0;
+  color: var(--texto);
+  font: 600 1.0625rem/1.25 "Sora", sans-serif;
+}
+
+.item-simples__campos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+.item-simples__textarea {
+  min-height: 6.5rem;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   TELAS ESTREITAS
+   ========================================================================== */
+
+@media (max-width: 860px) {
+  .painel {
+    grid-template-columns: 1fr;
+    /*SEM ISSO O GRID DE UMA COLUNA SO VIRA UMA UNICA LINHA IMPLICITA: os
+      dois itens (nav e conteudo) disputam a MESMA linha e o Grid estica
+      ambos ate a altura do mais alto — foi isso que deixava a faixa de
+      abas gigante (270px) quando o conteudo abaixo era alto. Duas linhas
+      explicitas: a primeira do tamanho da faixa de abas (auto), a segunda
+      pega o resto (1fr) e e quem rola por dentro.*/
+    grid-template-rows: auto 1fr;
+  }
+
+  /*O menu vira uma faixa de abas em cima do conteudo.*/
+  .painel-nav {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.6rem 0.75rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--borda);
+    overflow-x: auto;
+  }
+
+  .painel-nav__item {
+    width: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /*O rotulo do grupo nao cabe numa faixa horizontal de abas; o divisor
+    vertical fininho substitui a linha "---- Portal ----" nesse formato.*/
+  .painel-nav__grupo-titulo {
+    display: none;
+  }
+
+  .painel-nav__divisor {
+    width: 1px;
+    height: 1.75rem;
+    margin: 0 0.15rem;
+    flex-shrink: 0;
+  }
+
+  .painel__conteudo {
+    padding: 1.1rem 1rem;
+  }
+
+  /*O rotulo do icone some (fica so o icone); o painel do dropdown nao
+    pode encostar na borda da tela.*/
+  .painel-dropdown__painel {
+    right: -1rem;
+    width: calc(100vw - 2rem);
+  }
+
+  .pessoa__campos {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*MOVIMENTO REDUZIDO: sem deslocamento no clique.*/
+@media (prefers-reduced-motion: reduce) {
+  .painel-filtro:active,
+  .painel-grupo__adicionar:active,
+  .pessoa__botao:active {
+    transform: none;
+  }
+}

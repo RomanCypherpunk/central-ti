@@ -171,6 +171,19 @@
             </svg>
             Tickets finalizados
           </button>
+
+          <!--PAINEL: SO ADMIN. Nasce escondido e o main.js revela, igual ao
+              atalho do Portal no menu do perfil. A pagina tambem barra na
+              entrada (painel-guard.js), entao esconder aqui e so conforto.-->
+          <span class="quadro-menu__divisor" data-menu-painel hidden aria-hidden="true"></span>
+
+          <a class="quadro-menu__item" href="painel.html" data-menu-painel hidden>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M3.5 9.5h17M9 9.5v10" fill="none" stroke="currentColor" stroke-width="1.7"/>
+            </svg>
+            Painel
+          </a>
         </div>
       </div>
 
@@ -252,8 +265,32 @@
     <!--AVISO DE ERRO: APARECE NO LUGAR DO QUADRO SE A CARGA FALHAR-->
     <p class="portal__erro" data-erro role="alert"></p>
 
-    <!--QUADRO: UMA COLUNA POR FILA, MONTADO PELO portal.js-->
-    <div class="portal__quadro" data-quadro></div>
+    <!--QUADRO: UMA COLUNA POR FILA, MONTADO PELO portal.js. O botao de
+        adicionar lista fica no proprio HTML (nao muda), sempre no fim —
+        o portal.js insere as colunas novas antes dele.-->
+    <div class="portal__quadro" data-quadro>
+      <div class="fila-nova" data-fila-nova>
+        <button class="fila-nova__botao" type="button" data-fila-nova-abrir>
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="M12 5.5v13M5.5 12h13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Adicionar outra lista
+        </button>
+
+        <form class="fila-nova__form" data-fila-nova-form hidden>
+          <input class="fila-nova__campo" type="text" data-fila-nova-campo
+                 placeholder="Nome da lista" autocomplete="off" maxlength="60">
+          <div class="fila-nova__acoes">
+            <button class="fila-nova__salvar" type="submit">Adicionar lista</button>
+            <button class="fila-nova__cancelar" type="button" data-fila-nova-cancelar aria-label="Cancelar">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <!--BARRA DE ROLAGEM PROPRIA DO QUADRO, COLADA NO RODAPE-->
     <div class="portal__barra" data-barra>

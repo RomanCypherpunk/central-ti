@@ -102,6 +102,10 @@ async function preencherUsuario() {
   // porque esconder link no menu nao e controle de acesso.
   if (perfil?.perfil === "admin") {
     document.querySelector("[data-menu-portal]")?.removeAttribute("hidden");
+    // Painel (configuracao do Portal): mesma regra, e sao dois elementos no
+    // menu de 3 pontinhos — o divisor e o link.
+    document.querySelectorAll("[data-menu-painel]")
+      .forEach((elemento) => elemento.removeAttribute("hidden"));
   }
 
   // EQUIPE DE TI: mesma regra do RLS (is_equipe_ti no banco) — admin,
