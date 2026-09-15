@@ -19,9 +19,6 @@
   <nav class="sidebar">
     <div class="sidebar__topo">
       <a class="sidebar__logo-link" href="index.html"><img class="sidebar__logo" src="assets/img/logo-claro.svg" alt="Gasometro"></a>
-      <button class="sidebar__colapsar" type="button" id="sidebar-colapsar" aria-label="Recolher menu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
-      </button>
     </div>
 
     <div class="sidebar__menu">
@@ -34,6 +31,17 @@
         <span class="sidebar__link-texto">Nova Solução</span>
       </a>
     </div>
+
+    <!--RECOLHER: NO RODAPE, MESMO PADRAO DO PAINEL/BASE (ver base.html).-->
+    <div class="sidebar__espaco" aria-hidden="true"></div>
+    <button class="sidebar__colapsar" type="button" id="sidebar-colapsar"
+            aria-label="Recolher menu" aria-expanded="true">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 6l-6 6 6 6"/>
+      </svg>
+      <span class="sidebar__colapsar-texto">Recolher menu</span>
+    </button>
   </nav>
 
   <header class="header">

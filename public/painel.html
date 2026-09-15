@@ -16,6 +16,13 @@
     // O Painel acompanha o tema do Portal: e a mesma area de trabalho.
     document.documentElement.dataset.tema =
       localStorage.getItem("tema-portal") ?? "claro";
+
+    // Mesmo motivo, pro menu lateral: sem isso ele nasce largo e soca pra
+    // 72px um instante depois, se a pessoa tinha deixado recolhido.
+    // Chave propria do Painel — nao a mesma da Base de Solucoes
+    // (sidebarColapsada): recolher um nao mexe no outro, de proposito.
+    document.documentElement.dataset.painelSidebar =
+      localStorage.getItem("painelSidebarColapsada") === "true" ? "colapsada" : "expandida";
   </script>
 </head>
 <!--As DUAS classes de proposito: portal-pagina traz os tokens de cor e o tema
@@ -29,7 +36,7 @@
   <header class="topo barra-portal">
     <div class="barra-portal__marca">
       <a class="topo__logo-link" href="index.html">
-        <img class="topo__logo" src="assets/img/logo-branco.svg" alt="Gasômetro Madeiras">
+        <img class="topo__logo" src="assets/img/logo-claro.svg" alt="Gasômetro Madeiras">
       </a>
       <span class="topo__divisor" aria-hidden="true"></span>
       <h1 class="portal__titulo">Painel</h1>
@@ -114,15 +121,15 @@
 
           <button class="painel-nav__item" type="button" data-aba="tickets">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M7.5 9.5h9M7.5 13h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-            Todos os tickets
+            <span>Todos os tickets</span>
           </button>
           <button class="painel-nav__item" type="button" data-aba="contatos">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5 20a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-            Contatos
+            <span>Contatos</span>
           </button>
           <button class="painel-nav__item" type="button" data-aba="administradores">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 3.5l7 3v5c0 4.5-3 7.5-7 8.5-4-1-7-4-7-8.5v-5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m9 12 2 2 4-4.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Administradores
+            <span>Administradores</span>
           </button>
 
           <span class="painel-nav__divisor" role="separator"></span>
@@ -130,23 +137,39 @@
 
           <button class="painel-nav__item" type="button" data-aba="listas">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="4.5" width="5.5" height="15" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="10.75" y="4.5" width="5.5" height="10" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="18" y="4.5" width="2.5" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
-            Listas
+            <span>Listas</span>
           </button>
           <button class="painel-nav__item" type="button" data-aba="unidades">
-            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M4.5 20V6.5L12 3.5l7.5 3V20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 20v-5h6v5M9 10h.01M15 10h.01M12 10h.01M9 13.5h.01M15 13.5h.01M12 13.5h.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-            Unidades
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M4 11.5 12 4.5l8 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10.5V19h12v-8.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Unidades</span>
           </button>
           <button class="painel-nav__item" type="button" data-aba="setores">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
-            Setores
+            <span>Setores</span>
           </button>
           <button class="painel-nav__item" type="button" data-aba="categorias">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-            Categorias
+            <span>Categorias</span>
           </button>
           <button class="painel-nav__item" type="button" data-aba="textos">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M5 19.5V6.2A1.7 1.7 0 0 1 6.7 4.5h10.6A1.7 1.7 0 0 1 19 6.2v9.6a1.7 1.7 0 0 1-1.7 1.7H8.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.5 8.5h7M8.5 12h4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-            Textos rápidos
+            <span>Textos rápidos</span>
+          </button>
+
+          <!--RECOLHER/EXPANDIR: fica sozinho embaixo, empurrado pra la pelo
+              painel-nav__espaco (flex: 1). So o icone da seta gira — o
+              texto do rotulo some quando recolhido, igual aos itens acima.
+              Estado proprio deste painel (chave de localStorage separada
+              da Base de Solucoes: recolher um nao mexe no outro).-->
+          <div class="painel-nav__espaco" aria-hidden="true"></div>
+
+          <button class="painel-nav__colapsar" type="button" id="painel-sidebar-colapsar"
+                  aria-label="Recolher menu" aria-expanded="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6"/>
+            </svg>
+            <span class="painel-nav__colapsar-texto">Recolher menu</span>
           </button>
     </nav>
 

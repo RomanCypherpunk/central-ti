@@ -110,7 +110,6 @@ body {
 .sidebar__topo {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   height: 84px;
   /*MESMO RECUO DO CABECALHO DO INDEX: A LOGO CAI NA MESMA COLUNA*/
@@ -123,34 +122,6 @@ body {
 .sidebar__logo-link {
   display: flex;
   align-items: center;
-}
-
-.sidebar__colapsar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid #dd5b12;
-  border-radius: 10px;
-  background-color: rgba(221, 91, 18, 0.1);
-  color: #dd5b12;
-  cursor: pointer;
-}
-
-.sidebar__colapsar:hover {
-  background-color: #dd5b12;
-  color: #ffffff;
-}
-
-.sidebar__colapsar svg {
-  width: 14px;
-  height: 14px;
-}
-
-html[data-sidebar="colapsada"] .sidebar__colapsar svg {
-  transform: rotate(180deg);
 }
 
 html[data-sidebar="colapsada"] .sidebar__topo {
@@ -171,6 +142,58 @@ html[data-sidebar="colapsada"] .sidebar__link {
 
 html[data-sidebar="colapsada"] .sidebar__menu {
   padding: 16px 8px;
+}
+
+/*RECOLHER: NO RODAPE DA SIDEBAR, MESMO PADRAO DO PAINEL
+  (.painel-nav__colapsar em painel.css) — o padrao a seguir entre as duas
+  telas e o do Painel, nao o antigo botao-pilula que ficava ao lado do
+  logo aqui na Base.*/
+.sidebar__espaco {
+  flex: 1;
+}
+
+.sidebar__colapsar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 24px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sidebar__colapsar:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.sidebar__colapsar svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
+}
+
+html[data-sidebar="colapsada"] .sidebar__colapsar svg {
+  transform: rotate(180deg);
+}
+
+html[data-sidebar="colapsada"] .sidebar__colapsar {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+html[data-sidebar="colapsada"] .sidebar__colapsar-texto {
+  display: none;
 }
 
 .header {
@@ -1250,20 +1273,12 @@ html[data-sidebar="colapsada"] .sidebar__logo {
   border-right: 1px solid #e5e5e5;
 }
 
-/*MESMAS CORES E MESMO HOVER DO BOTAO ENTRAR, DO LOGIN*/
-.sidebar__colapsar {
-  border-color: transparent;
-  background-color: #dd5b12;
-  color: #ffffff;
-  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.sidebar__colapsar:hover {
-  background-color: #c24f00;
-  color: #ffffff;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(221, 91, 18, 0.32);
-}
+/*O botao de recolher mudou de lugar — saiu do topo branco e foi pro
+  rodape da faixa laranja (mesmo padrao do Painel, ver o bloco
+  .sidebar__colapsar mais acima neste arquivo). O hover "botao Entrar do
+  login" so fazia sentido sobre fundo branco; sobre o degrade la embaixo
+  ele nao se aplica mais — o estilo padrao (fundo transparente, texto
+  claro) definido acima ja resolve.*/
 
 /*DO MENU PARA BAIXO E LARANJA: OS CINZAS DO TEMA SOMEM, O TEXTO VIRA CLARO*/
 .sidebar__link {

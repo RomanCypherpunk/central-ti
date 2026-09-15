@@ -527,7 +527,11 @@ body.portal-pagina {
   background-color: var(--superficie-2);
   /*O grab e do fundo do quadro; dentro da coluna o cursor volta ao normal*/
   cursor: default;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  /*transform aqui e o recuo do FLIP (comAnimacaoFlip, portal.js) depois de
+    trocar de lugar no drop — sem essa transition o navegador so aplicaria
+    o transform:none final na hora, sem o recuo suave.*/
+  transition: border-color 0.2s ease, background-color 0.2s ease,
+    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 /*COLUNA SOB O CARD ARRASTADO: FICA CLARO ONDE VAI SOLTAR*/
@@ -802,6 +806,18 @@ body.portal-pagina {
   padding: 0 0.375rem 0.5rem;
   list-style: none;
   overflow-y: auto;
+  /*BARRA NATIVA ESCONDIDA: sem isso, o transform temporario do FLIP
+    (comAnimacaoFlip, portal.js) no card solto faz a barra de rolagem
+    do navegador aparecer e sumir num piscar durante os ~0.2s da
+    animacao — o card recua de uma posicao que pode passar da borda
+    do container antes de assentar. A rolagem continua funcionando
+    (overflow-y:auto), so a barra visual nativa que some, mesmo
+    padrao ja usado em .portal__quadro (linhas acima).*/
+  scrollbar-width: none;
+}
+
+.fila__cards::-webkit-scrollbar {
+  display: none;
 }
 
 /*FILA SEM CHAMADO: O ESPACO CONTINUA ALI, SO QUE MUDO*/
@@ -1547,6 +1563,7 @@ body.portal-pagina {
   flex-direction: column;
   gap: 0.5rem;
   width: 100%;
+  box-sizing: border-box;
   margin-top: 0.25rem;
   padding: 0.625rem;
   border: 1px solid var(--borda);
@@ -3351,6 +3368,12 @@ body.portal-pagina {
   align-items: center;
   gap: 0.625rem;
   width: 100%;
+  /*O "Painel" e um <a>, os outros cinco sao <button> — botao ja nasce
+    box-sizing: border-box por padrao do navegador, link (como qualquer
+    elemento genérico) nao. Sem declarar aqui, so o link (100% de largura
+    + padding por cima) estourava a largura do menu e vazava pra fora do
+    balao arredondado — foi o que o usuario viu como "ainda esta vazando".*/
+  box-sizing: border-box;
   padding: 0.5rem 0.5625rem;
   border: 0;
   border-radius: 6px;
@@ -3359,6 +3382,7 @@ body.portal-pagina {
   font-size: 0.75rem;
   color: var(--texto);
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
@@ -3370,6 +3394,13 @@ body.portal-pagina {
 
 .quadro-menu__item:hover {
   background-color: var(--superficie-2);
+}
+
+/*O item "Painel" e um <a>, os outros cinco sao <button> — sem isto ele
+  herdava o azul/roxo padrao de link visitado do navegador, destoando dos
+  outros itens do menu.*/
+.quadro-menu__item:visited {
+  color: var(--texto);
 }
 
 /* ==========================================================================
