@@ -13,6 +13,7 @@
 
 import { supabase } from "../config/supabase-config.js";
 import { ligarDetalhe, confirmarNoSite } from "./portal.js";
+import { pintarFoto } from "../componentes/avatar.js";
 import {
   derivarStatus,
   primeiroNome,
@@ -106,29 +107,11 @@ function ligarAbas(aoMostrar) {
 
 //AVATAR DA TABELA: foto de perfil com as iniciais atras, igual ao resto do
 //site. Recebe o <span> pronto para nao criar um estilo novo por tela.
-function pintarAvatar(elemento, pessoa) {
-  const letras = iniciais(pessoa?.nome, pessoa?.sobrenome);
-  elemento.textContent = letras;
+//versao: depois de trocar a foto de alguem, forca a URL nova (o arquivo e
+//gravado por cima do mesmo caminho e o navegador mostraria a antiga).
+function pintarAvatar(elemento, pessoa, versao = null) {
   elemento.title = nomeCompleto(pessoa) ?? "Alguém";
-
-  if (!pessoa?.foto_path) return;
-
-  const { data } = supabase.storage.from("avatares").getPublicUrl(pessoa.foto_path);
-  const foto = document.createElement("img");
-  foto.src = data.publicUrl;
-  foto.alt = "";
-  foto.loading = "lazy";
-  // Se o arquivo sumiu, as iniciais voltam — nunca deixar o circulo vazio.
-  foto.addEventListener("error", () => {
-    foto.remove();
-    elemento.textContent = letras;
-  });
-  foto.addEventListener("load", () => {
-    elemento.textContent = "";
-    elemento.appendChild(foto);
-  });
-
-  elemento.appendChild(foto);
+  pintarFoto(elemento, pessoa?.foto_path, iniciais(pessoa?.nome, pessoa?.sobrenome), { versao });
 }
 
 /* ==========================================================================
@@ -1119,7 +1102,8 @@ function ligarPessoaDialog(setores, unidades) {
     }
 
     editando.foto_path = gravada.foto_path;
-    pintarAvatar(avatarJanela, editando);
+    // Mesmo caminho de antes: sem versao nova a janela mostraria a foto antiga.
+    pintarAvatar(avatarJanela, editando, String(Date.now()));
     fotoBotaoRemover.hidden = false;
     aoSalvar(editando, false);
     avisar("Foto atualizada");

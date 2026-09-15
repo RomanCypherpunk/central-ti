@@ -8,6 +8,7 @@
 //   Portal "Fechado"            -> aqui "Fechado"
 
 import { supabase } from "../config/supabase-config.js";
+import { pintarFoto } from "../componentes/avatar.js";
 
 const lista = document.querySelector("[data-lista]");
 const vazioEl = document.querySelector("[data-vazio]");
@@ -100,29 +101,13 @@ function nomeCompleto(pessoa) {
 //AVATAR DA CONVERSA: MESMA FOTO DO PORTAL E DE "Dados pessoais" — a que a
 //pessoa enviou para o bucket 'avatares'. Sem foto, ficam as iniciais.
 function montarAvatar(pessoa) {
-  const letras = iniciais(pessoa?.nome, pessoa?.sobrenome);
-
   const avatar = document.createElement("span");
   avatar.className = "mensagem__avatar";
-  avatar.textContent = letras;
   // No balão vai só o primeiro nome; o completo fica no title, ao passar o mouse.
   avatar.title = nomeCompleto(pessoa) ?? "Alguém";
 
-  if (!pessoa?.foto_path) return avatar;
-
-  const { data } = supabase.storage.from("avatares").getPublicUrl(pessoa.foto_path);
-
-  const foto = document.createElement("img");
-  foto.src = data.publicUrl;
-  foto.alt = "";
-  foto.loading = "lazy";
-  //Se o arquivo sumiu, a imagem sai e as iniciais voltam. Repor o texto e
-  //necessario: o 'load' limpa o textContent para a foto nao ficar por cima
-  //das letras, entao sem isso o circulo ficaria vazio numa falha tardia.
-  foto.addEventListener("error", () => { foto.remove(); avatar.textContent = letras; });
-  foto.addEventListener("load", () => { avatar.textContent = ""; avatar.appendChild(foto); });
-
-  avatar.appendChild(foto);
+  // Com foto, as iniciais não aparecem antes dela (era a troca que piscava).
+  pintarFoto(avatar, pessoa?.foto_path, iniciais(pessoa?.nome, pessoa?.sobrenome));
 
   return avatar;
 }
@@ -311,9 +296,50 @@ function montarCartao(chamado) {
   rodape.appendChild(textoRodape);
 
   cartao.append(topo, assunto, descricao, etiquetas, rodape);
-  cartao.addEventListener("click", () => abrirDetalhe(chamado));
+  // O cartao e reaproveitado entre redesenhos (cartaoDoChamado), e o tempo
+  // real troca o objeto do chamado: abre sempre a versao atual pela id.
+  cartao.addEventListener("click", () => {
+    abrirDetalhe(chamados.find((atual) => atual.id === chamado.id) ?? chamado);
+  });
 
   item.appendChild(cartao);
+
+  return item;
+}
+
+//CARTOES JA MONTADOS, POR CHAMADO. A busca e os filtros redesenham a lista a
+//cada tecla: recriar todos os cartoes recriava as fotos junto, e a lista
+//piscava. Agora o cartao so e remontado quando algo que ele mostra mudou
+//(a assinatura); nos outros casos o mesmo elemento volta para a lista.
+const cartoesMontados = new Map(); // id do chamado -> { assinatura, item }
+
+function assinaturaDoCartao(chamado) {
+  return JSON.stringify([
+    chamado.numero,
+    chamado.titulo,
+    chamado.descricao,
+    chamado.abertura_em,
+    chamado.fechamento_em,
+    chamado.categorias?.nome,
+    (chamado.comentarios ?? []).map((comentario) => [
+      comentario.id,
+      comentario.visibilidade,
+      comentario.tipo,
+      comentario.usuarios?.nome,
+      comentario.usuarios?.sobrenome,
+      comentario.usuarios?.foto_path,
+    ]),
+  ]);
+}
+
+function cartaoDoChamado(chamado) {
+  const assinatura = assinaturaDoCartao(chamado);
+  const guardado = cartoesMontados.get(chamado.id);
+
+  if (guardado?.assinatura === assinatura) return guardado.item;
+
+  const item = montarCartao(chamado);
+  cartoesMontados.set(chamado.id, { assinatura, item });
 
   return item;
 }
@@ -335,7 +361,9 @@ function desenharLista() {
     ].some((campo) => campo?.toLowerCase().includes(termo));
   });
 
-  lista.replaceChildren();
+  // Uma troca so, com os cartoes reaproveitados: mover um elemento que ja
+  // existe nao recarrega a foto dele.
+  lista.replaceChildren(...filtrados.map(cartaoDoChamado));
 
   if (!filtrados.length) {
     // A tela inteira continua de pé (busca, filtros, cabeçalho): só a
@@ -348,7 +376,6 @@ function desenharLista() {
   }
 
   vazioEl.hidden = true;
-  filtrados.forEach((chamado) => lista.appendChild(montarCartao(chamado)));
 }
 
 function atualizarResumo() {
