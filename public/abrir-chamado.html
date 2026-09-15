@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Abrir chamado - TI</title>
+  <link rel="icon" href="assets/img/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/abrir-chamado.css">
+</head>
+<body style="visibility: hidden">
+
+  <!--ABRIR CHAMADO. Por enquanto o "Novo chamado" da home vem direto para
+      ca; o caminho certo, quando a triagem existir, e passar por ela antes
+      (triagem.html) e so abrir chamado se a base de solucoes nao resolver.
+
+      Visual da home: a faixa em degrade (.destaque), a saudacao e as portas
+      (.porta) vem prontas de index.css. Dois passos: escolher o tipo nas
+      tres portas e preencher o formulario daquele tipo, num cartao branco
+      que sobe por cima da faixa.-->
+
+  <header class="topo">
+
+    <!--MARCA-->
+    <div class="topo__marca">
+      <a class="topo__logo-link" href="index.html"><img class="topo__logo" src="assets/img/logo-claro.svg" alt="Gasômetro Madeiras"></a>
+      <span class="topo__divisor" aria-hidden="true"></span>
+      <span class="topo__produto">TI - Gasômetro Madeiras</span>
+    </div>
+
+    <!--ACOES DA DIREITA-->
+    <div class="topo__acoes">
+
+      <div class="topo__perfil">
+        <button class="topo__usuario" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="topo__avatar" data-iniciais></span>
+          <span class="topo__usuario-texto">
+            <span class="topo__usuario-nome" data-nome></span>
+            <span class="topo__usuario-setor" data-setor></span>
+          </span>
+          <svg class="topo__usuario-seta" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <div class="topo__menu">
+          <a class="topo__menu-item" href="index.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M4 11.5 12 4.5l8 7" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6 10.5V19h12v-8.5" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Início
+          </a>
+          <a class="topo__menu-item" href="perfil.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M5 20a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round"/>
+            </svg>
+            Dados pessoais
+          </a>
+
+          <!--PORTAL: SO PARA ADMIN. NASCE ESCONDIDO E O main.js MOSTRA-->
+          <a class="topo__menu-item" href="portal.html" data-menu-portal hidden>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M3.5 9h17" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M8 13h3.5M8 16h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            Portal de Chamados
+          </a>
+
+          <a class="topo__menu-item" href="solicitacoes.html">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <rect x="3.5" y="5" width="17" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M7.5 9.5h9M7.5 13h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            Solicitações
+          </a>
+
+          <a class="topo__menu-item" href="base.html" data-menu-base>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M3.5 5.2A1.7 1.7 0 0 1 5.2 3.5H10a2.5 2.5 0 0 1 2 1v14a2.5 2.5 0 0 0-2-1H5.2a1.7 1.7 0 0 1-1.7-1.7Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+              <path d="M20.5 5.2a1.7 1.7 0 0 0-1.7-1.7H14a2.5 2.5 0 0 0-2 1v14a2.5 2.5 0 0 1 2-1h4.8a1.7 1.7 0 0 0 1.7-1.7Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+            </svg>
+            Soluções
+          </a>
+        </div>
+      </div>
+
+      <button class="topo__sair" type="button" data-acao="sair">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M14.5 4.5h3.2a1.8 1.8 0 0 1 1.8 1.8v11.4a1.8 1.8 0 0 1-1.8 1.8h-3.2"
+                fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9.5 15.5 5 12l4.5-3.5M5 12h9" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Sair</span>
+      </button>
+
+    </div>
+  </header>
+
+  <main class="conteudo abrir">
+
+    <!-- ================= PASSO 1: TRES PORTAS, IGUAIS AS DA HOME ================= -->
+    <section class="destaque abrir__escolha-tipo" data-passo-tipo>
+
+      <h1 class="saudacao">Olá, <span data-saudacao-nome>você</span>! Que tipo de chamado você quer abrir?</h1>
+
+      <div class="portas portas--tres">
+
+        <article class="porta">
+          <span class="porta__icone porta__icone--laranja" data-icone-tipo="cadastro">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M19 8v6M16 11h6"/>
+            </svg>
+          </span>
+          <p class="porta__rotulo porta__rotulo--laranja">Colaborador</p>
+          <h2 class="porta__titulo">Cadastro de colaborador</h2>
+          <p class="porta__descricao">Pessoa nova na empresa: dados, perfil no ERP, e-mail, NL e Teams.</p>
+          <button class="botao" type="button" data-escolher-tipo="cadastro">
+            Preencher
+            <span aria-hidden="true">→</span>
+          </button>
+        </article>
+
+        <article class="porta">
+          <span class="porta__icone porta__icone--laranja" data-icone-tipo="desligamento">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 11h6"/>
+            </svg>
+          </span>
+          <p class="porta__rotulo porta__rotulo--laranja">Colaborador</p>
+          <h2 class="porta__titulo">Desligamento de colaborador</h2>
+          <p class="porta__descricao">Saída da empresa: excluir o e-mail e bloquear o acesso ao NL.</p>
+          <button class="botao" type="button" data-escolher-tipo="desligamento">
+            Preencher
+            <span aria-hidden="true">→</span>
+          </button>
+        </article>
+
+        <article class="porta">
+          <span class="porta__icone porta__icone--laranja" data-icone-tipo="suporte">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.8 2.8-2.6-2.6z"/>
+            </svg>
+          </span>
+          <p class="porta__rotulo porta__rotulo--laranja">Atendimento</p>
+          <h2 class="porta__titulo">Suporte TI</h2>
+          <p class="porta__descricao">Problema ou dúvida: equipamento, sistema, internet, impressora.</p>
+          <button class="botao" type="button" data-escolher-tipo="suporte">
+            Preencher
+            <span aria-hidden="true">→</span>
+          </button>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ================= PASSO 2: FORMULARIO DO TIPO ESCOLHIDO =================
+         novalidate: a validacao e do abrir-chamado.js, com a mensagem no nosso
+         visual. So o grupo do tipo escolhido aparece.-->
+    <form class="abrir__formulario" data-formulario novalidate hidden>
+
+      <!--FAIXA: A MESMA DA HOME, MAIS BAIXA, COM O TIPO ESCOLHIDO-->
+      <header class="destaque abrir__faixa">
+        <div class="abrir__faixa-conteudo">
+          <button class="abrir__trocar" type="button" data-trocar-tipo>
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Trocar tipo de chamado
+          </button>
+
+          <div class="abrir__faixa-titulo">
+            <span class="porta__icone abrir__faixa-icone" data-tipo-icone aria-hidden="true"></span>
+            <div>
+              <p class="abrir__faixa-rotulo">Abrir chamado</p>
+              <h1 class="abrir__faixa-nome" data-tipo-nome></h1>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!--CARTAO BRANCO QUE SOBE POR CIMA DA FAIXA-->
+      <div class="abrir__folha">
+
+        <p class="abrir__aviso" data-aviso role="alert"></p>
+
+        <!-- ================= QUEM ESTA ABRINDO (todos os tipos) =================
+             Vem do cadastro de quem esta logado e nao da para mudar aqui: e isso
+             que identifica o chamado. A unidade do chamado e a desse cadastro.-->
+        <section class="abrir__secao">
+          <div class="abrir__secao-titulo">
+            <span class="abrir__secao-texto">Quem está abrindo</span>
+            <span class="abrir__secao-ajuda">vem do seu cadastro · para corrigir, fale com a TI</span>
+          </div>
+
+          <div class="abrir__linha">
+            <div class="abrir__campo">
+              <label class="abrir__label" for="solicitante-nome">Nome</label>
+              <input class="abrir__input" id="solicitante-nome" type="text" readonly tabindex="-1"
+                     data-solicitante="nome" value="Carregando…">
+            </div>
+
+            <div class="abrir__campo">
+              <label class="abrir__label" for="solicitante-email">E-mail</label>
+              <input class="abrir__input" id="solicitante-email" type="text" readonly tabindex="-1"
+                     data-solicitante="email" value="Carregando…">
+            </div>
+          </div>
+
+          <div class="abrir__linha">
+            <div class="abrir__campo">
+              <label class="abrir__label" for="solicitante-setor">Setor</label>
+              <input class="abrir__input" id="solicitante-setor" type="text" readonly tabindex="-1"
+                     data-solicitante="setor" value="Carregando…">
+            </div>
+
+            <div class="abrir__campo">
+              <label class="abrir__label" for="solicitante-unidade">Unidade</label>
+              <input class="abrir__input" id="solicitante-unidade" type="text" readonly tabindex="-1"
+                     data-solicitante="unidade" value="Carregando…">
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= SUPORTE TI ================= -->
+        <div class="abrir__grupo" data-grupo="suporte" hidden>
+          <section class="abrir__secao">
+            <div class="abrir__secao-titulo">
+              <span class="abrir__secao-texto">O que aconteceu</span>
+            </div>
+
+            <div class="abrir__campo">
+              <label class="abrir__label" for="suporte-assunto">Assunto</label>
+              <input class="abrir__input" id="suporte-assunto" type="text" maxlength="120" autocomplete="off"
+                     data-campo="assunto" data-obrigatorio data-minimo="3"
+                     data-mensagem="Escreva um assunto curto para o chamado."
+                     placeholder="Ex.: Impressora do caixa não imprime">
+            </div>
+
+            <div class="abrir__campo">
+              <label class="abrir__label" for="suporte-categoria">Categoria</label>
+              <select class="abrir__input abrir__select" id="suporte-categoria"
+                      data-campo="categoria" data-lista="categorias" data-obrigatorio data-mensagem="Escolha a categoria.">
+                <option value="">Carregando…</option>
+              </select>
+            </div>
+
+            <div class="abrir__campo">
+              <label class="abrir__label" for="suporte-descricao">Descrição</label>
+              <textarea class="abrir__input abrir__textarea" id="suporte-descricao" rows="5"
+                        data-campo="descricao" data-obrigatorio data-mensagem="Descreva o que está acontecendo."
+                        placeholder="Desde quando acontece, o que você já tentou, a mensagem de erro que aparece…"></textarea>
+            </div>
+
+            <!--AS DUAS PERGUNTAS QUE MUDAM A URGENCIA DO ATENDIMENTO-->
+            <div class="abrir__linha">
+              <fieldset class="abrir__pergunta">
+                <legend class="abrir__label">Tem cliente esperando na loja?</legend>
+                <div class="abrir__sim-nao">
+                  <label class="abrir__opcao">
+                    <input type="radio" name="cliente_na_loja" value="nao" checked>
+                    <span>Não</span>
+                  </label>
+                  <label class="abrir__opcao">
+                    <input type="radio" name="cliente_na_loja" value="sim">
+                    <span>Sim</span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset class="abrir__pergunta">
+                <legend class="abrir__label">O sistema está lento ou fora do ar?</legend>
+                <div class="abrir__sim-nao">
+                  <label class="abrir__opcao">
+                    <input type="radio" name="sistema_lento_ou_fora" value="nao" checked>
+                    <span>Não</span>
+                  </label>
+                  <label class="abrir__opcao">
+                    <input type="radio" name="sistema_lento_ou_fora" value="sim">
+                    <span>Sim</span>
+                  </label>
+                </div>
+              </fieldset>
+            </div>
+          </section>
+        </div>
+
+        <!-- ================= CADASTRO DE COLABORADOR ================= -->
+        <div class="abrir__grupo" data-grupo="cadastro" hidden>
+          <section class="abrir__secao">
+            <div class="abrir__secao-titulo">
+              <span class="abrir__secao-texto">Novo colaborador</span>
+            </div>
+
+            <div class="abrir__linha">
+              <div class="abrir__campo">
+                <label class="abrir__label" for="cadastro-nome">Nome completo</label>
+                <input class="abrir__input" id="cadastro-nome" type="text" maxlength="120" autocomplete="off"
+                       data-campo="nome" data-obrigatorio data-minimo="3"
+                       data-mensagem="Informe o nome completo do colaborador." placeholder="Ex.: Maria Souza Lima">
+              </div>
+
+              <div class="abrir__campo">
+                <label class="abrir__label" for="cadastro-cargo">Cargo</label>
+                <input class="abrir__input" id="cadastro-cargo" type="text" maxlength="80" autocomplete="off"
+                       data-campo="cargo" data-obrigatorio data-mensagem="Informe o cargo." placeholder="Ex.: Vendedora">
+              </div>
+            </div>
+
+            <div class="abrir__linha">
+              <div class="abrir__campo">
+                <label class="abrir__label" for="cadastro-setor">Setor</label>
+                <select class="abrir__input abrir__select" id="cadastro-setor"
+                        data-campo="setor" data-lista="setores" data-obrigatorio data-mensagem="Escolha o setor do colaborador.">
+                  <option value="">Carregando…</option>
+                </select>
+              </div>
+
+              <div class="abrir__campo">
+                <label class="abrir__label" for="cadastro-gestor">Gestor responsável</label>
+                <input class="abrir__input" id="cadastro-gestor" type="text" maxlength="120" autocomplete="off"
+                       data-campo="gestor" data-obrigatorio data-mensagem="Informe o gestor responsável."
+                       placeholder="Quem responde por essa pessoa">
+              </div>
+            </div>
+
+            <div class="abrir__linha">
+              <div class="abrir__campo">
+                <label class="abrir__label" for="cadastro-nascimento">Data de nascimento</label>
+                <input class="abrir__input" id="cadastro-nascimento" type="date"
+                       data-campo="nascimento" data-obrigatorio data-validar="nascimento"
+                       data-mensagem="Informe a data de nascimento.">
+              </div>
+
+              <div class="abrir__campo">
+                <label class="abrir__label" for="cadastro-cpf">CPF</label>
+                <input class="abrir__input" id="cadastro-cpf" type="text" inputmode="numeric" maxlength="14" autocomplete="off"
+                       data-campo="cpf" data-mascara="cpf" data-obrigatorio data-validar="cpf"
+                       data-mensagem="Informe o CPF." placeholder="000.000.000-00">
+              </div>
+            </div>
+
+            <div class="abrir__linha">
+              <div class="abrir__campo">
+                <label class="abrir__label" for="cadastro-cep">CEP</label>
+                <input class="abrir__input" id="cadastro-cep" type="text" inputmode="numeric" maxlength="9" autocomplete="off"
+                       data-campo="cep" data-mascara="cep" data-obrigatorio data-validar="cep"
+                       data-mensagem="Informe o CEP." placeholder="00000-000">
+              </div>
+
+              <div class="abrir__campo">
+                <label class="abrir__label" for="cadastro-celular">Nº do celular</label>
+                <input class="abrir__input" id="cadastro-celular" type="tel" inputmode="numeric" maxlength="15" autocomplete="off"
+                       data-campo="celular" data-mascara="celular" data-obrigatorio data-validar="celular"
+                       data-mensagem="Informe o número do celular." placeholder="(12) 91234-5678">
+              </div>
+            </div>
+          </section>
+
+          <section class="abrir__secao">
+            <div class="abrir__secao-titulo">
+              <span class="abrir__secao-texto">Acesso no ERP</span>
+              <span class="abrir__secao-ajuda">perfis do sistema da empresa</span>
+            </div>
+
+            <!--PERFIL DE ACESSO: os perfis do ERP (nao tem relacao com os perfis
+                desta plataforma). "Outro" abre um campo para descrever.-->
+            <fieldset class="abrir__escolha abrir__campo" data-escolha-obrigatoria="perfil"
+                      data-mensagem="Escolha o perfil de acesso do colaborador.">
+              <legend class="abrir__label">Perfil de acesso <span class="abrir__obrigatorio" aria-hidden="true">*</span></legend>
+              <div class="abrir__lista">
+                <label class="abrir__radio"><input type="radio" name="perfil" value="501 - Gestor da unidade"><span>501 - Gestor da unidade</span></label>
+                <label class="abrir__radio"><input type="radio" name="perfil" value="510 - Logística"><span>510 - Logística</span></label>
+                <label class="abrir__radio"><input type="radio" name="perfil" value="512 - Fiscal"><span>512 - Fiscal</span></label>
+                <label class="abrir__radio"><input type="radio" name="perfil" value="513 - Coordenador da unidade"><span>513 - Coordenador da unidade</span></label>
+                <label class="abrir__radio"><input type="radio" name="perfil" value="514 - Vendas"><span>514 - Vendas</span></label>
+                <label class="abrir__radio"><input type="radio" name="perfil" value="52X - Financeiro gestão loja"><span>52X - Financeiro gestão loja</span></label>
+                <label class="abrir__radio"><input type="radio" name="perfil" value="9000 - Administrador"><span>9000 - Administrador</span></label>
+                <label class="abrir__radio"><input type="radio" name="perfil" value="outro"><span>Outro</span></label>
+              </div>
+              <div class="abrir__outro" data-perfil-outro hidden>
+                <input class="abrir__input" type="text" maxlength="80" autocomplete="off" aria-label="Qual perfil de acesso"
+                       data-campo="perfil_outro" placeholder="Qual perfil? Ex.: 530 - Compras">
+              </div>
+            </fieldset>
+
+            <div class="abrir__campo">
+              <label class="abrir__label" for="cadastro-copiar">
+                Copiar acessos do login <span class="abrir__opcional">opcional</span>
+              </label>
+              <input class="abrir__input" id="cadastro-copiar" type="text" maxlength="80" autocomplete="off"
+                     data-campo="copiar_acessos" placeholder="Login de quem já tem os mesmos acessos. Ex.: maria.souza">
+            </div>
+          </section>
+
+          <section class="abrir__secao">
+            <div class="abrir__secao-titulo">
+              <span class="abrir__secao-texto">O que vai precisar</span>
+              <span class="abrir__secao-ajuda">marque tudo que se aplica</span>
+            </div>
+
+            <div class="abrir__campo">
+              <div class="abrir__marcas">
+                <label class="abrir__marca"><input type="checkbox" name="acessos" value="E-mail"><span>E-mail</span></label>
+                <label class="abrir__marca"><input type="checkbox" name="acessos" value="NL"><span>NL</span></label>
+                <label class="abrir__marca"><input type="checkbox" name="acessos" value="Teams"><span>Teams</span></label>
+              </div>
+            </div>
+
+            <div class="abrir__campo">
+              <label class="abrir__label" for="cadastro-observacoes">
+                Observações <span class="abrir__opcional">opcional</span>
+              </label>
+              <textarea class="abrir__input abrir__textarea abrir__textarea--curta" id="cadastro-observacoes" rows="3"
+                        data-campo="observacoes"
+                        placeholder="Algo que a equipe precise saber: horário, data de início, etc."></textarea>
+            </div>
+          </section>
+        </div>
+
+        <!-- ================= DESLIGAMENTO DE COLABORADOR ================= -->
+        <div class="abrir__grupo" data-grupo="desligamento" hidden>
+          <section class="abrir__secao">
+            <div class="abrir__secao-titulo">
+              <span class="abrir__secao-texto">Quem está saindo</span>
+            </div>
+
+            <div class="abrir__campo">
+              <label class="abrir__label" for="desligamento-nome">Nome completo</label>
+              <input class="abrir__input" id="desligamento-nome" type="text" maxlength="120" autocomplete="off"
+                     data-campo="nome" data-obrigatorio data-minimo="3"
+                     data-mensagem="Informe o nome completo de quem está saindo." placeholder="Ex.: João Pereira">
+            </div>
+
+            <div class="abrir__linha">
+              <div class="abrir__campo">
+                <label class="abrir__label" for="desligamento-email">E-mail</label>
+                <input class="abrir__input" id="desligamento-email" type="email" maxlength="160" autocomplete="off"
+                       data-campo="email" data-obrigatorio data-validar="email"
+                       data-mensagem="Informe o e-mail de quem está saindo."
+                       placeholder="Ex.: joao.pereira@madeirasgasometro.com.br">
+              </div>
+
+              <div class="abrir__campo">
+                <label class="abrir__label" for="desligamento-setor">Setor</label>
+                <select class="abrir__input abrir__select" id="desligamento-setor"
+                        data-campo="setor" data-lista="setores" data-obrigatorio data-mensagem="Escolha o setor do colaborador.">
+                  <option value="">Carregando…</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section class="abrir__secao">
+            <div class="abrir__secao-titulo">
+              <span class="abrir__secao-texto">O que precisa ser feito</span>
+              <span class="abrir__secao-ajuda">marque tudo que se aplica</span>
+            </div>
+
+            <div class="abrir__campo">
+              <div class="abrir__marcas">
+                <label class="abrir__marca"><input type="checkbox" name="providencias" value="Excluir e-mail" data-excluir-email><span>Excluir e-mail</span></label>
+                <label class="abrir__marca"><input type="checkbox" name="providencias" value="Bloquear acesso ao NL"><span>Bloquear acesso ao NL</span></label>
+              </div>
+            </div>
+
+            <!--REPASSAR: so faz sentido se o e-mail NAO vai ser excluido. Marcou
+                "Excluir e-mail", o campo some (e o valor nao vai no chamado).-->
+            <div class="abrir__campo" data-repassar-emails>
+              <label class="abrir__label" for="desligamento-repassar">
+                Repassar os e-mails para <span class="abrir__opcional">opcional</span>
+              </label>
+              <input class="abrir__input" id="desligamento-repassar" type="text" maxlength="160" autocomplete="off"
+                     data-campo="repassar_emails" placeholder="Nome ou e-mail de quem vai receber as mensagens">
+            </div>
+
+            <div class="abrir__campo">
+              <label class="abrir__label" for="desligamento-observacoes">
+                Observações <span class="abrir__opcional">opcional</span>
+              </label>
+              <textarea class="abrir__input abrir__textarea abrir__textarea--curta" id="desligamento-observacoes" rows="3"
+                        data-campo="observacoes"
+                        placeholder="Algo que a equipe precise saber: backup de arquivos, horário do último dia, etc."></textarea>
+            </div>
+          </section>
+        </div>
+
+        <!-- ================= PRINTS E ARQUIVOS (todos os tipos) ================= -->
+        <section class="abrir__secao abrir__secao--ultima">
+          <div class="abrir__secao-titulo">
+            <span class="abrir__secao-texto">Prints e arquivos</span>
+            <span class="abrir__secao-ajuda">opcional</span>
+          </div>
+
+          <label class="abrir__soltar" data-soltar>
+            <input type="file" data-arquivos hidden multiple accept="image/*,application/pdf">
+            <svg class="abrir__soltar-icone" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path d="M12 15.5v-10M8 9l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4.5 15.5v2.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2.5" fill="none" stroke="currentColor"
+                    stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <span class="abrir__soltar-titulo">Arraste aqui, <u>escolha do computador</u> ou cole com Ctrl+V</span>
+            <span class="abrir__soltar-dica">Imagens ou PDF, até 10 MB cada</span>
+          </label>
+
+          <div class="abrir__pendentes" data-pendentes hidden></div>
+        </section>
+
+        <footer class="abrir__acoes">
+          <button class="botao-secundario" type="button" data-trocar-tipo>Voltar</button>
+          <button class="botao" type="submit" data-enviar>Abrir chamado</button>
+        </footer>
+      </div>
+    </form>
+
+    <!-- ================= DEPOIS DE ABRIR ================= -->
+    <section class="abrir__formulario" data-sucesso hidden>
+      <div class="destaque abrir__faixa abrir__faixa--curta" aria-hidden="true"></div>
+
+      <div class="abrir__folha abrir__sucesso">
+        <span class="abrir__sucesso-icone" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="28" height="28">
+            <path d="m6 12.5 4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.2"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <h1 class="abrir__sucesso-titulo" data-sucesso-titulo>Chamado aberto</h1>
+        <p class="abrir__sucesso-texto" data-sucesso-texto></p>
+        <div class="abrir__acoes abrir__acoes--centro">
+          <button class="botao-secundario" type="button" data-abrir-outro>Abrir outro chamado</button>
+          <a class="botao" href="solicitacoes.html">
+            Ver minhas solicitações
+            <span aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/pages/abrir-chamado.js"></script>
+</body>
+</html>

@@ -1,9 +1,9 @@
 /* ==========================================================================
    SOLICITAÇÕES — a mesma informação do Portal, do lado de quem abriu.
-   O topo vem de index.css. A escolha central desta tela: quem abriu um
-   chamado tem poucos, e uma pergunta só ("e o meu?"). Por isso é uma
-   pilha de cartões com o status carregado numa barra colorida à esquerda
-   — e não a tabela densa que o Portal usa para varrer centenas de linhas.
+   O topo vem de index.css. Os chamados ficam numa grade de cartões no
+   mesmo estilo dos cards da Base de Soluções (base.css .solucao-card):
+   status em selo colorido, título, descrição curta, etiquetas e um rodapé
+   com quem respondeu e quando foi aberto.
    ========================================================================== */
 
 .solicitacoes {
@@ -17,8 +17,9 @@
   background-color: #fafafa;
 }
 
+/*MESMA LARGURA DA HOME: a grade precisa de espaco para mais de uma coluna.*/
 .solicitacoes__area {
-  max-width: 52rem;
+  max-width: 76rem;
   margin: 0 auto;
 }
 
@@ -139,49 +140,54 @@
 }
 
 /* --------------------------------------------------------------------------
-   LISTA DE CHAMADOS
+   GRADE DE CHAMADOS — mesmo vocabulario dos cards da Base de Soluções:
+   fundo branco, borda fina, raio de 10px, titulo em Sora, descricao em duas
+   linhas, etiquetas cinza e rodape separado por uma linha.
    -------------------------------------------------------------------------- */
 
 .chamados {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18.75rem, 1fr));
+  gap: 1.125rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-/*O CARTAO INTEIRO E O ALVO DE CLIQUE: a area de toque acompanha o que o
-  olho entende como "um chamado".*/
+/*O <li> estica o cartao ate a altura da linha da grade: cartoes lado a
+  lado ficam do mesmo tamanho, com o rodape alinhado embaixo.*/
+.chamados > li {
+  display: flex;
+}
+
+/*O CARTAO INTEIRO E O ALVO DE CLIQUE*/
 .chamado {
-  display: grid;
-  grid-template-columns: 5px 1fr auto;
-  align-items: center;
-  gap: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
   width: 100%;
-  padding: 0;
+  box-sizing: border-box;
+  padding: 1.125rem;
   border: 1px solid #e5e5e5;
-  border-radius: 12px;
+  border-radius: 10px;
   background-color: #fff;
   font-family: inherit;
   text-align: left;
+  color: #1a1a1a;
   cursor: pointer;
-  overflow: hidden;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .chamado:hover {
-  border-color: #d4d4d8;
-  box-shadow: 0 2px 10px rgba(26, 26, 26, 0.06);
-  transform: translateY(-1px);
+  border-color: #8a8a8a;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.05);
 }
 
-/*TOQUE: o mesmo destaque do hover, mais um leve encolhimento — confirma
-  o toque na hora, sem esperar o clique terminar.*/
+/*TOQUE: sem hover no celular, um leve encolhimento confirma o toque.*/
 .chamado:active {
-  border-color: #d4d4d8;
-  box-shadow: 0 2px 10px rgba(26, 26, 26, 0.06);
-  transform: translateY(0) scale(0.99);
+  transform: scale(0.99);
 }
 
 .chamado:focus-visible {
@@ -189,70 +195,40 @@
   outline-offset: 2px;
 }
 
-/*A BARRA E O ELEMENTO FORTE DA TELA: e por ela que se varre a lista.
-  Vai de ponta a ponta do cartao, sem respiro, pra ler como marcador.*/
-.chamado__barra {
-  align-self: stretch;
-  background-color: #8a8a8a;
+/*AGUARDANDO VOCE: o unico estado que pede acao ganha borda propria, alem
+  do selo — da para achar na grade sem ler cartao por cartao.*/
+.chamado--aguardando {
+  border-color: #f3bcbc;
 }
 
-.chamado--aberto .chamado__barra { background-color: #2c5c96; }
-.chamado--andamento .chamado__barra { background-color: #a37a0a; }
-.chamado--aguardando .chamado__barra { background-color: #d64545; }
-.chamado--fechado .chamado__barra { background-color: #8a8a8a; }
-
-.chamado__conteudo {
-  min-width: 0;
-  padding: 0.875rem 0 0.875rem 1.125rem;
+.chamado--aguardando:hover {
+  border-color: #d64545;
 }
 
-.chamado__assunto {
-  display: block;
-  margin-bottom: 0.1875rem;
-  font-size: 0.9375rem;
-  color: #1a1a1a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chamado__meta {
-  display: block;
-  font-size: 0.75rem;
-  color: #8a8a8a;
-}
-
-/*O NUMERO E REFERENCIA, NAO TITULO: fica em tom de apoio dentro do meta.*/
-.chamado__numero {
-  font-variant-numeric: tabular-nums;
-}
-
-.chamado__lado {
+.chamado__topo {
   display: flex;
   align-items: center;
-  gap: 0.875rem;
-  padding-right: 1.125rem;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
-/*SINAL DE MENSAGEM NOVA: so aparece quando a bola esta com o usuario.*/
-.chamado__aviso {
-  display: inline-flex;
+.chamado__selos {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.3125rem;
-  padding: 0.1875rem 0.5rem;
-  border-radius: 999px;
-  background-color: #fdeceb;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: #b02a2a;
-  white-space: nowrap;
+  gap: 0.375rem;
+  min-width: 0;
 }
 
+/*STATUS EM SELO COLORIDO, COMO O TIPO NOS CARDS DE SOLUCAO*/
 .chamado__status {
   display: inline-flex;
   align-items: center;
-  gap: 0.4375rem;
-  font-size: 0.8125rem;
+  gap: 0.3125rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -264,10 +240,173 @@
   background-color: currentColor;
 }
 
-.chamado--aberto .chamado__status { color: #2c5c96; }
-.chamado--andamento .chamado__status { color: #a37a0a; }
-.chamado--aguardando .chamado__status { color: #d64545; }
-.chamado--fechado .chamado__status { color: #8a8a8a; }
+.chamado--aberto .chamado__status { background-color: #e8eef6; color: #2c5c96; }
+.chamado--andamento .chamado__status { background-color: #fbf3dc; color: #8a6608; }
+.chamado--aguardando .chamado__status { background-color: #fdeceb; color: #b02a2a; }
+.chamado--fechado .chamado__status { background-color: #f2f3f5; color: #6b7280; }
+
+/*"RESPONDA": so aparece quando a bola esta com o usuario*/
+.chamado__aviso {
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background-color: #d64545;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/*O NUMERO E REFERENCIA, NAO TITULO: tom de apoio, no canto*/
+.chamado__numero {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #8a8a8a;
+}
+
+.chamado__assunto {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  color: #1a1a1a;
+}
+
+.chamado__descricao {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  color: #5a5a5a;
+}
+
+.chamado__descricao--vazia {
+  font-style: italic;
+  color: #a1a1aa;
+}
+
+.chamado__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.chamado__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0.25rem 0.5625rem;
+  border-radius: 6px;
+  background-color: #f0f0f1;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #5a5a5a;
+}
+
+.chamado__tag-icone {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+}
+
+/*RODAPE: margin-top auto empurra para o fim do cartao, alinhando os
+  rodapes da mesma linha da grade mesmo com titulos de tamanhos diferentes.*/
+.chamado__rodape {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e5e5e5;
+}
+
+.chamado__avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: rgba(221, 91, 18, 0.1);
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #c24f00;
+  user-select: none;
+}
+
+.chamado__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*QUEM CONVERSOU: FOTOS EMPILHADAS (ate 3). A borda branca separa uma foto
+  da outra onde elas se sobrepoem.*/
+.chamado__avatares {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.chamado__avatares .chamado__avatar {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.chamado__avatares .chamado__avatar + .chamado__avatar {
+  margin-left: -6px;
+}
+
+/*NINGUEM RESPONDEU AINDA: relogio no lugar da foto*/
+.chamado__avatar--vazio {
+  background-color: #f0f0f1;
+  color: #8a8a8a;
+}
+
+.chamado__avatar-icone {
+  width: 14px;
+  height: 14px;
+}
+
+.chamado__quem {
+  min-width: 0;
+  overflow: hidden;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #1a1a1a;
+}
+
+.chamado__quem--vazio {
+  font-family: "Poppins", system-ui, sans-serif;
+  font-weight: 500;
+  color: #8a8a8a;
+}
+
+/*TEXTO DO RODAPE EM DUAS LINHAS: quem conversou em cima, data embaixo*/
+.chamado__rodape-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.chamado__quando {
+  font-size: 0.6875rem;
+  color: #8a8a8a;
+}
 
 .chamados__vazio {
   margin: 0;
@@ -680,19 +819,10 @@
     max-width: none;
   }
 
-  /*NO CELULAR O STATUS DESCE PARA O META: nao cabe ao lado sem espremer
-    o assunto, que e o que importa.*/
-  .chamado {
-    grid-template-columns: 5px 1fr;
-  }
-
-  .chamado__lado {
-    grid-column: 2;
-    padding: 0 1.125rem 0.875rem;
-  }
-
-  .chamado__conteudo {
-    padding-bottom: 0.5rem;
+  /*NO CELULAR, UMA COLUNA SO: o minimo de 18.75rem da grade apertaria o
+    cartao em telas mais estreitas que isso.*/
+  .chamados {
+    grid-template-columns: 1fr;
   }
 
   .mensagem {

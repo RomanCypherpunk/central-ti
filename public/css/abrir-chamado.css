@@ -1,0 +1,828 @@
+/* ==========================================================================
+   ABRIR CHAMADO
+   Segue a identidade do site:
+   - topo, faixa em degrade (.destaque), saudacao, portas (.porta) e botao
+     (.botao) vem prontos de index.css, iguais aos da home;
+   - os campos seguem o formulario de cadastro/login (cadastro.css): rotulo
+     em caixa alta pequena, campo com borda #d7dce3 e cantos de 3px, foco
+     com anel laranja.
+   Aqui ficam so os ajustes desta tela e o formulario.
+   ========================================================================== */
+
+/*O min-height: 100% do index.css nao da altura ao body (o html nao tem
+  altura definida), entao o flex: 1 do .conteudo nunca esticava. Aqui o body
+  ocupa a tela toda e o conteudo cresce ate o pe.*/
+body {
+  min-height: 100vh;
+}
+
+/*Coluna flexivel: na escolha do tipo a faixa estica ate o pe da tela, sem
+  sobrar branco embaixo em telas altas.*/
+.abrir {
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
+}
+
+.abrir__formulario[hidden],
+.abrir__escolha-tipo[hidden],
+.abrir__grupo[hidden] {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   PASSO 1: TRES PORTAS NA FAIXA (mesmas portas da home)
+   -------------------------------------------------------------------------- */
+
+.abrir__escolha-tipo {
+  /*A faixa ocupa toda a altura que sobra abaixo do topo.*/
+  flex: 1;
+  border-bottom: 0;
+  padding-top: 4.5rem;
+  padding-bottom: 5rem;
+}
+
+.portas--tres {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.portas--tres .porta {
+  padding: 1.75rem;
+}
+
+.portas--tres .porta__titulo {
+  font-size: 1.3125rem;
+}
+
+/*Espaco entre o texto e o botao, que o margin-top: auto do .botao cola no pe.*/
+.portas--tres .porta__descricao {
+  margin-bottom: 1.5rem;
+  font-size: 0.9375rem;
+}
+
+/* --------------------------------------------------------------------------
+   PASSO 2: FAIXA BAIXA COM O TIPO ESCOLHIDO + CARTAO QUE SOBE POR CIMA
+   -------------------------------------------------------------------------- */
+
+.abrir__faixa {
+  /*O fundo extra embaixo e o espaco que o cartao ocupa ao subir.*/
+  padding: 2.25rem 1.5rem 6rem;
+}
+
+.abrir__faixa--curta {
+  padding: 0 1.5rem 7rem;
+}
+
+.abrir__faixa-conteudo {
+  max-width: 50rem;
+  margin: 0 auto;
+}
+
+.abrir__trocar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.abrir__trocar:hover {
+  color: #fff;
+}
+
+.abrir__trocar:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.abrir__faixa-titulo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/*O quadrado do icone da porta, em vidro branco: laranja sobre laranja sumiria.*/
+.abrir__faixa-icone {
+  flex-shrink: 0;
+  background-color: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+
+.abrir__faixa-rotulo {
+  margin: 0 0 0.125rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.abrir__faixa-nome {
+  margin: 0;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: #fff;
+}
+
+/*CARTAO: o mesmo raio e a mesma borda das portas, subindo sobre a faixa.*/
+.abrir__folha {
+  position: relative;
+  max-width: 50rem;
+  margin: -4rem auto 3.5rem;
+  padding: 2rem 2.25rem;
+  box-sizing: border-box;
+  border: 1px solid #e5e5e5;
+  border-radius: 15px;
+  background-color: #fff;
+  box-shadow: 0 16px 40px rgba(26, 26, 26, 0.08);
+}
+
+/*ERRO DE VALIDACAO OU DE ENVIO: a mesma caixa do cadastro*/
+.abrir__aviso {
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 0.9375rem;
+  border: 1px solid #f3b9b9;
+  border-radius: 3px;
+  background-color: #fdecec;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #9c2b2b;
+}
+
+.abrir__aviso:empty {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   SECOES
+   -------------------------------------------------------------------------- */
+
+.abrir__secao {
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid #e4e8ee;
+}
+
+.abrir__secao--ultima {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.abrir__secao-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  margin-bottom: 1.125rem;
+}
+
+/*O "ETAPA 1 DE 2" do cadastro: laranja, caixa alta, pequeno e forte.*/
+.abrir__secao-texto {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #dd5b12;
+}
+
+.abrir__secao-ajuda {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/* --------------------------------------------------------------------------
+   CAMPOS (mesmo desenho do cadastro)
+   -------------------------------------------------------------------------- */
+
+.abrir__campo {
+  margin-bottom: 1.125rem;
+}
+
+.abrir__campo:last-child {
+  margin-bottom: 0;
+}
+
+.abrir__linha {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.125rem;
+}
+
+.abrir__linha:last-child {
+  margin-bottom: 0;
+}
+
+.abrir__linha > .abrir__campo {
+  margin-bottom: 0;
+}
+
+.abrir__label {
+  display: block;
+  margin-bottom: 0.5rem;
+  padding: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #55606e;
+}
+
+.abrir__opcional,
+.abrir__obrigatorio {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.abrir__opcional {
+  color: #94a3b8;
+}
+
+.abrir__obrigatorio {
+  color: #dd5b12;
+}
+
+.abrir__input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.8125rem 0.9375rem;
+  border: 1px solid #d7dce3;
+  border-radius: 3px;
+  background-color: #fff;
+  font-family: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.875rem;
+  color: #14181f;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.abrir__input::placeholder {
+  color: #94a3b8;
+}
+
+.abrir__input:focus {
+  outline: none;
+  border-color: #f87800;
+  box-shadow: 0 0 0 3px rgba(248, 120, 0, 0.18);
+}
+
+/*CAMPO COM ERRO: a borda aponta qual e, junto com a caixa de erro do topo*/
+.abrir__input--erro,
+.abrir__input--erro:focus {
+  border-color: #e5484d;
+  box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.15);
+}
+
+/*QUEM ESTA ABRINDO: so leitura, vindo do cadastro. Cinza para ler como
+  informacao, e nao como campo a preencher.*/
+.abrir__input[readonly] {
+  border-color: #e4e8ee;
+  background-color: #f8fafc;
+  color: #64748b;
+  cursor: default;
+}
+
+.abrir__input[readonly]:focus {
+  border-color: #e4e8ee;
+  box-shadow: none;
+}
+
+.abrir__textarea {
+  min-height: 7.5rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.abrir__textarea--curta {
+  min-height: 5rem;
+}
+
+.abrir__select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  cursor: pointer;
+}
+
+.abrir__select option {
+  font-family: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #14181f;
+}
+
+.abrir__input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+   SIM / NAO
+   -------------------------------------------------------------------------- */
+
+.abrir__pergunta {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/*DOIS BOTOES GRUDADOS: o "Sim" marcado fica laranja, porque e o que muda a
+  urgencia do atendimento.*/
+.abrir__sim-nao {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid #d7dce3;
+  border-radius: 3px;
+  background-color: #fff;
+  overflow: hidden;
+}
+
+.abrir__opcao {
+  position: relative;
+  cursor: pointer;
+}
+
+.abrir__opcao + .abrir__opcao {
+  border-left: 1px solid #d7dce3;
+}
+
+.abrir__opcao input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.abrir__opcao span {
+  display: block;
+  padding: 0.75rem 0.5rem;
+  font-size: 0.875rem;
+  text-align: center;
+  color: #55606e;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.abrir__opcao:hover span {
+  background-color: #f8fafc;
+}
+
+.abrir__opcao input:checked + span {
+  background-color: #f1f5f9;
+  font-weight: 600;
+  color: #14181f;
+}
+
+.abrir__opcao input[value="sim"]:checked + span {
+  background-color: #dd5b12;
+  color: #fff;
+}
+
+.abrir__opcao input:focus-visible + span {
+  box-shadow: inset 0 0 0 2px #f87800;
+}
+
+/* --------------------------------------------------------------------------
+   MARCAR VARIOS (o que vai precisar, providencias): etiquetas quadradas
+   como os setores da home, laranja quando marcadas
+   -------------------------------------------------------------------------- */
+
+.abrir__marcas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.abrir__marca {
+  position: relative;
+  cursor: pointer;
+}
+
+.abrir__marca input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.abrir__marca span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.9375rem;
+  border: 1px solid #d7dce3;
+  border-radius: 3px;
+  background-color: #fff;
+  font-size: 0.875rem;
+  color: #14181f;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+/*A caixinha dentro da etiqueta: deixa claro que da para marcar varias*/
+.abrir__marca span::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0.9375rem;
+  height: 0.9375rem;
+  box-sizing: border-box;
+  border: 1.5px solid #b6bfcb;
+  border-radius: 3px;
+  background-color: #fff;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 11px;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.abrir__marca:hover span {
+  border-color: #94a3b8;
+}
+
+.abrir__marca input:checked + span {
+  border-color: #dd5b12;
+  background-color: #fff4ec;
+  color: #9a3e00;
+}
+
+.abrir__marca input:checked + span::before {
+  border-color: #dd5b12;
+  background-color: #dd5b12;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+}
+
+.abrir__marca input:focus-visible + span {
+  box-shadow: 0 0 0 3px rgba(248, 120, 0, 0.18);
+}
+
+/* --------------------------------------------------------------------------
+   ESCOLHA UNICA EM LISTA (perfil de acesso no ERP)
+   -------------------------------------------------------------------------- */
+
+.abrir__escolha {
+  min-width: 0;
+  margin: 0 0 1.125rem;
+  padding: 0;
+  border: 0;
+}
+
+.abrir__lista {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.125rem 1.25rem;
+}
+
+.abrir__radio {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  color: #14181f;
+  cursor: pointer;
+}
+
+/*CIRCULO PROPRIO: vazio com borda cinza; marcado, laranja com o miolo branco*/
+.abrir__radio input {
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  border: 1.5px solid #b6bfcb;
+  border-radius: 50%;
+  background-color: #fff;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.abrir__radio:hover input {
+  border-color: #94a3b8;
+}
+
+.abrir__radio input:checked {
+  border-color: #dd5b12;
+  background-color: #dd5b12;
+  box-shadow: inset 0 0 0 3px #fff;
+}
+
+.abrir__radio input:focus-visible {
+  outline: 2px solid #f87800;
+  outline-offset: 2px;
+}
+
+/*SEM ESCOLHA AO ENVIAR: os circulos e o rotulo ficam vermelhos*/
+.abrir__escolha--erro .abrir__label {
+  color: #9c2b2b;
+}
+
+.abrir__escolha--erro .abrir__radio input {
+  border-color: #e5484d;
+}
+
+.abrir__outro {
+  margin-top: 0.625rem;
+}
+
+.abrir__outro[hidden] {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   PRINTS E ARQUIVOS
+   -------------------------------------------------------------------------- */
+
+.abrir__soltar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 1.5rem 1rem;
+  border: 1.5px dashed #d7dce3;
+  border-radius: 3px;
+  background-color: #f8fafc;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+/*Os filhos nao recebem o ponteiro: passar o arquivo por cima do texto nao
+  dispara dragleave (a borda piscaria).*/
+.abrir__soltar > * {
+  pointer-events: none;
+}
+
+.abrir__soltar:hover,
+.abrir__soltar--sobre {
+  border-color: #dd5b12;
+  background-color: #fff4ec;
+}
+
+.abrir__soltar-icone {
+  color: #dd5b12;
+}
+
+.abrir__soltar-titulo {
+  font-size: 0.875rem;
+  color: #14181f;
+}
+
+.abrir__soltar-titulo u {
+  color: #c24f00;
+  text-underline-offset: 2px;
+}
+
+.abrir__soltar-dica {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.abrir__pendentes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+}
+
+.abrir__pendentes[hidden] {
+  display: none;
+}
+
+.abrir__pendente {
+  position: relative;
+  flex-shrink: 0;
+  width: 4.75rem;
+  height: 4.75rem;
+  box-sizing: border-box;
+  border: 1px solid #d7dce3;
+  border-radius: 3px;
+  background-color: #f1f5f9;
+  overflow: hidden;
+}
+
+.abrir__pendente img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*PDF: sem miniatura, o nome no lugar*/
+.abrir__pendente--arquivo {
+  display: flex;
+  align-items: center;
+  width: auto;
+  max-width: 11rem;
+  padding: 0 1.75rem 0 0.625rem;
+}
+
+.abrir__pendente-nome {
+  font-size: 0.75rem;
+  color: #55606e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.abrir__pendente-remover {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: rgba(20, 24, 31, 0.72);
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.abrir__pendente-remover:hover {
+  background-color: #9c2b2b;
+}
+
+/* --------------------------------------------------------------------------
+   ACOES: o .botao da home e um irmao de contorno, do mesmo tamanho
+   -------------------------------------------------------------------------- */
+
+.abrir__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid #e4e8ee;
+}
+
+.abrir__acoes--centro {
+  justify-content: center;
+  margin-top: 1.5rem;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/*O .botao da home cola no pe da porta com margin-top: auto; aqui nao ha porta.*/
+.abrir__acoes .botao {
+  margin-top: 0;
+  font-family: "Sora", system-ui, sans-serif;
+}
+
+.abrir .botao:disabled {
+  opacity: 0.65;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+.abrir .botao:disabled::before {
+  animation: none;
+}
+
+.botao-secundario {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.875rem 1.375rem;
+  border: 1px solid #d7dce3;
+  border-radius: 3px;
+  background-color: #fff;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.875rem;
+  color: #14181f;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+
+.botao-secundario:hover {
+  border-color: #94a3b8;
+  background-color: #f8fafc;
+  transform: translateY(-1px);
+}
+
+.botao-secundario:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.botao-secundario:focus-visible {
+  outline: 2px solid #14181f;
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   SUCESSO
+   -------------------------------------------------------------------------- */
+
+.abrir__sucesso {
+  padding: 2.75rem 2rem 2.5rem;
+  text-align: center;
+}
+
+.abrir__sucesso-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.75rem;
+  height: 3.75rem;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+  background-color: #e8590c;
+  color: #fff;
+}
+
+.abrir__sucesso-titulo {
+  margin: 0 0 0.5rem;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: #1a1a1a;
+}
+
+.abrir__sucesso-texto {
+  max-width: 30rem;
+  margin: 0 auto;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: #55606e;
+}
+
+/* --------------------------------------------------------------------------
+   RESPONSIVO E MOVIMENTO
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 960px) {
+  .portas--tres {
+    grid-template-columns: 1fr;
+    max-width: 34rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .abrir__escolha-tipo {
+    padding-top: 2.5rem;
+    padding-bottom: 3rem;
+  }
+
+  .abrir__faixa {
+    padding: 1.5rem 1rem 5rem;
+  }
+
+  .abrir__folha {
+    margin: -3.5rem 1rem 2.5rem;
+    padding: 1.375rem 1.125rem;
+  }
+
+  .abrir__faixa-nome {
+    font-size: 1.25rem;
+  }
+
+  .abrir__linha,
+  .abrir__lista {
+    grid-template-columns: 1fr;
+  }
+
+  .abrir__acoes {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .abrir__acoes .botao,
+  .abrir__acoes .botao-secundario {
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .abrir__input,
+  .abrir__opcao span,
+  .abrir__marca span,
+  .abrir__marca span::before,
+  .abrir__radio input,
+  .botao-secundario {
+    transition: none;
+  }
+
+  .botao-secundario:hover,
+  .botao-secundario:active {
+    transform: none;
+  }
+}

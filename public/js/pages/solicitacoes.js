@@ -143,8 +143,67 @@ function formatarDataHora(iso) {
    LISTA
    ========================================================================== */
 
+//ICONES DAS ETIQUETAS DO CARTAO (mesmo traço dos cards da Base de Soluções)
+const ICONE_CATEGORIA = '<path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.59-4.59a2 2 0 0 0 0-2.83z"/><circle cx="7.5" cy="7.5" r="1"/>';
+const ICONE_CONVERSA = '<path d="M20 4.5H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3v3.5l4-3.5h9a1 1 0 0 0 1-1v-10a1 1 0 0 0-1-1Z"/>';
+const ICONE_RELOGIO = '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>';
+
+function montarIcone(caminhos, classe) {
+  const icone = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+
+  icone.setAttribute("class", classe);
+  icone.setAttribute("viewBox", "0 0 24 24");
+  icone.setAttribute("fill", "none");
+  icone.setAttribute("stroke", "currentColor");
+  icone.setAttribute("stroke-width", "1.8");
+  icone.setAttribute("stroke-linecap", "round");
+  icone.setAttribute("stroke-linejoin", "round");
+  icone.setAttribute("aria-hidden", "true");
+  icone.innerHTML = caminhos;
+
+  return icone;
+}
+
+function montarEtiqueta(caminhos, texto) {
+  const etiqueta = document.createElement("span");
+  etiqueta.className = "chamado__tag";
+  etiqueta.append(montarIcone(caminhos, "chamado__tag-icone"), document.createTextNode(texto));
+
+  return etiqueta;
+}
+
+//QUEM DA EQUIPE CONVERSOU COM A PESSOA: autores das mensagens que nao sao
+//dela, sem repetir, do que respondeu por ultimo para o primeiro. Vem da
+//conversa, e nao de chamado_membros: o chamado pode ter varios membros
+//atribuidos, mas para o solicitante so importa quem de fato falou com ele.
+function pessoasQueResponderam(humanos) {
+  const porAutor = new Map();
+
+  [...humanos].reverse().forEach((comentario) => {
+    if (comentario.autor_id === usuarioId || porAutor.has(comentario.autor_id)) return;
+
+    porAutor.set(comentario.autor_id, comentario.usuarios);
+  });
+
+  return [...porAutor.values()];
+}
+
+// "João" · "João e Paulo" · "João, Paulo e Enzo" · "João, Paulo e mais 2"
+function juntarNomes(nomes) {
+  if (nomes.length <= 1) return nomes[0] ?? "";
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]}`;
+  if (nomes.length === 3) return `${nomes[0]}, ${nomes[1]} e ${nomes[2]}`;
+
+  return `${nomes[0]}, ${nomes[1]} e mais ${nomes.length - 2}`;
+}
+
+//CARTAO EM GRADE, NO ESTILO DOS CARDS DA BASE DE SOLUCOES: status e numero no
+//topo, titulo, descricao curta, etiquetas e, no rodape, quem da equipe
+//respondeu por ultimo e quando o chamado foi aberto. O cartao inteiro e o
+//botao: a area de clique e o que o olho entende como "um chamado".
 function montarCartao(chamado) {
   const status = derivarStatus(chamado);
+  const humanos = comentariosHumanos(chamado);
 
   const item = document.createElement("li");
 
@@ -152,49 +211,106 @@ function montarCartao(chamado) {
   cartao.type = "button";
   cartao.className = `chamado chamado--${status.chave}`;
 
-  const barra = document.createElement("span");
-  barra.className = "chamado__barra";
-  barra.setAttribute("aria-hidden", "true");
+  //TOPO: STATUS (+ "Responda") E NUMERO
+  const topo = document.createElement("span");
+  topo.className = "chamado__topo";
 
-  const conteudo = document.createElement("span");
-  conteudo.className = "chamado__conteudo";
+  const selos = document.createElement("span");
+  selos.className = "chamado__selos";
 
-  const assunto = document.createElement("span");
-  assunto.className = "chamado__assunto";
-  assunto.textContent = tituloDoChamado(chamado);
+  const selo = document.createElement("span");
+  selo.className = "chamado__status";
+  selo.textContent = status.rotulo;
+  selos.appendChild(selo);
 
-  const meta = document.createElement("span");
-  meta.className = "chamado__meta";
-
-  const numero = document.createElement("span");
-  numero.className = "chamado__numero";
-  numero.textContent = `#${chamado.numero}`;
-
-  const resto = document.createTextNode(
-    ` · ${chamado.categorias?.nome ?? "Sem categoria"} · Aberto em ${formatarData(chamado.abertura_em)}`,
-  );
-
-  meta.append(numero, resto);
-  conteudo.append(assunto, meta);
-
-  const lado = document.createElement("span");
-  lado.className = "chamado__lado";
-
-  // "Aguardando você" é a única linha que pede ação — e a única que ganha
+  // "Aguardando você" é o único estado que pede ação — e o único que ganha
   // um segundo sinal além da cor, para não depender só dela.
   if (status === STATUS.aguardando) {
     const aviso = document.createElement("span");
     aviso.className = "chamado__aviso";
     aviso.textContent = "Responda";
-    lado.appendChild(aviso);
+    selos.appendChild(aviso);
   }
 
-  const selo = document.createElement("span");
-  selo.className = "chamado__status";
-  selo.textContent = status.rotulo;
-  lado.appendChild(selo);
+  const numero = document.createElement("span");
+  numero.className = "chamado__numero";
+  numero.textContent = `#${chamado.numero}`;
 
-  cartao.append(barra, conteudo, lado);
+  topo.append(selos, numero);
+
+  //TITULO E DESCRICAO
+  const assunto = document.createElement("span");
+  assunto.className = "chamado__assunto";
+  assunto.textContent = tituloDoChamado(chamado);
+
+  const descricao = document.createElement("span");
+  descricao.className = "chamado__descricao";
+  descricao.textContent = chamado.descricao?.trim() || "Sem descrição.";
+  descricao.classList.toggle("chamado__descricao--vazia", !chamado.descricao?.trim());
+
+  //ETIQUETAS: CATEGORIA E TAMANHO DA CONVERSA
+  const etiquetas = document.createElement("span");
+  etiquetas.className = "chamado__tags";
+  etiquetas.appendChild(montarEtiqueta(ICONE_CATEGORIA, chamado.categorias?.nome ?? "Sem categoria"));
+
+  if (humanos.length) {
+    etiquetas.appendChild(montarEtiqueta(
+      ICONE_CONVERSA,
+      `${humanos.length} ${humanos.length === 1 ? "mensagem" : "mensagens"}`,
+    ));
+  }
+
+  //RODAPE: SO QUEM DA EQUIPE CONVERSOU COM A PESSOA (nao todos os membros
+  //do chamado) — ou, se ninguem respondeu, que ainda ninguem pegou.
+  const rodape = document.createElement("span");
+  rodape.className = "chamado__rodape";
+
+  const quemConversou = pessoasQueResponderam(humanos);
+  const quem = document.createElement("span");
+  quem.className = "chamado__quem";
+
+  if (quemConversou.length) {
+    // Fotos empilhadas, no maximo 3; o texto diz o resto.
+    const avatares = document.createElement("span");
+    avatares.className = "chamado__avatares";
+
+    quemConversou.slice(0, 3).forEach((pessoa) => {
+      // Mesma foto da conversa; só troca a classe para o tamanho do cartão.
+      const avatar = montarAvatar(pessoa);
+      avatar.className = "chamado__avatar";
+      avatares.appendChild(avatar);
+    });
+
+    // So os nomes: "Respondido por" na mesma linha empurrava o segundo nome
+    // para fora do cartao. O contexto fica nas fotos e no title.
+    quem.textContent = juntarNomes(quemConversou.map((pessoa) => pessoa?.nome ?? "Equipe de TI"));
+    // Nomes completos ao passar o mouse, inclusive os que ficaram no "mais N".
+    quem.title = `Respondido por ${quemConversou.map((pessoa) => nomeCompleto(pessoa) || "Equipe de TI").join(", ")}`;
+
+    rodape.appendChild(avatares);
+  } else {
+    const semResposta = document.createElement("span");
+    semResposta.className = "chamado__avatar chamado__avatar--vazio";
+    semResposta.appendChild(montarIcone(ICONE_RELOGIO, "chamado__avatar-icone"));
+
+    quem.classList.add("chamado__quem--vazio");
+    quem.textContent = chamado.fechamento_em ? "Sem resposta da equipe" : "Aguardando atendimento";
+    rodape.appendChild(semResposta);
+  }
+
+  // Nomes em cima, data embaixo: o nome ganha a largura toda do cartao em vez
+  // de dividir a linha com a data.
+  const quando = document.createElement("span");
+  quando.className = "chamado__quando";
+  quando.textContent = `Aberto em ${formatarData(chamado.abertura_em)}`;
+
+  const textoRodape = document.createElement("span");
+  textoRodape.className = "chamado__rodape-texto";
+  textoRodape.append(quem, quando);
+
+  rodape.appendChild(textoRodape);
+
+  cartao.append(topo, assunto, descricao, etiquetas, rodape);
   cartao.addEventListener("click", () => abrirDetalhe(chamado));
 
   item.appendChild(cartao);
