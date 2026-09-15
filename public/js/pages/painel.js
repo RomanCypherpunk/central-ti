@@ -34,6 +34,37 @@ function mostrarErro(mensagem) {
   erro.hidden = false;
 }
 
+//MENU LATERAL: RECOLHER/EXPANDIR. Chave propria (painelSidebarColapsada),
+//separada da Base de Solucoes de proposito — recolher aqui nao deve mexer
+//la, e vice-versa (perguntado ao usuario antes de escrever isto). O <head>
+//ja aplicou o estado salvo antes da 1a pintura; aqui so liga o clique.
+function ligarColapsarSidebar() {
+  const botao = document.getElementById("painel-sidebar-colapsar");
+
+  if (!botao) return;
+
+  function estaColapsada() {
+    return document.documentElement.dataset.painelSidebar === "colapsada";
+  }
+
+  function aplicar(colapsada) {
+    document.documentElement.dataset.painelSidebar = colapsada ? "colapsada" : "expandida";
+    botao.setAttribute("aria-expanded", String(!colapsada));
+    botao.setAttribute("aria-label", colapsada ? "Expandir menu" : "Recolher menu");
+  }
+
+  aplicar(estaColapsada());
+
+  botao.addEventListener("click", () => {
+    const novoEstado = !estaColapsada();
+
+    localStorage.setItem("painelSidebarColapsada", String(novoEstado));
+    aplicar(novoEstado);
+  });
+}
+
+ligarColapsarSidebar();
+
 //NAVEGACAO ENTRE ABAS
 const ABA_PADRAO = "tickets";
 

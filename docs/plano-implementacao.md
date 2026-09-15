@@ -1667,7 +1667,110 @@ por quem escreve o teste, não pelo navegador. `locator.dragTo()` do
 Playwright (mousedown → mousemove → mouseup, deixando o Chromium decidir)
 é o que de fato exercita o mesmo caminho que um usuário real percorre.
 
-### Próximos cortes (não feitos ainda)
+### Portal: setor na ficha do chamado + link "Painel" com underline (2026-09-15)
+
+Duas correções pontuais pedidas com print:
+
+**Grade de dados do chamado** — ganhou o campo Setor, pareado com E-mail
+(antes ele era o único campo "largo" da grade, ocupando a linha inteira
+sozinho). Nova ordem: Solicitante/Aberto em, E-mail/Setor, Unidade/
+Categoria, Cliente na loja/Sistema lento ou fora, Acesso remoto. Sem
+consulta nova ao banco — `usuarios.setores(nome)` já vinha em
+`CAMPOS_CHAMADO` desde o card de Aprovação de Acesso.
+
+**Item "Painel" "vazando" no menu de 3 pontinhos** — o item é um `<a>`
+(os outros cinco do menu são `<button>`), e `.quadro-menu__item` nunca
+tinha `text-decoration: none` declarado — nenhum dos outros itens
+precisava, só botão não sublinha por padrão. O resultado: só o "Painel"
+aparecia sublinhado (e sujeito à cor azul/roxa de link visitado do
+navegador em vez de `var(--texto)`), destoando visualmente do resto do
+menu. Corrigido com `text-decoration: none` e `:visited { color:
+var(--texto); }` em `.quadro-menu__item`.
+
+Testado no navegador: grade mostra os 9 campos na ordem pedida; item
+Painel sem sublinhado, cor igual aos outros itens do menu; zero erro no
+console.
+
+**O sublinhado não era o vazamento inteiro — usuário reportou "ainda
+está".** Print de volta mostrava uma caixa escura vazando pela borda
+direita, arredondada do menu. Medido com o navegador de verdade
+(`getBoundingClientRect`): o link "Painel" tinha 282px de largura contra
+276px do painel que o contém — 6px de vazamento, exatamente o padding
+horizontal do item (`0.5625rem` de cada lado). **Mesma causa raiz já
+corrigida em `painel.css` na sessão de "Nova pessoa" quebrando com barra de
+rolagem**: `.quadro-menu__item` tem `width: 100%` + `padding`, sem
+`box-sizing: border-box`. Um `<button>` já nasce `border-box` por padrão do
+navegador — por isso os outros cinco itens do menu (todos `<button>`)
+nunca vazaram; só o "Painel" (o único `<a>`) sofria, porque um link usa
+`content-box` como qualquer elemento genérico. Corrigido com
+`box-sizing: border-box` explícito em `.quadro-menu__item`.
+
+Auditado `portal.css` inteiro atrás do mesmo padrão (`width: 100%` +
+`padding` sem `box-sizing`) — achou mais 5 candidatos; checado o HTML/JS de
+cada um pra ver se é `<button>` (seguro, já nasce border-box) ou outro tipo
+de elemento (arriscado). Quatro eram `<button>`; `.detalhe__escolher` é uma
+`<div>` (o painel de cor de destaque, dentro do detalhe do chamado) —
+corrigido preventivamente antes de virar o próximo relato de "vazamento".
+
+Testado de novo: largura do link caiu de 282px pra 264px, dentro dos 276px
+do painel; visualmente encostado na borda arredondada, igual aos outros
+itens.
+
+### Painel: barra lateral laranja, cabeçalho branco e recolher menu (2026-09-15)
+
+Pedido: só trocar cores do Painel (barra lateral no laranja da Base de
+Soluções, cabeçalho branco no mesmo padrão visual do resto do site — sem
+alterar nenhum elemento do cabeçalho), e acrescentar um botão no fim da
+navegação lateral pra recolher/esconder a barra.
+
+**Barra lateral**: `.painel-nav` ganhou o mesmo degrade radial laranja e a
+animação de respiração da Base (`painel-sidebar-respira`), itens em branco
+translúcido com destaque sólido no item ativo.
+
+**Cabeçalho**: `.barra-portal` em `painel.css` sobrescreve só cor/sombra —
+fundo branco, texto escuro, sem o vidro translúcido nem o blur que fazem
+sentido no Portal (ali a barra fica sobre o degrade do quadro; aqui só a
+barra lateral ficou laranja, o resto do fundo é cinza claro). Nenhum
+elemento foi movido, criado ou removido do cabeçalho.
+
+**Bug pego antes de reportar como pronto**: o primeiro teste automatizado
+media a largura do texto do menu recolhido errado e passou "verde" com o
+bug ainda presente. Dois problemas reais, achados ao checar o DOM de
+verdade em vez de confiar no primeiro teste:
+
+1. O texto de cada item do menu (`Todos os tickets`, `Contatos`, etc.) era
+   texto solto dentro do `<button>`, não um `<span>` — a regra CSS que
+   esconde o texto ao recolher (`.painel-nav__item span { display: none }`)
+   nunca tinha o que esconder. Corrigido envolvendo o texto de cada item em
+   `<span>` no HTML.
+2. No tema escuro, `portal.css` tem `[data-tema="escuro"] .portal-pagina
+   .topo { background-color: ... }`, mais específica (3 classes/atributos)
+   que a regra nova `body.painel-pagina .barra-portal` (2) — o cabeçalho
+   voltava a ficar escuro mesmo com a cor branca escrita depois no arquivo.
+   Corrigido igualando a especificidade (seletor duplicado com
+   `[data-tema="escuro"]` na frente). Um segundo problema junto: o texto do
+   cabeçalho usava `var(--texto)`, que no tema escuro vira quase-branco
+   (pensado pra fundo escuro) — ilegível sobre o branco fixo do cabeçalho.
+   Trocado por cores literais (`#1a1a1a`, `#555`, `#e3e3e3`), já que este
+   cabeçalho é sempre branco, claro ou escuro.
+
+**Recolher menu**: botão novo no fim de `.painel-nav`, estado em
+`html[data-painel-sidebar]` (`expandida`/`colapsada`) espelhado em
+`localStorage["painelSidebarColapsada"]` — chave própria do Painel, não a
+mesma `sidebarColapsada` da Base de Soluções, por decisão explícita (são
+duas telas com colapso independente). Script no `<head>` aplica o estado
+antes da primeira pintura, mesmo padrão já usado pra tema e zoom. Recolhido:
+sidebar cai pra 72px, ícones centralizados, texto/títulos de grupo
+escondidos, grid do `.painel` ajustado em conjunto (senão sobra vão cinza
+do lado da faixa laranja). Escondido em telas ≤860px (a navegação vira
+abas horizontais roláveis, não faz sentido recolher).
+
+Testado no navegador: gradiente e animação da barra lateral, cabeçalho
+branco com texto escuro em tema claro E escuro, logo correto
+(`logo-claro.svg`), recolher/expandir com persistência após reload, texto
+some de verdade ao recolher (checado via `getComputedStyle`, não só a
+largura da barra), sem erro no console, layout mobile (390px) com a faixa
+horizontal e sem o botão de recolher.
 
 - Controle de SLA e alerta de vencimento.
 - Aprovar cadastro pela própria tela, em vez de tratar o chamado de
@@ -1677,6 +1780,106 @@ Playwright (mousedown → mousemove → mouseup, deixando o Chromium decidir)
 - O solicitante ainda não tem por onde responder: a correspondência é
   gravada como pública, mas não existe tela do lado dele nem envio de
   e-mail avisando da resposta.
+
+### Animações de arrastar-e-soltar (Portal) e de entrada/saída (Painel) (2026-09-15)
+
+Pedido: dar mais dinamismo com animações JS, citando arrastar-e-soltar como
+exemplo. Escopo combinado com o usuário antes de mexer: drag-and-drop de
+cards/listas no Portal, e entradas/saídas no Painel (troca de aba, abrir/
+fechar modal).
+
+**FLIP no drag-and-drop (`comAnimacaoFlip`, portal.js)** — técnica First,
+Last, Invert, Play: mede a posição do elemento ANTES de mover no DOM, deixa
+o `appendChild`/`insertAdjacentElement` acontecer (a lógica de dados não
+muda em nada), mede a posição DEPOIS, e anima só a diferença via
+`transform` — o navegador só faz layout uma vez, o "deslizar até o lugar"
+é uma ilusão de transform recuando até zero. Usada nos dois `drop` que já
+existiam (`ligarArrastar` pros cards, `ligarArrastarLista` pras listas),
+sem tocar a parte que fala com o Supabase. Anima também os cards/listas
+vizinhos que são empurrados, não só o que foi solto. Verifica
+`prefers-reduced-motion` uma vez (`RESPEITA_MOVIMENTO_REDUZIDO`) e pula a
+animação inteira se estiver ligado — o reposicionamento continua
+acontecendo, só sem o recuo animado.
+
+`.fila` ganhou `transition` em `transform` (só tinha em `border-color`/
+`background-color` antes) para o recuo do FLIP ter o que animar; `.card`
+já tinha.
+
+**Entradas/saídas no Painel (painel.css)**:
+- `.painel-aba` ganhou `animation: painel-aba-entra` (fade + leve slide,
+  0.18s) — dispara sozinha a cada troca de aba porque `ligarAbas`
+  (painel.js) já alterna `[hidden]`, e `display: none → flex` reinicia a
+  `animation` automaticamente, sem precisar de JS novo pra "rearmar" nada.
+- `.pessoa` e `.item-simples` (os dois dialogs do Painel — editor de
+  pessoa e o de item simples/unidade/setor/categoria/texto rápido)
+  ganharam o mesmo padrão `allow-discrete` + `@starting-style` que o
+  `.detalhe` do chamado já usava em portal.css: entra com leve escala em
+  vez de aparecer seco, e a saída também anima (allow-discrete dá tempo da
+  transição rodar antes do `display: none` sumir o dialog).
+- `prefers-reduced-motion` não existia em painel.css — adicionado nos três
+  blocos novos.
+
+Testado no navegador (Playwright, gestos reais com `dragTo`, nunca
+`DragEvent` sintético): card migrando de fila com `transform` real no meio
+da transição e revertendo pra `none` no fim; lista reordenando; ambos sem
+quebrar com `prefers-reduced-motion: reduce` (o reposicionamento acontece,
+só sem o recuo); fade de aba com opacity medido no meio (0) e no fim (1);
+dialog "Nova unidade" e "Nova pessoa" abrindo com opacity intermediário
+real (não só 0 ou 1) e fechando; tema escuro testado no dialog de pessoa
+(fundo escuro correto, sem flash branco); mobile 390px com a troca de aba
+funcionando; zero erro no console em todos os cenários.
+
+### Correções: scrollbar piscando no drag + botão de recolher da Base igual ao Painel (2026-09-15)
+
+Dois relatos do usuário depois de ver as animações e a Base de Soluções:
+"quando eu arrasto aparece uma barra de rolagem e logo depois some... parece
+bug visual", e uma inconsistência visual — o botão de recolher a barra
+lateral estava em formatos diferentes na Base (pílula laranja ao lado do
+logo) e no Painel (linha com texto no rodapé). Confirmado com o usuário:
+o padrão a seguir é o do Painel, não o da Base.
+
+**Scrollbar piscando (portal.css)** — `.fila__cards` (a lista de cards
+dentro de uma coluna) tem `overflow-y: auto` mas nunca escondia a barra
+nativa do navegador, ao contrário de `.portal__quadro` (que já escondia a
+sua e desenha uma própria, `.portal__barra`). O FLIP recém-adicionado
+(`comAnimacaoFlip`) aplica um `transform` temporário no card solto que o
+desloca da posição final até a posição onde estava sendo arrastado —
+esse deslocamento pode ultrapassar momentaneamente os limites de
+`.fila__cards` (que tem `max-height` herdado de `.fila`), disparando a
+scrollbar nativa por ~0.2s até o `requestAnimationFrame` remover o
+transform. Corrigido escondendo a barra nativa de `.fila__cards`
+(`scrollbar-width: none` + `::-webkit-scrollbar { display: none }`,
+mesmo padrão do quadro) — a rolagem continua funcionando normalmente,
+só a barra visual que não pisca mais.
+
+**Botão de recolher da Base/Nova Solução igual ao do Painel** — a Base
+(`public/base.html` + `base.css`) e a tela de Nova Solução
+(`public/nova-solucao.html` + `nova-solucao.css`, que duplica boa parte
+do CSS da Base) tinham o botão de recolher como uma pílula quadrada
+28×28px, borda+fundo laranja translúcido, posicionada dentro de
+`.sidebar__topo` ao lado do logo. Refeito para o mesmo padrão do Painel
+(`.painel-nav__colapsar`): uma linha full-width com ícone + texto
+"Recolher menu", empurrada pro rodapé da sidebar via um `.sidebar__espaco`
+(`flex: 1`) antes dela, com `border-top` sutil separando do menu acima.
+O atributo de estado (`data-sidebar`) e a chave de localStorage
+(`sidebarColapsada`, em `public/js/main.js`) não mudaram — só a posição e
+a forma do botão. Aproveitado pra também adicionar `aria-expanded` no
+`main.js` (o Painel já tinha, a Base não).
+
+As duas telas tinham um segundo bloco de CSS mais abaixo no arquivo
+(seção "SIDEBAR: TOPO BRANCO, CORPO NO DEGRADE") que dava ao botão um
+hover extra "estilo botão Entrar do login" — fazia sentido quando o botão
+ficava sobre o topo branco da sidebar, mas não faz mais sentido agora que
+ele está sobre o degradê laranja do rodapé. Neutralizado (removido, com
+comentário explicando por quê) nos dois arquivos, deixando só o estilo
+novo do bloco principal.
+
+Testado no navegador: card arrastado pra uma coluna com vários itens
+(forçando overflow real) sem nenhum espaço de scrollbar aparecendo antes,
+durante ou depois da animação FLIP; botão "Recolher menu" na Base e na
+Nova Solução no rodapé, largura recolhendo pra 96px, seta girando,
+`aria-expanded` trocando, estado persistindo após reload; zero erro no
+console nos dois fluxos.
 
 ## Fase 5 — Dashboard operacional
 

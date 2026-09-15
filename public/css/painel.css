@@ -48,16 +48,82 @@ body.painel-pagina {
 }
 
 /* ==========================================================================
-   MENU LATERAL
+   CABECALHO (.barra-portal): BRANCO SOLIDO, TEXTO ESCURO — mesmo padrao do
+   header branco da Base de Soluções. Sobrescreve so a COR aqui, nunca a
+   estrutura: .barra-portal em portal.css é vidro escuro translúcido sobre
+   o degrade do quadro (faz sentido lá, sobre foto/gradiente); aqui o fundo
+   por baixo já não é mais laranja no topo (só a sidebar ficou laranja),
+   então a barra escura sobre fundo cinza claro não fazia mais sentido.
+   Este bloco só troca cor/sombra — nenhum elemento foi adicionado, movido
+   ou removido do cabeçalho, como pedido.
+
+   Especificidade: no tema escuro, portal.css tem a regra
+   [data-tema="escuro"] .portal-pagina .topo { background-color: ... }
+   que é MAIS especifica que body.painel-pagina .barra-portal sozinha
+   (3 classes/atributos contra 2) e vence mesmo painel.css carregando
+   depois. Por isso as regras abaixo repetem body.painel-pagina para
+   igualar/superar essa especificidade, tema claro ou escuro.
+
+   Cores fixas, não var(--texto): o cabeçalho é sempre branco aqui,
+   claro ou escuro — mas --texto/--texto-2 trocam de valor no tema
+   escuro (viram quase-branco, pensados pra fundo escuro) e ficariam
+   ilegíveis sobre o branco fixo deste header. Por isso os literais.
    ========================================================================== */
+
+[data-tema="escuro"] body.painel-pagina .barra-portal,
+body.painel-pagina .barra-portal {
+  background-color: #fff;
+  /*Mesmo tom da borda do cabeçalho da Base de Soluções (.header em
+    base.css) — #ececec, não #e3e3e3.*/
+  border-bottom: 1px solid #ececec;
+  color: #1a1a1a;
+  text-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+body.painel-pagina .barra-portal .portal__titulo,
+body.painel-pagina .barra-portal .portal__subtitulo,
+body.painel-pagina .barra-portal .topo__produto {
+  color: #1a1a1a;
+}
+
+body.painel-pagina .barra-portal .topo__divisor {
+  background-color: #ececec;
+}
+
+body.painel-pagina .painel-voltar {
+  color: #555;
+}
+
+body.painel-pagina .painel-voltar:hover {
+  background: #f2f2f2;
+  color: #1a1a1a;
+}
+
+/* ==========================================================================
+   MENU LATERAL — MESMO PADRAO DA BASE DE SOLUCOES: degrade laranja
+   respirando (o mesmo dos cartoes de login/Portal), texto claro
+   translucido, item atual em laranja solido. So a cor muda aqui — a
+   estrutura (grupos, itens, divisor) continua a mesma de antes.
+   ========================================================================== */
+
+/*O @keyframes so existia em login.css/base.css; sem ele aqui o fundo fica
+  parado (a animacao referencia um nome que nao existiria neste arquivo).*/
+@keyframes painel-sidebar-respira {
+  0%, 100% { background-position: 0% 0%; }
+  50% { background-position: 100% 60%; }
+}
 
 .painel-nav {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
   padding: 1rem 0.75rem;
-  border-right: 1px solid var(--borda);
-  background: var(--superficie);
+  border-right: 0;
+  background: radial-gradient(circle at top left, #5e141d 0%, #dd5b12 100%);
+  background-size: 160% 160%;
+  animation: painel-sidebar-respira 16s ease-in-out infinite;
   overflow-y: auto;
 }
 
@@ -70,7 +136,7 @@ body.painel-pagina {
   border: 0;
   border-radius: 9px;
   background: none;
-  color: var(--texto-2);
+  color: rgba(255, 255, 255, 0.82);
   font: 500 0.875rem/1.2 "Poppins", sans-serif;
   text-align: left;
   cursor: pointer;
@@ -79,28 +145,35 @@ body.painel-pagina {
 
 .painel-nav__item svg {
   flex-shrink: 0;
-  color: var(--texto-3);
+  color: rgba(255, 255, 255, 0.7);
   transition: color 0.15s ease;
 }
 
 .painel-nav__item:hover {
-  background: var(--superficie-2);
-  color: var(--texto);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.painel-nav__item:hover svg {
+  color: #fff;
 }
 
 .painel-nav__item:active {
-  background: var(--borda-suave);
+  background: rgba(255, 255, 255, 0.18);
 }
 
-/*ABA ATUAL: fundo laranja claro e texto forte — um so destaque por vez.*/
+/*ABA ATUAL: laranja solido, igual ao link ativo da Base — um so destaque
+  por vez, aqui ele nao pode ser claro-sobre-claro porque o fundo inteiro
+  ja e laranja.*/
 .painel-nav__item--atual,
 .painel-nav__item--atual:hover {
-  background: var(--realce);
-  color: var(--laranja-forte);
+  background: #c77240;
+  color: #fff;
 }
 
-.painel-nav__item--atual svg {
-  color: var(--laranja);
+.painel-nav__item--atual svg,
+.painel-nav__item--atual:hover svg {
+  color: #fff;
 }
 
 /*RODULO DO GRUPO ("Portal" / "Configurações"): nao e clicavel, so agrupa
@@ -108,7 +181,7 @@ body.painel-pagina {
   Portal, letra pequena e espacada.*/
 .painel-nav__grupo-titulo {
   margin: 0.9rem 0.75rem 0.35rem;
-  color: var(--texto-4);
+  color: rgba(255, 255, 255, 0.55);
   font: 600 0.6875rem/1.2 "Poppins", sans-serif;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -122,7 +195,70 @@ body.painel-pagina {
   display: block;
   height: 1px;
   margin: 0.6rem 0.5rem 0;
-  background: var(--borda);
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/*EMPURRA O BOTAO DE RECOLHER PRO RODAPE DA COLUNA, mesmo com poucos
+  itens acima — .painel-nav ja e flex-direction: column.*/
+.painel-nav__espaco {
+  flex: 1;
+}
+
+.painel-nav__colapsar {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.7);
+  font: 500 0.8125rem/1.2 "Poppins", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-nav__colapsar:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.painel-nav__colapsar svg {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+/*RECOLHIDO: SETA GIRA, TEXTOS SOMEM — a coluna vira so uma faixa de
+  icones, mesma ideia da Base de Solucoes.*/
+html[data-painel-sidebar="colapsada"] .painel-nav__colapsar svg {
+  transform: rotate(180deg);
+}
+
+html[data-painel-sidebar="colapsada"] .painel-nav {
+  width: 72px;
+}
+
+html[data-painel-sidebar="colapsada"] .painel-nav__item,
+html[data-painel-sidebar="colapsada"] .painel-nav__colapsar {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+html[data-painel-sidebar="colapsada"] .painel-nav__item span,
+html[data-painel-sidebar="colapsada"] .painel-nav__grupo-titulo,
+html[data-painel-sidebar="colapsada"] .painel-nav__colapsar-texto {
+  display: none;
+}
+
+/*A LARGURA DA COLUNA E FIXA NO GRID (.painel), NAO NO PROPRIO .painel-nav —
+  recolher precisa apertar a coluna do grid tambem, senao a faixa laranja
+  encolhe mas deixa um vao cinza do lado.*/
+html[data-painel-sidebar="colapsada"] .painel {
+  grid-template-columns: 72px 1fr;
 }
 
 /* ==========================================================================
@@ -151,6 +287,23 @@ body.painel-pagina {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /*A troca de aba so alterna [hidden] (ligarAbas, painel.js) — display:
+    none volta a none->flex a cada troca, o que reinicia a animation
+    sozinho, sem precisar de JS pra "rearmar" nada.*/
+  animation: painel-aba-entra 0.18s ease both;
+}
+
+@keyframes painel-aba-entra {
+  from {
+    opacity: 0;
+    transform: translateY(0.375rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .painel-aba {
+    animation: none;
+  }
 }
 
 .painel-aba__topo {
@@ -1047,10 +1200,36 @@ body.painel-pagina {
   border-radius: 14px;
   background: var(--superficie);
   color: var(--texto);
+  /*Mesmo padrao do .detalhe em portal.css: chega com leve escala, nao so
+    um fade seco. allow-discrete da tempo da transicao rodar antes do
+    display:none sumir o dialog (senao a saida nao anima).*/
+  transition: opacity 0.18s ease, transform 0.18s ease,
+              overlay 0.18s allow-discrete, display 0.18s allow-discrete;
+  opacity: 1;
+  transform: scale(1);
 }
 
 .pessoa::backdrop {
   background: rgba(20, 20, 22, 0.45);
+  transition: background-color 0.18s ease, overlay 0.18s allow-discrete,
+              display 0.18s allow-discrete;
+}
+
+@starting-style {
+  .pessoa[open] {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  .pessoa[open]::backdrop {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pessoa {
+    transition: none;
+  }
 }
 
 .pessoa__conteudo {
@@ -1310,10 +1489,35 @@ body.painel-pagina {
   border-radius: 14px;
   background: var(--superficie);
   color: var(--texto);
+  /*Mesmo padrao do .pessoa/.detalhe: leve escala na entrada, allow-discrete
+    pra animar a saida antes do display:none tirar o dialog da tela.*/
+  transition: opacity 0.18s ease, transform 0.18s ease,
+              overlay 0.18s allow-discrete, display 0.18s allow-discrete;
+  opacity: 1;
+  transform: scale(1);
 }
 
 .item-simples::backdrop {
   background: rgba(20, 20, 22, 0.45);
+  transition: background-color 0.18s ease, overlay 0.18s allow-discrete,
+              display 0.18s allow-discrete;
+}
+
+@starting-style {
+  .item-simples[open] {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  .item-simples[open]::backdrop {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item-simples {
+    transition: none;
+  }
 }
 
 .item-simples__conteudo {
@@ -1374,7 +1578,7 @@ body.painel-pagina {
     gap: 0.35rem;
     padding: 0.6rem 0.75rem;
     border-right: 0;
-    border-bottom: 1px solid var(--borda);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.22);
     overflow-x: auto;
   }
 
@@ -1382,6 +1586,13 @@ body.painel-pagina {
     width: auto;
     flex-shrink: 0;
     white-space: nowrap;
+  }
+
+  /*RECOLHER SO FAZ SENTIDO NA COLUNA VERTICAL — numa faixa horizontal de
+    abas nao ha "coluna" pra apertar, entao some junto com o espacador.*/
+  .painel-nav__espaco,
+  .painel-nav__colapsar {
+    display: none;
   }
 
   /*O rotulo do grupo nao cabe numa faixa horizontal de abas; o divisor

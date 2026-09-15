@@ -596,6 +596,47 @@ function reordenarColunaNaTela(coluna, chamados, criterio) {
   });
 }
 
+//FLIP (First, Last, Invert, Play): anima um elemento que "pulou" de lugar
+//no DOM. Mede a posicao ANTES de mexer, deixa o mexer acontecer, mede a
+//posicao DEPOIS, e anima so a diferenca via transform — o navegador so
+//faz layout uma vez, o "movimento" e uma ilusao de transform recuando ate
+//zero. Usado no drop de card e de lista, pra nao "pular" direto pro lugar
+//novo.
+const RESPEITA_MOVIMENTO_REDUZIDO =
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function comAnimacaoFlip(elementos, mudarDom) {
+  if (RESPEITA_MOVIMENTO_REDUZIDO) {
+    mudarDom();
+    return;
+  }
+
+  const antes = new Map(
+    elementos.map((elemento) => [elemento, elemento.getBoundingClientRect()])
+  );
+
+  mudarDom();
+
+  for (const elemento of elementos) {
+    const rectAntes = antes.get(elemento);
+    if (!rectAntes) continue;
+
+    const rectDepois = elemento.getBoundingClientRect();
+    const deltaX = rectAntes.left - rectDepois.left;
+    const deltaY = rectAntes.top - rectDepois.top;
+
+    if (!deltaX && !deltaY) continue;
+
+    elemento.style.transition = "none";
+    elemento.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+    requestAnimationFrame(() => {
+      elemento.style.transition = "";
+      elemento.style.transform = "";
+    });
+  }
+}
+
 //ATUALIZA O CONTADOR E O AVISO DE VAZIO DE UMA COLUNA DEPOIS DE MOVER UM
 //CARD. Conta so o que esta aparecendo: com filtro ligado, o numero bate com
 //os cards que a pessoa ve.
@@ -723,10 +764,17 @@ function ligarArrastar() {
     if (filaDestino === filaOrigem) return;
 
     const colunaOrigem = quadro.querySelector(`.fila[data-fila="${filaOrigem}"]`);
+    const cardsAfetados = [
+      card,
+      ...coluna.querySelectorAll(".card"),
+      ...colunaOrigem.querySelectorAll(".card"),
+    ];
 
     // Move na hora: a tela responde antes do banco confirmar.
-    coluna.querySelector(".fila__cards").appendChild(card);
-    card.dataset.fila = filaDestino;
+    comAnimacaoFlip(cardsAfetados, () => {
+      coluna.querySelector(".fila__cards").appendChild(card);
+      card.dataset.fila = filaDestino;
+    });
     sincronizarColuna(coluna);
     sincronizarColuna(colunaOrigem);
 
@@ -738,8 +786,10 @@ function ligarArrastar() {
     if (!error) return;
 
     // Banco recusou: devolve o card para onde estava.
-    colunaOrigem.querySelector(".fila__cards").appendChild(card);
-    card.dataset.fila = filaOrigem;
+    comAnimacaoFlip(cardsAfetados, () => {
+      colunaOrigem.querySelector(".fila__cards").appendChild(card);
+      card.dataset.fila = filaOrigem;
+    });
     sincronizarColuna(coluna);
     sincronizarColuna(colunaOrigem);
     mostrarErro("Não foi possível mover o chamado. Tente novamente.");
@@ -896,7 +946,9 @@ function ligarArrastarLista(filas, chamados) {
       const todasAsColunas = [...quadro.querySelectorAll(".fila")];
       const antes = todasAsColunas.indexOf(colunaArrastada) < todasAsColunas.indexOf(colunaAlvo);
 
-      colunaAlvo.insertAdjacentElement(antes ? "afterend" : "beforebegin", colunaArrastada);
+      comAnimacaoFlip(todasAsColunas, () => {
+        colunaAlvo.insertAdjacentElement(antes ? "afterend" : "beforebegin", colunaArrastada);
+      });
     }
 
     // `ordem` vira o indice, de 10 em 10: deixa espaco pra alguem soltar
@@ -2598,7 +2650,8 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}) {
       // A ficha identifica a pessoa, entao aqui vai o nome completo.
       { rotulo: "Solicitante", valor: nomeCompleto(aberto.usuarios) },
       { rotulo: "Aberto em", valor: aberturaEm },
-      { rotulo: "E-mail", valor: aberto.usuarios?.email, largo: true },
+      { rotulo: "E-mail", valor: aberto.usuarios?.email },
+      { rotulo: "Setor", valor: aberto.usuarios?.setores?.nome },
       { rotulo: "Unidade", valor: aberto.unidades?.nome },
       { rotulo: "Categoria", valor: aberto.categorias?.nome },
       { rotulo: "Cliente na loja", valor: aberto.cliente_na_loja, marca: true },

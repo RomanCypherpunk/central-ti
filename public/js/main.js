@@ -344,6 +344,7 @@ function aplicarColapso(colapsada) {
   document.documentElement.dataset.sidebar = colapsada ? "colapsada" : "expandida";
 
   if (sidebarColapsarBtn) {
+    sidebarColapsarBtn.setAttribute("aria-expanded", String(!colapsada));
     sidebarColapsarBtn.setAttribute("aria-label", colapsada ? "Expandir menu" : "Recolher menu");
   }
 
