@@ -15,6 +15,7 @@ import { supabase } from "../config/supabase-config.js";
 import { ligarDetalhe, confirmarNoSite } from "./portal.js";
 import {
   derivarStatus,
+  primeiroNome,
   nomeCompleto,
   iniciais,
   tituloDoChamado,
@@ -67,7 +68,11 @@ ligarColapsarSidebar();
 //NAVEGACAO ENTRE ABAS
 const ABA_PADRAO = "tickets";
 
-function ligarAbas() {
+//aoMostrar: avisa quem chamou qual aba ficou visivel — usado pela Analise
+//pra so consultar o banco na primeira vez que a aba abre (o grafico e
+//pesado, as outras abas carregam tudo de cara em montarPainel, mas essa
+//nao teria por que rodar a consulta se a pessoa nunca clicar nela).
+function ligarAbas(aoMostrar) {
   const itens = [...document.querySelectorAll("[data-aba]")];
   const secoes = [...document.querySelectorAll("[data-painel-aba]")];
 
@@ -88,6 +93,8 @@ function ligarAbas() {
     const url = new URL(window.location.href);
     url.searchParams.set("aba", alvo);
     window.history.replaceState({}, "", url);
+
+    aoMostrar?.(alvo);
   }
 
   itens.forEach((item) => {
@@ -2138,14 +2145,2422 @@ function ligarListaTextos(textos) {
   desenhar();
 }
 
+/* ==========================================================================
+   ABA ANALISE: SUBSTITUI O RELATORIO DE POWER BI — mesma ideia (graficos
+   por periodo), mas os dados vem direto do banco, sem extracao manual.
 
+   Cada aba nova do Power BI vira aqui uma consulta PROPRIA e LEVE, nunca o
+   chamados.data completo de montarPainel (esse traz comentarios, anexos e
+   membros de TODO chamado sem filtro de data — pesado demais, e so serve
+   pro quadro/tabela de tickets). A consulta desta aba busca so os campos
+   que os graficos precisam, e SEMPRE com o periodo aplicado no banco (a
+   base tem ~15 mil chamados; nunca trazer tudo de uma vez).
+   ========================================================================== */
+
+//PALETA DO GRAFICO DE PIZZA: mesmas cores que o projeto ja usa em
+//etiquetas/selo (urgente, prioridade, normal) mais alguns tons da familia
+//laranja/terra da marca — nao e um gerador aleatorio, e uma lista fixa
+//pensada pra nunca repetir cor entre categorias vizinhas.
+const CORES_GRAFICO = [
+  "#dd5b12", "#2f6fb0", "#3a9c6a", "#9a5b00", "#7a4a2a",
+  "#b02a2a", "#5e141d", "#6b6b70", "#c77240", "#1f6b5c",
+];
+
+//ESPESSURA DA BARRA PROPORCIONAL A QUANTIDADE: com maxBarThickness fixo,
+//3 barras num container de 352px (.analise-grafico__caixa--barra, 22rem)
+//ficavam finas e desencontradas, sobrando bastante espaco vazio entre
+//elas; com muitas unidades a mesma espessura fixa faria as barras
+//se espremerem ou vazarem do container. Divide a altura disponivel pela
+//quantidade de barras e usa um pedaco dela como espessura — poucas
+//barras ganham mais grossura, muitas ficam mais finas — sempre dentro de
+//um minimo (continua clicavel/legivel) e um maximo (nao vira um bloco
+//gigante so com uma ou duas barras).
+const ALTURA_GRAFICO_BARRA_PX = 352; // bate com .analise-grafico__caixa--barra (22rem)
+
+function espessuraDaBarra(quantidade) {
+  if (!quantidade) return 22;
+
+  const espacoPorBarra = ALTURA_GRAFICO_BARRA_PX / quantidade;
+  return Math.max(14, Math.min(48, Math.round(espacoPorBarra * 0.6)));
+}
+
+//FONTE PADRAO DE TODOS OS GRAFICOS: "Poppins", igual ao resto do
+//Painel/Portal — sem isso o Chart.js cai na fonte generica do sistema
+//(Helvetica/Arial), destoando do resto da tela. Definido uma vez so,
+//antes do primeiro grafico ser criado (Chart e global, vem do CDN).
+Chart.defaults.font.family = "'Poppins', system-ui, sans-serif";
+Chart.defaults.font.size = 12;
+
+//TOOLTIP NO PADRAO SHADCN DO PROJETO: cantos arredondados generosos,
+//sem a seta/triangulo padrao do Chart.js (nao combina com o resto do
+//site, que nunca usa esse recurso), padding confortavel, titulo em
+//Poppins 600 (os rotulos de card/grafico do projeto usam esse peso pra
+//titulo, ver .analise-grafico__titulo em painel.css).
+Chart.defaults.plugins.tooltip.backgroundColor = "#1a1a1a";
+Chart.defaults.plugins.tooltip.titleFont = { family: "'Poppins', system-ui, sans-serif", weight: "600", size: 12 };
+Chart.defaults.plugins.tooltip.bodyFont = { family: "'Poppins', system-ui, sans-serif", size: 12 };
+Chart.defaults.plugins.tooltip.padding = 10;
+Chart.defaults.plugins.tooltip.cornerRadius = 8;
+Chart.defaults.plugins.tooltip.displayColors = true;
+Chart.defaults.plugins.tooltip.boxPadding = 4;
+
+//SLA EM HORAS UTEIS, NAO HORAS CORRIDAS: regra do horario de
+//funcionamento do TI — seg-sex 8h as 17h48, sabado 8h as 12h, domingo
+//sem expediente. Um chamado aberto sexta 17h47 e fechado segunda 8h tem
+//so 1 minuto de SLA (o cronometro so "liga" quando o expediente abre de
+//verdade, nao conta o tempo fechado do fim de semana). Feriados NAO sao
+//considerados por enquanto (decisao do usuario) — so dia da semana e
+//horario.
+//
+//Algoritmo: soma, dia a dia entre abertura e fechamento, a sobreposicao
+//entre [abertura, fechamento] e a janela de expediente daquele dia.
+const EXPEDIENTE_POR_DIA_DA_SEMANA = {
+  0: null, // domingo: sem expediente
+  1: { inicio: [8, 0], fim: [17, 48] },
+  2: { inicio: [8, 0], fim: [17, 48] },
+  3: { inicio: [8, 0], fim: [17, 48] },
+  4: { inicio: [8, 0], fim: [17, 48] },
+  5: { inicio: [8, 0], fim: [17, 48] },
+  6: { inicio: [8, 0], fim: [12, 0] },
+};
+
+function horasUteisEntre(inicio, fim) {
+  if (fim <= inicio) return 0;
+
+  let minutos = 0;
+  // Comeca no dia da abertura e anda dia a dia ate o dia do fechamento —
+  // no maximo alguns milhares de iteracoes mesmo pra um chamado aberto
+  // ha anos, entao nao ha problema de desempenho aqui.
+  const cursor = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
+
+  while (cursor <= fim) {
+    const expediente = EXPEDIENTE_POR_DIA_DA_SEMANA[cursor.getDay()];
+
+    if (expediente) {
+      const abreDoDia = new Date(cursor);
+      abreDoDia.setHours(expediente.inicio[0], expediente.inicio[1], 0, 0);
+      const fechaDoDia = new Date(cursor);
+      fechaDoDia.setHours(expediente.fim[0], expediente.fim[1], 0, 0);
+
+      // Sobreposicao entre [inicio, fim] do chamado e [abreDoDia, fechaDoDia]
+      // do expediente daquele dia — maior dos inicios, menor dos fins.
+      const comeco = inicio > abreDoDia ? inicio : abreDoDia;
+      const termino = fim < fechaDoDia ? fim : fechaDoDia;
+
+      if (termino > comeco) {
+        minutos += (termino - comeco) / 60_000;
+      }
+    }
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return minutos / 60;
+}
+
+function formatarDuracao(horas) {
+  if (horas == null || !Number.isFinite(horas)) return "—";
+
+  if (horas < 24) {
+    return `${horas.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} horas`;
+  }
+
+  return `${(horas / 24).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} dias`;
+}
+
+//TEMPO ATE A PRIMEIRA RESPOSTA: da abertura ate o primeiro comentario de
+//alguem que NAO e o solicitante (a equipe de TI) — mesmo criterio de
+//"quem falou" que derivarStatus usa (chamado-comum.js), so publico e
+//humano conta, nota interna e mensagem automatica de abertura nao.
+//Chamado sem nenhuma resposta da equipe ainda fica de fora da media —
+//nao tem "tempo de resposta" formado, igual um chamado aberto fica de
+//fora do tempo de solucao.
+function horasAtePrimeiraResposta(chamado) {
+  const respostas = chamado.comentarios
+    .filter((comentario) =>
+      comentario.visibilidade === "publico" &&
+      comentario.tipo === "humano" &&
+      comentario.autor_id !== chamado.solicitante_id)
+    .sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em));
+
+  const primeira = respostas[0];
+
+  if (!primeira) return null;
+
+  return horasUteisEntre(new Date(chamado.abertura_em), new Date(primeira.criado_em));
+}
+
+//"AAAA-MM-DD" NO FUSO LOCAL: toISOString() converte pra UTC antes de
+//cortar a string — perto da meia-noite isso pode voltar um dia (as 23h de
+//um dia no Brasil ja e 2h do dia seguinte em UTC). Usado em todo lugar
+//que precisa da data de um Date local como texto, nunca toISOString().
+function paraTextoLocal(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
+
+//PRIMEIRO DIA DO MES ATE HOJE: mesmo padrao do print do Power BI (o
+//usuario mandou um mes inteiro de exemplo) — o filtro sempre comeca com
+//um recorte curto, nunca "todo o historico".
+function periodoPadrao() {
+  const hoje = new Date();
+  const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
+  return { de: paraTextoLocal(primeiroDia), ate: paraTextoLocal(hoje) };
+}
+
+//OS 5 ATALHOS DO SELETOR DE PERIODO — cada um calcula { de, ate } a
+//partir de hoje. "Semana" comeca na segunda (padrao BR), nao no domingo.
+const ATALHOS_PERIODO = {
+  hoje: () => {
+    const hoje = new Date();
+    return { de: hoje, ate: hoje };
+  },
+  semana: () => {
+    const hoje = new Date();
+    // getDay(): 0=domingo..6=sabado. Distancia ate a segunda-feira anterior
+    // (ou a propria hoje, se hoje ja for segunda).
+    const distanciaDaSegunda = (hoje.getDay() + 6) % 7;
+    const segunda = new Date(hoje);
+    segunda.setDate(hoje.getDate() - distanciaDaSegunda);
+    return { de: segunda, ate: hoje };
+  },
+  mes: () => {
+    const hoje = new Date();
+    return { de: new Date(hoje.getFullYear(), hoje.getMonth(), 1), ate: hoje };
+  },
+  "mes-passado": () => {
+    const hoje = new Date();
+    const primeiroDoMesPassado = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+    // Dia 0 do mes atual = ultimo dia do mes anterior.
+    const ultimoDoMesPassado = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+    return { de: primeiroDoMesPassado, ate: ultimoDoMesPassado };
+  },
+  ano: () => {
+    const hoje = new Date();
+    return { de: new Date(hoje.getFullYear(), 0, 1), ate: hoje };
+  },
+};
+
+const NOMES_MES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+function ligarAnalise() {
+  const secao = document.querySelector('[data-painel-aba="analise"]');
+
+  if (!secao) return { aoAbrir: () => {} };
+
+  const erroEl = secao.querySelector("[data-analise-erro]");
+  const vazioEl = secao.querySelector("[data-analise-vazio]");
+  const cardsEl = secao.querySelector("[data-analise-cards]");
+  const unidadesCardsEl = secao.querySelector("[data-analise-unidades-cards]");
+  const categoriasCardsEl = secao.querySelector("[data-analise-categorias-cards]");
+  const setoresCardsEl = secao.querySelector("[data-analise-setores-cards]");
+  const solicitantesCardsEl = secao.querySelector("[data-analise-solicitantes-cards]");
+  const atendentesCardsEl = secao.querySelector("[data-analise-atendentes-cards]");
+  const acompanhamentoCardsEl = secao.querySelector("[data-analise-acompanhamento-cards]");
+  const subabasNavEl = secao.querySelector("[data-analise-subabas]");
+  const canvasUnidades = secao.querySelector("[data-analise-grafico-unidades]");
+  const canvasCategorias = secao.querySelector("[data-analise-grafico-categorias]");
+  const canvasUnidadesEmpilhado = secao.querySelector("[data-analise-grafico-unidades-empilhado]");
+  const canvasUnidadesSla = secao.querySelector("[data-analise-grafico-unidades-sla]");
+  const canvasCategoriasEmpilhado = secao.querySelector("[data-analise-grafico-categorias-empilhado]");
+  const canvasCategoriasSla = secao.querySelector("[data-analise-grafico-categorias-sla]");
+  const canvasSetoresEmpilhado = secao.querySelector("[data-analise-grafico-setores-empilhado]");
+  const canvasSetoresSla = secao.querySelector("[data-analise-grafico-setores-sla]");
+  const canvasSolicitantesEmpilhado = secao.querySelector("[data-analise-grafico-solicitantes-empilhado]");
+  const canvasSolicitantesSla = secao.querySelector("[data-analise-grafico-solicitantes-sla]");
+  const canvasAtendentesTotal = secao.querySelector("[data-analise-grafico-atendentes-total]");
+  const canvasAtendentesSla = secao.querySelector("[data-analise-grafico-atendentes-sla]");
+  const canvasMesTotal = secao.querySelector("[data-analise-grafico-mes-total]");
+  const canvasMesSla = secao.querySelector("[data-analise-grafico-mes-sla]");
+
+  let graficoUnidades = null;
+  let graficoCategorias = null;
+  let graficoUnidadesEmpilhado = null;
+  let graficoUnidadesSla = null;
+  let graficoCategoriasEmpilhado = null;
+  let graficoCategoriasSla = null;
+  let graficoSetoresEmpilhado = null;
+  let graficoSetoresSla = null;
+  let graficoSolicitantesEmpilhado = null;
+  let graficoSolicitantesSla = null;
+  let graficoAtendentesTotal = null;
+  let graficoAtendentesSla = null;
+  let graficoMesTotal = null;
+  let graficoMesSla = null;
+  let jaAbriu = false;
+
+  // Acompanhamento tem sua PROPRIA consulta (12 meses fixos, nao o
+  // periodo do topo) e so carrega na primeira vez que a sub-aba abre —
+  // igual ao padrao jaAbriu da secao inteira, so que aninhado.
+  let jaAbriuAcompanhamento = false;
+  let dadosAcompanhamento = [];
+
+  // Guarda o resultado BRUTO da consulta (so o periodo aplicado no banco,
+  // nunca os filtros de unidade/categoria/setor/atendente — esses sao
+  // client-side, ver aplicarFiltrosAnalise). Trocar de sub-aba ou mudar um
+  // filtro so reprocessa o que ja esta em memoria, sem nova consulta ao
+  // banco — todas as sub-abas usam o MESMO periodo e os MESMOS filtros do
+  // topo desta secao.
+  let ultimoResultado = [];
+
+  //FILTROS GLOBAIS DA ANALISE: unidade/categoria/setor/atendente, mesmo
+  //padrao do filtro de "Todos os tickets" (ligarFiltroDeTickets) —
+  //client-side, sobre o que a consulta ja trouxe do periodo. SEM_ATENDENTE
+  //e um valor sentinela (nao e um id de verdade) pra "chamado sem ninguem
+  //em chamado_membros", igual ligarFiltroDeTickets ja faz.
+  const SEM_ATENDENTE_ANALISE = "__sem-atendente";
+  const filtrosAnalise = { unidade: [], categoria: [], setor: [], atendente: [] };
+
+  function totalDeFiltrosAnalise() {
+    return filtrosAnalise.unidade.length + filtrosAnalise.categoria.length
+      + filtrosAnalise.setor.length + filtrosAnalise.atendente.length;
+  }
+
+  function aplicarFiltrosAnalise(chamados) {
+    return chamados.filter((chamado) => {
+      if (filtrosAnalise.unidade.length && !filtrosAnalise.unidade.includes(chamado.unidade_id)) return false;
+      if (filtrosAnalise.categoria.length && !filtrosAnalise.categoria.includes(chamado.categoria_id)) return false;
+      if (filtrosAnalise.setor.length && !filtrosAnalise.setor.includes(chamado.usuarios?.setor_id)) return false;
+
+      if (filtrosAnalise.atendente.length) {
+        const idsAtendentes = chamado.chamado_membros.map((membro) => membro.usuario_id);
+        const combina = idsAtendentes.some((id) => filtrosAnalise.atendente.includes(id))
+          || (filtrosAnalise.atendente.includes(SEM_ATENDENTE_ANALISE) && !idsAtendentes.length);
+        if (!combina) return false;
+      }
+
+      return true;
+    });
+  }
+
+  //O QUE TODA SUB-ABA DE FATO DESENHA: periodo (ja aplicado no banco em
+  //carregar()) + filtros client-side por cima.
+  function dadosFiltrados() {
+    return aplicarFiltrosAnalise(ultimoResultado);
+  }
+
+  // { de, ate }: Date locais, sempre em par — e o que a consulta usa de
+  // verdade. O input date sumiu; agora quem escreve aqui e o atalho
+  // clicado ou o range confirmado no calendario.
+  let periodo = ATALHOS_PERIODO.mes();
+  let atalhoAtivo = "mes";
+
+  const periodoBotao = secao.querySelector("[data-periodo-abrir]");
+  const periodoRotulo = secao.querySelector("[data-periodo-rotulo]");
+  const periodoCaixa = secao.querySelector("[data-periodo-caixa]");
+  const periodoPainel = secao.querySelector("[data-periodo-painel]");
+  const mesAnteriorBotao = secao.querySelector("[data-periodo-mes-anterior]");
+  const mesProximoBotao = secao.querySelector("[data-periodo-mes-proximo]");
+  const mesTitulo = secao.querySelector("[data-periodo-mes-titulo]");
+  const diasEl = secao.querySelector("[data-periodo-dias]");
+  const cancelarBotao = secao.querySelector("[data-periodo-cancelar]");
+  const confirmarBotao = secao.querySelector("[data-periodo-confirmar]");
+
+  // Mes que o calendario esta mostrando (independente do periodo
+  // aplicado) e a selecao em andamento (dois cliques: inicio, depois fim).
+  let mesVisivel = new Date(periodo.de.getFullYear(), periodo.de.getMonth(), 1);
+  let selecaoInicio = null;
+  let selecaoFim = null;
+
+  function formatarRotuloPeriodo() {
+    const rotulosFixos = {
+      hoje: "Hoje", semana: "Esta semana", mes: "Este mês",
+      "mes-passado": "Mês passado", ano: "Este ano",
+    };
+
+    if (atalhoAtivo) return rotulosFixos[atalhoAtivo];
+
+    //DD/MM manual, nao toLocaleDateString: o formato "short" do pt-BR
+    //produz "01 de set." (com "de" e ponto), verboso demais pro botao.
+    const curto = (data) =>
+      `${String(data.getDate()).padStart(2, "0")}/${String(data.getMonth() + 1).padStart(2, "0")}`;
+
+    return `${curto(periodo.de)} – ${curto(periodo.ate)}`;
+  }
+
+  function aplicarPeriodo(novoPeriodo, chaveAtalho) {
+    periodo = novoPeriodo;
+    atalhoAtivo = chaveAtalho ?? null;
+    periodoRotulo.textContent = formatarRotuloPeriodo();
+    carregar();
+  }
+
+  function mostrarPainel(aberto) {
+    periodoPainel.hidden = !aberto;
+    periodoBotao.setAttribute("aria-expanded", String(aberto));
+
+    if (aberto) {
+      // Reabre sempre mostrando o mes do periodo ATUAL, sem selecao pendente
+      // de uma vez anterior que a pessoa cancelou.
+      mesVisivel = new Date(periodo.de.getFullYear(), periodo.de.getMonth(), 1);
+      selecaoInicio = null;
+      selecaoFim = null;
+      desenharCalendario();
+    }
+  }
+
+  //RECONSTROI A GRADE INTEIRA: usada so quando o MES visivel muda (abrir o
+  //popover, trocar de mes) — o layout dos 42 dias e diferente a cada mes.
+  function desenharCalendario() {
+    mesTitulo.textContent = `${NOMES_MES[mesVisivel.getMonth()]} ${mesVisivel.getFullYear()}`;
+
+    const primeiroDoMes = new Date(mesVisivel.getFullYear(), mesVisivel.getMonth(), 1);
+    // Mesma conta de distancia-ate-segunda do atalho "semana": a grade
+    // sempre comeca numa segunda-feira, mesmo que seja do mes anterior.
+    const distanciaDaSegunda = (primeiroDoMes.getDay() + 6) % 7;
+    const inicioDaGrade = new Date(primeiroDoMes);
+    inicioDaGrade.setDate(primeiroDoMes.getDate() - distanciaDaSegunda);
+
+    const hojeTexto = paraTextoLocal(new Date());
+
+    diasEl.replaceChildren();
+
+    // 6 semanas cobre qualquer mes, inclusive os que "vazam" pra 6 linhas.
+    for (let indice = 0; indice < 42; indice += 1) {
+      const dia = new Date(inicioDaGrade);
+      dia.setDate(inicioDaGrade.getDate() + indice);
+
+      const diaTexto = paraTextoLocal(dia);
+      const foraDoMes = dia.getMonth() !== mesVisivel.getMonth();
+
+      const botao = document.createElement("button");
+      botao.type = "button";
+      botao.className = "periodo-dia";
+      botao.textContent = String(dia.getDate());
+      botao.dataset.data = diaTexto;
+      if (foraDoMes) botao.classList.add("periodo-dia--fora");
+      if (diaTexto === hojeTexto) botao.classList.add("periodo-dia--hoje");
+
+      // Nao usa closure sobre `dia`: o clique sempre le o Date de novo a
+      // partir do dataset, senao um clique num botao "velho" (de antes de
+      // uma corrida de re-render) selecionaria a data errada.
+      botao.addEventListener("click", () => selecionarDia(new Date(diaTexto + "T00:00:00")));
+      diasEl.appendChild(botao);
+    }
+
+    atualizarSelecaoNaGrade();
+  }
+
+  //SO ATUALIZA AS CLASSES DE SELECAO NOS BOTOES JA EXISTENTES, sem
+  //recriar nenhum — chamada a cada clique num dia. Recriar o grid inteiro
+  //dentro do proprio handler de clique do dia removia o botao clicado da
+  //arvore ANTES do clique terminar de borbulhar ate o listener de
+  //"clique fora" no document, e o closest() num no ja desconectado da
+  //arvore retorna null — o popover fechava sozinho a cada dia clicado,
+  //antes da pessoa conseguir escolher o segundo dia do intervalo.
+  function atualizarSelecaoNaGrade() {
+    const inicioTexto = selecaoInicio && paraTextoLocal(selecaoInicio);
+    const fimTexto = selecaoFim && paraTextoLocal(selecaoFim);
+
+    diasEl.querySelectorAll(".periodo-dia").forEach((botao) => {
+      const diaTexto = botao.dataset.data;
+
+      botao.classList.toggle("periodo-dia--inicio", Boolean(inicioTexto) && diaTexto === inicioTexto);
+      botao.classList.toggle("periodo-dia--fim", Boolean(fimTexto) && diaTexto === fimTexto);
+      botao.classList.toggle(
+        "periodo-dia--no-range",
+        Boolean(inicioTexto) && Boolean(fimTexto) && diaTexto > inicioTexto && diaTexto < fimTexto,
+      );
+    });
+  }
+
+  function selecionarDia(dia) {
+    // Primeiro clique da selecao (ou clique depois de um range ja
+    // completo): comeca um range novo, do zero.
+    if (!selecaoInicio || selecaoFim) {
+      selecaoInicio = dia;
+      selecaoFim = null;
+    } else if (dia < selecaoInicio) {
+      // Clicou antes do inicio: o clique novo vira o inicio.
+      selecaoFim = selecaoInicio;
+      selecaoInicio = dia;
+    } else {
+      selecaoFim = dia;
+    }
+
+    confirmarBotao.disabled = !(selecaoInicio && selecaoFim);
+    atualizarSelecaoNaGrade();
+  }
+
+  Object.keys(ATALHOS_PERIODO).forEach((chave) => {
+    const botao = secao.querySelector(`[data-periodo-atalho="${chave}"]`);
+
+    botao?.addEventListener("click", () => {
+      secao.querySelectorAll(".periodo-atalho")
+        .forEach((outro) => outro.classList.remove("periodo-atalho--marcado"));
+      botao.classList.add("periodo-atalho--marcado");
+
+      aplicarPeriodo(ATALHOS_PERIODO[chave](), chave);
+      mostrarPainel(false);
+    });
+  });
+
+  mesAnteriorBotao.addEventListener("click", () => {
+    mesVisivel = new Date(mesVisivel.getFullYear(), mesVisivel.getMonth() - 1, 1);
+    desenharCalendario();
+  });
+
+  mesProximoBotao.addEventListener("click", () => {
+    mesVisivel = new Date(mesVisivel.getFullYear(), mesVisivel.getMonth() + 1, 1);
+    desenharCalendario();
+  });
+
+  cancelarBotao.addEventListener("click", () => mostrarPainel(false));
+
+  confirmarBotao.addEventListener("click", () => {
+    if (!selecaoInicio || !selecaoFim) return;
+
+    secao.querySelectorAll(".periodo-atalho")
+      .forEach((outro) => outro.classList.remove("periodo-atalho--marcado"));
+
+    aplicarPeriodo({ de: selecaoInicio, ate: selecaoFim }, null);
+    mostrarPainel(false);
+  });
+
+  periodoBotao.addEventListener("click", () => mostrarPainel(periodoPainel.hidden));
+
+  //CLIQUE FORA OU ESC FECHA — mesma regra dos outros dropdowns da tela.
+  document.addEventListener("click", (evento) => {
+    if (!periodoPainel.hidden && !evento.target.closest("[data-periodo-caixa]")) mostrarPainel(false);
+  });
+  document.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape" && !periodoPainel.hidden) mostrarPainel(false);
+  });
+
+  periodoRotulo.textContent = formatarRotuloPeriodo();
+
+  /* ------------------------------------------------------------------
+     SUB-ABAS: barra no rodape da secao (pedido do usuario), cada uma um
+     pedaco do relatorio de Power BI. Trocar so alterna [hidden] e
+     redesenha os graficos da sub-aba escolhida com o ultimoResultado ja
+     em memoria — nunca refaz a consulta.
+     ------------------------------------------------------------------ */
+  const subabaBotoes = [...secao.querySelectorAll("[data-analise-subaba]")];
+  const subabaSecoes = [...secao.querySelectorAll("[data-analise-sub]")];
+
+  function mostrarSubaba(chave) {
+    subabaBotoes.forEach((botao) => {
+      botao.classList.toggle("analise-subaba--atual", botao.dataset.analiseSubaba === chave);
+    });
+    subabaSecoes.forEach((sub) => {
+      sub.hidden = sub.dataset.analiseSub !== chave;
+    });
+    desenharSubabaAtual(chave);
+  }
+
+  //REDESENHA SO OS GRAFICOS DA SUB-ABA VISIVEL: um canvas escondido
+  //([hidden] no ancestral) mede largura 0 no Chart.js e o grafico nasce
+  //achatado — por isso Resumo e Unidades tem os graficos redesenhados de
+  //novo aqui a cada troca, em vez de todos de uma vez em carregar().
+  function desenharSubabaAtual(chave) {
+    if (!ultimoResultado.length) return;
+
+    const chamados = dadosFiltrados();
+
+    if (chave === "resumo") {
+      desenharGraficoUnidades(chamados);
+      desenharGraficoCategorias(chamados);
+    } else if (chave === "unidades") {
+      desenharCardsDeUnidades(chamados);
+      desenharGraficoUnidadesEmpilhado(chamados);
+      desenharGraficoUnidadesSla(chamados);
+    } else if (chave === "categorias") {
+      desenharCardsDeCategorias(chamados);
+      desenharGraficoCategoriasEmpilhado(chamados);
+      desenharGraficoCategoriasSla(chamados);
+    } else if (chave === "setores") {
+      desenharCardsDeSetores(chamados);
+      desenharGraficoSetoresEmpilhado(chamados);
+      desenharGraficoSetoresSla(chamados);
+    } else if (chave === "solicitantes") {
+      desenharCardsDeSolicitantes(chamados);
+      desenharGraficoSolicitantesEmpilhado(chamados);
+      desenharGraficoSolicitantesSla(chamados);
+    } else if (chave === "atendentes") {
+      desenharCardsDeAtendentes(chamados);
+      desenharGraficoAtendentesTotal(chamados);
+      desenharGraficoAtendentesSla(chamados);
+    } else if (chave === "acompanhamento") {
+      // Consulta PROPRIA (12 meses fixos), carregada so na primeira vez —
+      // desenharAcompanhamento cuida de disparar carregarAcompanhamento()
+      // se ainda nao tiver dados, e redesenhar quando a consulta voltar.
+      desenharAcompanhamento();
+    }
+  }
+
+  subabaBotoes.forEach((botao) => {
+    botao.addEventListener("click", () => mostrarSubaba(botao.dataset.analiseSubaba));
+  });
+
+  /* ------------------------------------------------------------------
+     FILTRO GLOBAL DA ANALISE: unidade/categoria/setor/atendente, mesmo
+     padrao visual e de interacao do filtro de "Todos os tickets"
+     (ligarFiltroDeTickets), so que aqui filtra o conjunto de dados
+     compartilhado por TODAS as sub-abas, nao uma tabela. As opcoes de
+     cada grupo sao derivadas do proprio ultimoResultado (quem realmente
+     aparece no periodo carregado), nao de uma lista fixa vinda de outra
+     consulta — assim nunca mostra "Financeiro" como opcao de setor se
+     ninguem daquele setor abriu chamado no periodo escolhido.
+     ------------------------------------------------------------------ */
+  const filtroCaixa = secao.querySelector("[data-analise-filtro-caixa]");
+  const filtroBotao = secao.querySelector("[data-analise-filtro-abrir]");
+  const filtroPainel = secao.querySelector("[data-analise-filtro-painel]");
+  const filtroGrupos = secao.querySelector("[data-analise-filtro-grupos]");
+  const filtroContador = secao.querySelector("[data-analise-filtro-contador]");
+  const filtroLimpar = secao.querySelector("[data-analise-filtro-limpar]");
+
+  function opcoesUnicas(chamados, pegarPar) {
+    const mapa = new Map();
+    chamados.forEach((chamado) => {
+      const par = pegarPar(chamado);
+      if (par && par[0] != null && !mapa.has(par[0])) mapa.set(par[0], par[1]);
+    });
+    return [...mapa.entries()].map(([id, nome]) => ({ id, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }
+
+  function atualizarBotaoFiltro() {
+    const total = totalDeFiltrosAnalise();
+    filtroBotao.classList.toggle("painel-icone-botao--ativo", total > 0);
+    filtroContador.hidden = !total;
+    filtroContador.textContent = String(total);
+    filtroLimpar.disabled = !total;
+  }
+
+  //MESMA IDEIA DE grupoChips EM ligarFiltroDeTickets: poucas opcoes,
+  //cabe como botoezinhos — usado pra unidade/categoria/setor.
+  function grupoChipsAnalise({ titulo, opcoes, chave }) {
+    const grupo = document.createElement("div");
+    grupo.className = "painel-filtro-grupo";
+
+    const rotulo = document.createElement("p");
+    rotulo.className = "painel-filtro-grupo__titulo";
+    rotulo.textContent = titulo;
+
+    const lista = document.createElement("div");
+    lista.className = "painel-filtro-grupo__opcoes";
+
+    if (!opcoes.length) {
+      const vazio = document.createElement("p");
+      vazio.className = "painel-filtro-grupo__vazio";
+      vazio.textContent = "Nada para filtrar aqui ainda.";
+      grupo.append(rotulo, vazio);
+      return grupo;
+    }
+
+    opcoes.forEach(({ id, nome }) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "painel-filtro-chip";
+      chip.classList.toggle("painel-filtro-chip--marcado", filtrosAnalise[chave].includes(id));
+      chip.textContent = nome;
+
+      chip.addEventListener("click", () => {
+        filtrosAnalise[chave] = filtrosAnalise[chave].includes(id)
+          ? filtrosAnalise[chave].filter((atual) => atual !== id)
+          : [...filtrosAnalise[chave], id];
+
+        chip.classList.toggle("painel-filtro-chip--marcado", filtrosAnalise[chave].includes(id));
+        atualizarBotaoFiltro();
+        desenharCards(dadosFiltrados());
+        desenharSubabaAtual(subabaBotoes.find((botao) => botao.classList.contains("analise-subaba--atual"))
+          ?.dataset.analiseSubaba ?? "resumo");
+      });
+
+      lista.appendChild(chip);
+    });
+
+    grupo.append(rotulo, lista);
+    return grupo;
+  }
+
+  //MESMA IDEIA DE grupoPessoas EM ligarFiltroDeTickets: pode ter muita
+  //gente, ganha campo de busca e caixinhas de marcar — usado so pra
+  //atendente (chamado_membros pode ter varias pessoas por chamado).
+  function grupoPessoasAnalise({ titulo, opcoes, chave }) {
+    const grupo = document.createElement("div");
+    grupo.className = "painel-filtro-grupo";
+
+    const rotulo = document.createElement("p");
+    rotulo.className = "painel-filtro-grupo__titulo";
+    rotulo.textContent = titulo;
+
+    if (!opcoes.length) {
+      const vazio = document.createElement("p");
+      vazio.className = "painel-filtro-grupo__vazio";
+      vazio.textContent = "Nada para filtrar aqui ainda.";
+      grupo.append(rotulo, vazio);
+      return grupo;
+    }
+
+    const busca = document.createElement("input");
+    busca.type = "search";
+    busca.className = "painel-filtro-grupo__busca";
+    busca.placeholder = `Buscar ${titulo.toLowerCase()}…`;
+    busca.setAttribute("aria-label", `Buscar em ${titulo}`);
+    busca.hidden = opcoes.length <= 6;
+
+    const lista = document.createElement("div");
+    lista.className = "painel-filtro-grupo__lista";
+
+    const vazioBusca = document.createElement("p");
+    vazioBusca.className = "painel-filtro-grupo__vazio";
+    vazioBusca.textContent = "Ninguém encontrado.";
+    vazioBusca.hidden = true;
+
+    opcoes.forEach(({ id, nome }) => {
+      const item = document.createElement("label");
+      item.className = "painel-filtro-grupo__item";
+      item.dataset.nome = nome.toLowerCase();
+
+      const caixa = document.createElement("input");
+      caixa.type = "checkbox";
+      caixa.checked = filtrosAnalise[chave].includes(id);
+
+      caixa.addEventListener("change", () => {
+        filtrosAnalise[chave] = caixa.checked
+          ? [...filtrosAnalise[chave], id]
+          : filtrosAnalise[chave].filter((atual) => atual !== id);
+
+        atualizarBotaoFiltro();
+        desenharCards(dadosFiltrados());
+        desenharSubabaAtual(subabaBotoes.find((botao) => botao.classList.contains("analise-subaba--atual"))
+          ?.dataset.analiseSubaba ?? "resumo");
+      });
+
+      const nomeSpan = document.createElement("span");
+      nomeSpan.textContent = nome;
+
+      item.append(caixa, nomeSpan);
+      lista.appendChild(item);
+    });
+
+    busca.addEventListener("input", () => {
+      const alvo = busca.value.trim().toLowerCase();
+      let algumaAparece = false;
+
+      lista.querySelectorAll(".painel-filtro-grupo__item").forEach((item) => {
+        const aparece = item.dataset.nome.includes(alvo);
+        item.hidden = !aparece;
+        if (aparece) algumaAparece = true;
+      });
+
+      vazioBusca.hidden = algumaAparece;
+    });
+
+    grupo.append(rotulo, busca, lista, vazioBusca);
+    return grupo;
+  }
+
+  //RECONSTROI OS GRUPOS A CADA carregar() (novo periodo = opcoes novas):
+  //preserva a SELECAO ja marcada em filtrosAnalise, so troca as opcoes
+  //disponiveis pra bater com quem aparece no periodo atual.
+  function montarFiltroAnalise() {
+    const unidades = opcoesUnicas(ultimoResultado, (c) => c.unidades ? [c.unidade_id, c.unidades.nome] : null);
+    const categorias = opcoesUnicas(ultimoResultado, (c) => c.categorias ? [c.categoria_id, c.categorias.nome] : null);
+    const setores = opcoesUnicas(ultimoResultado, (c) => c.usuarios?.setores
+      ? [c.usuarios.setor_id, c.usuarios.setores.nome] : null);
+
+    const atendentesMapa = new Map();
+    let temChamadoSemAtendente = false;
+    ultimoResultado.forEach((chamado) => {
+      if (!chamado.chamado_membros.length) temChamadoSemAtendente = true;
+      chamado.chamado_membros.forEach((membro) => {
+        if (membro.usuarios && !atendentesMapa.has(membro.usuario_id)) {
+          atendentesMapa.set(membro.usuario_id, nomeCompleto(membro.usuarios) ?? "Alguém");
+        }
+      });
+    });
+    const atendentes = [...atendentesMapa.entries()].map(([id, nome]) => ({ id, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    if (temChamadoSemAtendente) atendentes.push({ id: SEM_ATENDENTE_ANALISE, nome: "Sem atendente" });
+
+    filtroGrupos.replaceChildren(
+      grupoChipsAnalise({ titulo: "Unidade", chave: "unidade", opcoes: unidades }),
+      grupoChipsAnalise({ titulo: "Categoria", chave: "categoria", opcoes: categorias }),
+      grupoChipsAnalise({ titulo: "Setor", chave: "setor", opcoes: setores }),
+      grupoPessoasAnalise({ titulo: "Atendente", chave: "atendente", opcoes: atendentes }),
+    );
+
+    atualizarBotaoFiltro();
+  }
+
+  function mostrarFiltroAnalise(aberto) {
+    filtroPainel.hidden = !aberto;
+    filtroBotao.setAttribute("aria-expanded", String(aberto));
+  }
+
+  filtroBotao.addEventListener("click", () => mostrarFiltroAnalise(filtroPainel.hidden));
+
+  filtroLimpar.addEventListener("click", () => {
+    filtrosAnalise.unidade = [];
+    filtrosAnalise.categoria = [];
+    filtrosAnalise.setor = [];
+    filtrosAnalise.atendente = [];
+    montarFiltroAnalise();
+    desenharCards(dadosFiltrados());
+    desenharSubabaAtual(subabaBotoes.find((botao) => botao.classList.contains("analise-subaba--atual"))
+      ?.dataset.analiseSubaba ?? "resumo");
+  });
+
+  //CLIQUE FORA OU ESC FECHA — mesma regra dos outros dropdowns da tela.
+  document.addEventListener("click", (evento) => {
+    if (!filtroPainel.hidden && !evento.target.closest("[data-analise-filtro-caixa]")) mostrarFiltroAnalise(false);
+  });
+  document.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape" && !filtroPainel.hidden) mostrarFiltroAnalise(false);
+  });
+
+  /* ------------------------------------------------------------------
+     EXPORTAR EM PDF: "foto" (html2canvas) da sub-aba renderizada, colada
+     numa pagina A4 retrato (jsPDF) — o PDF sai visualmente identico ao
+     que esta na tela (cores, graficos, layout), diferente do PDF de
+     texto que a Base de Solucoes gera (baixarPdfSolucao em base.js, que
+     desenha tudo na mao com jsPDF puro — nao serve aqui, o pedido era
+     "o resultado exato do dashboard", nao um relatorio textual).
+     ------------------------------------------------------------------ */
+  const exportarCaixa = secao.querySelector("[data-analise-exportar-caixa]");
+  const exportarBotao = secao.querySelector("[data-analise-exportar-abrir]");
+  const exportarPainel = secao.querySelector("[data-analise-exportar-painel]");
+  const exportarStatus = secao.querySelector("[data-analise-exportar-status]");
+
+  function mostrarExportar(aberto) {
+    exportarPainel.hidden = !aberto;
+    exportarBotao.setAttribute("aria-expanded", String(aberto));
+  }
+
+  exportarBotao.addEventListener("click", () => mostrarExportar(exportarPainel.hidden));
+
+  document.addEventListener("click", (evento) => {
+    if (!exportarPainel.hidden && !evento.target.closest("[data-analise-exportar-caixa]")) mostrarExportar(false);
+  });
+  document.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape" && !exportarPainel.hidden) mostrarExportar(false);
+  });
+
+  //TITULO + PERIODO ATIVO NO TOPO DA CAPTURA: da contexto de QUANDO foi
+  //gerado sem precisar reabrir o Painel pra saber — cada pagina do PDF
+  //ganha essa faixa antes de tirar a "foto" da sub-aba (removida logo
+  //depois, nao fica na tela de verdade pro usuario).
+  function montarFaixaDeContexto(rotuloSubaba) {
+    const faixa = document.createElement("div");
+    faixa.className = "analise-exportar-faixa";
+
+    const titulo = document.createElement("h1");
+    titulo.textContent = `Análise — ${rotuloSubaba}`;
+
+    const periodo = document.createElement("p");
+    periodo.textContent = `Período: ${periodoRotulo.textContent}`;
+
+    faixa.append(titulo, periodo);
+    return faixa;
+  }
+
+  //CAPTURA UMA SUB-ABA (precisa estar VISIVEL — html2canvas nao renderiza
+  //elemento com display:none) e devolve o canvas pronto pra colar no PDF.
+  async function capturarSubaba(subabaEl, rotuloSubaba) {
+    const faixa = montarFaixaDeContexto(rotuloSubaba);
+    subabaEl.prepend(faixa);
+
+    try {
+      return await html2canvas(subabaEl, {
+        backgroundColor: corDoTexto("--superficie-2") || "#f4f4f5",
+        scale: 2, // nitidez maior que 1:1 — o texto dos graficos fica legivel no PDF
+        useCORS: true,
+      });
+    } finally {
+      faixa.remove();
+    }
+  }
+
+  //CANVAS -> UMA PAGINA A4 RETRATO: escala a imagem pra caber na largura
+  //util da pagina (margem de 10mm de cada lado), mantendo a proporcao —
+  //se a imagem for mais alta que a pagina, ela e cortada na largura, nunca
+  //espremida ou distorcida.
+  function adicionarPaginaComCanvas(doc, canvas, ehPrimeiraPagina) {
+    const LARGURA_A4_MM = 210;
+    const ALTURA_A4_MM = 297;
+    const MARGEM_MM = 10;
+    const larguraUtil = LARGURA_A4_MM - MARGEM_MM * 2;
+    const alturaUtil = ALTURA_A4_MM - MARGEM_MM * 2;
+
+    const razao = canvas.height / canvas.width;
+    let larguraImg = larguraUtil;
+    let alturaImg = larguraImg * razao;
+
+    // Mais alta que a pagina inteira: encolhe pra caber na altura em vez
+    // de deixar a imagem estourar a pagina (perderia o rodape do grafico).
+    if (alturaImg > alturaUtil) {
+      alturaImg = alturaUtil;
+      larguraImg = alturaImg / razao;
+    }
+
+    if (!ehPrimeiraPagina) doc.addPage();
+
+    const x = MARGEM_MM + (larguraUtil - larguraImg) / 2;
+    doc.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", x, MARGEM_MM, larguraImg, alturaImg);
+  }
+
+  async function exportarPaginaAtual() {
+    const chaveAtual = subabaBotoes.find((botao) => botao.classList.contains("analise-subaba--atual"))
+      ?.dataset.analiseSubaba ?? "resumo";
+    const subabaEl = secao.querySelector(`[data-analise-sub="${chaveAtual}"]`);
+    const rotulo = subabaBotoes.find((botao) => botao.dataset.analiseSubaba === chaveAtual)?.textContent ?? chaveAtual;
+
+    const canvas = await capturarSubaba(subabaEl, rotulo);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+    adicionarPaginaComCanvas(doc, canvas, true);
+    doc.save(`analise-${chaveAtual}.pdf`);
+  }
+
+  async function exportarTudo() {
+    const chaveOriginal = subabaBotoes.find((botao) => botao.classList.contains("analise-subaba--atual"))
+      ?.dataset.analiseSubaba ?? "resumo";
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+
+    for (let indice = 0; indice < subabaBotoes.length; indice += 1) {
+      const botao = subabaBotoes[indice];
+      const chave = botao.dataset.analiseSubaba;
+
+      exportarStatus.textContent = `Gerando "${botao.textContent}" (${indice + 1} de ${subabaBotoes.length})…`;
+
+      // Mostra a sub-aba de verdade (nao so tira o [hidden]): precisa
+      // redesenhar os graficos dela, senao um canvas que nunca ficou
+      // visivel neste carregamento da pagina nasce com largura 0.
+      mostrarSubaba(chave);
+      // Dois frames de respiro pro Chart.js terminar de desenhar antes
+      // do html2canvas tirar a "foto" — mudar [hidden] e chamar Chart.js
+      // no mesmo tick nao garante que o canvas ja tem pixel pra capturar.
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      const subabaEl = secao.querySelector(`[data-analise-sub="${chave}"]`);
+      const canvas = await capturarSubaba(subabaEl, botao.textContent);
+      adicionarPaginaComCanvas(doc, canvas, indice === 0);
+    }
+
+    mostrarSubaba(chaveOriginal);
+    exportarStatus.textContent = "Gera um PDF em retrato, igual ao que está na tela agora.";
+    doc.save("analise-completa.pdf");
+  }
+
+  secao.querySelectorAll("[data-analise-exportar]").forEach((botao) => {
+    botao.addEventListener("click", async () => {
+      mostrarExportar(false);
+      const modo = botao.dataset.analiseExportar;
+
+      exportarStatus.textContent = "Gerando PDF…";
+
+      try {
+        if (modo === "pagina") await exportarPaginaAtual();
+        else await exportarTudo();
+      } catch (erro) {
+        console.error("Erro ao exportar a análise em PDF:", erro);
+        mostrarErro("Não foi possível gerar o PDF. Tente novamente.");
+      } finally {
+        exportarStatus.textContent = "Gera um PDF em retrato, igual ao que está na tela agora.";
+      }
+    });
+  });
+
+  //OS TOKENS DE COR (--texto-2, --borda, --superficie...) SAO DECLARADOS
+  //EM body.portal-pagina (portal.css), NAO em :root/<html> — ler do
+  //documentElement sempre voltava string vazia. Passou despercebido pros
+  //eixos/grade porque o PROPRIO Chart.js tem um cinza padrao parecido
+  //quando a cor vem vazia; so ficou obvio quando a borda da pizza caiu no
+  //preto padrao do Chart.js em vez do respiro sutil pretendido.
+  function corDoTexto(variavel) {
+    return getComputedStyle(document.body).getPropertyValue(variavel).trim();
+  }
+
+  async function carregar() {
+    erroEl.hidden = true;
+    vazioEl.hidden = true;
+    cardsEl.hidden = false;
+    unidadesCardsEl.hidden = false;
+    categoriasCardsEl.hidden = false;
+    setoresCardsEl.hidden = false;
+    solicitantesCardsEl.hidden = false;
+    atendentesCardsEl.hidden = false;
+    subabasNavEl.hidden = false;
+
+    const desde = paraTextoLocal(periodo.de);
+    const ate = paraTextoLocal(periodo.ate);
+
+    //FIM DO DIA: sem isso o dia final ficaria de fora — chamados abertos
+    //DEPOIS da meia-noite do ultimo dia escolhido nao entrariam na busca.
+    const ateFimDoDia = `${ate}T23:59:59.999`;
+
+    const { data, error } = await supabase
+      .from("chamados")
+      .select(`
+        eh_urgente, abertura_em, fechamento_em, solicitante_id,
+        unidade_id, categoria_id,
+        unidades(nome), categorias(nome),
+        usuarios!chamados_solicitante_id_fkey(nome, sobrenome, setor_id, setores(nome)),
+        chamado_membros(usuario_id, usuarios(nome, sobrenome)),
+        comentarios(autor_id, criado_em, visibilidade, tipo)
+      `)
+      .gte("abertura_em", `${desde}T00:00:00`)
+      .lte("abertura_em", ateFimDoDia);
+
+    if (error) {
+      console.error("Erro ao carregar a análise:", error);
+      cardsEl.hidden = true;
+      unidadesCardsEl.hidden = true;
+      categoriasCardsEl.hidden = true;
+      setoresCardsEl.hidden = true;
+      solicitantesCardsEl.hidden = true;
+      atendentesCardsEl.hidden = true;
+      subabasNavEl.hidden = true;
+      erroEl.hidden = false;
+      erroEl.textContent = "Não foi possível carregar os dados do período. Tente novamente.";
+      return;
+    }
+
+    const chamados = data ?? [];
+    ultimoResultado = chamados;
+
+    if (!chamados.length) {
+      cardsEl.hidden = true;
+      unidadesCardsEl.hidden = true;
+      categoriasCardsEl.hidden = true;
+      setoresCardsEl.hidden = true;
+      solicitantesCardsEl.hidden = true;
+      atendentesCardsEl.hidden = true;
+      subabasNavEl.hidden = true;
+      vazioEl.hidden = false;
+      graficoUnidades?.destroy();
+      graficoCategorias?.destroy();
+      graficoUnidadesEmpilhado?.destroy();
+      graficoUnidadesSla?.destroy();
+      graficoCategoriasEmpilhado?.destroy();
+      graficoCategoriasSla?.destroy();
+      graficoSetoresEmpilhado?.destroy();
+      graficoSetoresSla?.destroy();
+      graficoSolicitantesEmpilhado?.destroy();
+      graficoSolicitantesSla?.destroy();
+      graficoAtendentesTotal?.destroy();
+      graficoAtendentesSla?.destroy();
+      graficoUnidades = null;
+      graficoCategorias = null;
+      graficoUnidadesEmpilhado = null;
+      graficoUnidadesSla = null;
+      graficoCategoriasEmpilhado = null;
+      graficoCategoriasSla = null;
+      graficoSetoresEmpilhado = null;
+      graficoSetoresSla = null;
+      graficoSolicitantesEmpilhado = null;
+      graficoSolicitantesSla = null;
+      graficoAtendentesTotal = null;
+      graficoAtendentesSla = null;
+      return;
+    }
+
+    // Filtros de unidade/categoria/setor/atendente sao aplicados AGORA,
+    // sobre o que a consulta trouxe do periodo — montarFiltroAnalise usa
+    // ultimoResultado (sempre o conjunto INTEIRO do periodo, sem filtro)
+    // pra montar as opcoes, entao precisa estar atualizado antes.
+    montarFiltroAnalise();
+    desenharCards(dadosFiltrados());
+
+    const subabaAtual = subabaBotoes.find((botao) => botao.classList.contains("analise-subaba--atual"))
+      ?.dataset.analiseSubaba ?? "resumo";
+    desenharSubabaAtual(subabaAtual);
+  }
+
+  function desenharCards(chamados) {
+    const total = chamados.length;
+    const urgentes = chamados.filter((chamado) => chamado.eh_urgente).length;
+    const percentualUrgentes = total ? (urgentes / total) * 100 : 0;
+
+    //SO CHAMADOS FECHADOS ENTRAM NA CONTA DE TEMPO DE SOLUCAO — um chamado
+    //ainda aberto nao tem "tempo de solucao" formado.
+    const duracoesEmHoras = chamados
+      .filter((chamado) => chamado.fechamento_em)
+      .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)))
+      .filter((horas) => horas >= 0);
+
+    const media = duracoesEmHoras.length
+      ? duracoesEmHoras.reduce((soma, horas) => soma + horas, 0) / duracoesEmHoras.length
+      : null;
+
+    const horasPrimeiraResposta = chamados
+      .map(horasAtePrimeiraResposta)
+      .filter((horas) => horas != null && horas >= 0);
+
+    const mediaPrimeiraResposta = horasPrimeiraResposta.length
+      ? horasPrimeiraResposta.reduce((soma, horas) => soma + horas, 0) / horasPrimeiraResposta.length
+      : null;
+
+    secao.querySelector("[data-analise-total]").textContent = total.toLocaleString("pt-BR");
+    secao.querySelector("[data-analise-urgentes]").textContent = urgentes.toLocaleString("pt-BR");
+    secao.querySelector("[data-analise-percentual-urgentes]").textContent =
+      `${percentualUrgentes.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`;
+    secao.querySelector("[data-analise-media]").textContent = formatarDuracao(media);
+    secao.querySelector("[data-analise-primeira-resposta]").textContent = formatarDuracao(mediaPrimeiraResposta);
+  }
+
+  //AGRUPA E ORDENA DO MAIOR PRO MENOR — mesmo formato dos dois graficos do
+  //Power BI (barra de unidade e pizza de categoria).
+  function contarPor(chamados, pegarChave) {
+    const contagem = new Map();
+
+    chamados.forEach((chamado) => {
+      const chave = pegarChave(chamado) ?? "Sem unidade";
+      contagem.set(chave, (contagem.get(chave) ?? 0) + 1);
+    });
+
+    return [...contagem.entries()].sort((a, b) => b[1] - a[1]);
+  }
+
+  function desenharGraficoUnidades(chamados) {
+    const dados = contarPor(chamados, (chamado) => chamado.unidades?.nome);
+    const texto = corDoTexto("--texto-2");
+
+    graficoUnidades?.destroy();
+    graficoUnidades = new Chart(canvasUnidades, {
+      type: "bar",
+      data: {
+        labels: dados.map(([nome]) => nome),
+        datasets: [{
+          data: dados.map(([, quantidade]) => quantidade),
+          backgroundColor: "#dd5b12",
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: espessuraDaBarra(dados.length),
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            beginAtZero: true,
+            //SO NUMERO INTEIRO NO EIXO: e contagem de chamados, nunca faz
+            //sentido meio ticket — sem isso o Chart.js as vezes escolhe
+            //passo decimal (0,2/0,4/...) quando a barra maior e pequena.
+            ticks: { color: texto, precision: 0, padding: 6 },
+            //SEM LINHAS DE GRADE VERTICAIS: poluiam o fundo do grafico
+            //sem ajudar em nada (as barras ja tem os proprios numeros do
+            //eixo, nao precisa contar quadradinho) — pedido do usuario.
+            grid: { display: false },
+          },
+          y: { ticks: { color: texto, padding: 8 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  function desenharGraficoCategorias(chamados) {
+    const dados = contarPor(chamados, (chamado) => chamado.categorias?.nome);
+    const texto = corDoTexto("--texto-2");
+
+    const fundoDoCard = corDoTexto("--superficie");
+
+    graficoCategorias?.destroy();
+    graficoCategorias = new Chart(canvasCategorias, {
+      type: "doughnut",
+      data: {
+        labels: dados.map(([nome]) => nome),
+        datasets: [{
+          data: dados.map(([, quantidade]) => quantidade),
+          backgroundColor: dados.map((_, indice) => CORES_GRAFICO[indice % CORES_GRAFICO.length]),
+          borderRadius: 4,
+          // A "borda" aqui e so um respiro entre fatias vizinhas — usa a
+          // cor do proprio card (nao branco fixo), senao no tema escuro
+          // sobraria uma linha branca cortando o grafico.
+          borderColor: fundoDoCard,
+          borderWidth: 2,
+          hoverOffset: 4,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: texto, boxWidth: 10, boxHeight: 10, padding: 14, font: { weight: "500" } },
+          },
+        },
+      },
+    });
+  }
+
+  //AGRUPA CHAMADOS POR UNIDADE (o array inteiro, nao so a contagem) —
+  //base pros 3 cards e pros 2 graficos da sub-aba Unidades, que precisam
+  //olhar urgencia e tempo de solucao, nao so quantidade.
+  function agruparPorUnidade(chamados) {
+    const grupos = new Map();
+
+    chamados.forEach((chamado) => {
+      const nome = chamado.unidades?.nome ?? "Sem unidade";
+      if (!grupos.has(nome)) grupos.set(nome, []);
+      grupos.get(nome).push(chamado);
+    });
+
+    return grupos;
+  }
+
+  function desenharCardsDeUnidades(chamados) {
+    const grupos = agruparPorUnidade(chamados);
+
+    let maisChamados = null;
+    let maisUrgente = null;
+    let maiorSla = null;
+
+    grupos.forEach((chamadosDaUnidade, nome) => {
+      const total = chamadosDaUnidade.length;
+
+      if (!maisChamados || total > maisChamados.valor) {
+        maisChamados = { nome, valor: total };
+      }
+
+      const urgentes = chamadosDaUnidade.filter((chamado) => chamado.eh_urgente).length;
+      const percentualUrgentes = total ? (urgentes / total) * 100 : 0;
+
+      if (!maisUrgente || percentualUrgentes > maisUrgente.valor) {
+        maisUrgente = { nome, valor: percentualUrgentes };
+      }
+
+      const duracoes = chamadosDaUnidade
+        .filter((chamado) => chamado.fechamento_em)
+        .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)))
+        .filter((horas) => horas >= 0);
+
+      // So compara unidades que TEM chamado fechado no periodo — sem
+      // nenhum tempo de solucao formado, a unidade nao entra nessa
+      // comparacao (mesmo criterio do card "Media de solucao" do Resumo).
+      if (duracoes.length) {
+        const media = duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length;
+        if (!maiorSla || media > maiorSla.valor) {
+          maiorSla = { nome, valor: media };
+        }
+      }
+    });
+
+    secao.querySelector("[data-analise-unidade-mais-chamados]").textContent =
+      maisChamados ? `${maisChamados.nome} (${maisChamados.valor.toLocaleString("pt-BR")})` : "—";
+    secao.querySelector("[data-analise-unidade-mais-urgente]").textContent =
+      maisUrgente ? `${maisUrgente.nome} (${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%)` : "—";
+    secao.querySelector("[data-analise-unidade-maior-sla]").textContent =
+      maiorSla ? `${maiorSla.nome} (${formatarDuracao(maiorSla.valor)})` : "—";
+  }
+
+  function desenharGraficoUnidadesEmpilhado(chamados) {
+    const grupos = agruparPorUnidade(chamados);
+
+    // Ordena pelo TOTAL (normal + urgente), maior pro menor — mesma ordem
+    // do grafico da aba Resumo, so que aqui cada barra vira duas fatias.
+    const linhas = [...grupos.entries()]
+      .map(([nome, doGrupo]) => ({
+        nome,
+        normais: doGrupo.filter((chamado) => !chamado.eh_urgente).length,
+        urgentes: doGrupo.filter((chamado) => chamado.eh_urgente).length,
+      }))
+      .sort((a, b) => (b.normais + b.urgentes) - (a.normais + a.urgentes));
+
+    const texto = corDoTexto("--texto-2");
+
+    //CINZA/VERMELHO FIXOS (nao tokens de tema): sao cores de DADO aqui —
+    //"normal" e "urgente" tem que parecer a mesma coisa claro ou escuro,
+    //diferente de --texto-4 (que existe pra legibilidade de texto e muda
+    //de tom entre os temas).
+    const espessura = espessuraDaBarra(linhas.length);
+
+    const CANTO_ESQUERDO = { topLeft: 6, bottomLeft: 6, topRight: 0, bottomRight: 0 };
+    const CANTO_DIREITO = { topLeft: 0, bottomLeft: 0, topRight: 6, bottomRight: 6 };
+    const CANTO_TODOS = { topLeft: 6, bottomLeft: 6, topRight: 6, bottomRight: 6 };
+
+    graficoUnidadesEmpilhado?.destroy();
+    graficoUnidadesEmpilhado = new Chart(canvasUnidadesEmpilhado, {
+      type: "bar",
+      data: {
+        labels: linhas.map((linha) => linha.nome),
+        datasets: [
+          {
+            label: "Normal",
+            data: linhas.map((linha) => linha.normais),
+            backgroundColor: "#9a9aa2",
+            stack: "total",
+            maxBarThickness: espessura,
+            // A ponta ESQUERDA (comeco da barra) sempre arredonda. A
+            // DIREITA so arredonda quando a linha NAO tem segmento
+            // "Urgente" — com valor 0 o Chart.js nao desenha nada nesse
+            // dataset, entao sem isso a ponta direita do "Normal" ficava
+            // reta (Diadema/Sao Jose no exemplo do usuario, sem urgente).
+            // Com "Urgente" > 0, o proprio dataset dele cuida da ponta
+            // direita — arredondar aqui tambem deixaria um vao no meio.
+            borderRadius: linhas.map((linha) => (linha.urgentes ? CANTO_ESQUERDO : CANTO_TODOS)),
+            borderSkipped: false,
+          },
+          {
+            label: "Urgente",
+            data: linhas.map((linha) => linha.urgentes),
+            backgroundColor: "#e5484d",
+            stack: "total",
+            maxBarThickness: espessura,
+            // So a ponta DIREITA (fim da barra) — o "Normal" ja cobre a
+            // esquerda, e so ele mesmo cobre a direita quando existe.
+            borderRadius: linhas.map(() => CANTO_DIREITO),
+            borderSkipped: false,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "top",
+            align: "start",
+            labels: { color: texto, boxWidth: 10, boxHeight: 10, padding: 14, font: { weight: "500" } },
+          },
+        },
+        scales: {
+          x: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { color: texto, precision: 0, padding: 6 },
+            grid: { display: false },
+          },
+          y: { stacked: true, ticks: { color: texto, padding: 8 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  function desenharGraficoUnidadesSla(chamados) {
+    const grupos = agruparPorUnidade(chamados);
+
+    const linhas = [...grupos.entries()]
+      .map(([nome, doGrupo]) => {
+        const duracoes = doGrupo
+          .filter((chamado) => chamado.fechamento_em)
+          .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)))
+          .filter((horas) => horas >= 0);
+
+        const media = duracoes.length
+          ? duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length
+          : null;
+
+        return { nome, media };
+      })
+      // Fora as unidades sem nenhum chamado fechado — nao tem media pra
+      // mostrar, uma barra de altura zero so confundiria.
+      .filter((linha) => linha.media != null)
+      .sort((a, b) => b.media - a.media);
+
+    const texto = corDoTexto("--texto-2");
+
+    graficoUnidadesSla?.destroy();
+    graficoUnidadesSla = new Chart(canvasUnidadesSla, {
+      type: "bar",
+      data: {
+        labels: linhas.map((linha) => linha.nome),
+        datasets: [{
+          data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
+          backgroundColor: "#dd5b12",
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: espessuraDaBarra(linhas.length),
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          y: { ticks: { color: texto, padding: 8 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  //CATEGORIAS: mesma ideia de agruparPorUnidade/desenharCardsDeUnidades/
+  //desenharGraficoUnidadesEmpilhado/desenharGraficoUnidadesSla, so
+  //trocando a chave de agrupamento (categoria em vez de unidade).
+  function agruparPorCategoria(chamados) {
+    const grupos = new Map();
+
+    chamados.forEach((chamado) => {
+      const nome = chamado.categorias?.nome ?? "Sem categoria";
+      if (!grupos.has(nome)) grupos.set(nome, []);
+      grupos.get(nome).push(chamado);
+    });
+
+    return grupos;
+  }
+
+  function desenharCardsDeCategorias(chamados) {
+    const grupos = agruparPorCategoria(chamados);
+
+    let maisChamados = null;
+    let maisUrgente = null;
+    let maiorSla = null;
+
+    grupos.forEach((chamadosDaCategoria, nome) => {
+      const total = chamadosDaCategoria.length;
+
+      if (!maisChamados || total > maisChamados.valor) {
+        maisChamados = { nome, valor: total };
+      }
+
+      const urgentes = chamadosDaCategoria.filter((chamado) => chamado.eh_urgente).length;
+      const percentualUrgentes = total ? (urgentes / total) * 100 : 0;
+
+      if (!maisUrgente || percentualUrgentes > maisUrgente.valor) {
+        maisUrgente = { nome, valor: percentualUrgentes };
+      }
+
+      const duracoes = chamadosDaCategoria
+        .filter((chamado) => chamado.fechamento_em)
+        .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)))
+        .filter((horas) => horas >= 0);
+
+      // So compara categorias que TEM chamado fechado no periodo — mesmo
+      // criterio do card "Media de solucao" do Resumo.
+      if (duracoes.length) {
+        const media = duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length;
+        if (!maiorSla || media > maiorSla.valor) {
+          maiorSla = { nome, valor: media };
+        }
+      }
+    });
+
+    secao.querySelector("[data-analise-categoria-mais-chamados]").textContent =
+      maisChamados ? `${maisChamados.nome} (${maisChamados.valor.toLocaleString("pt-BR")})` : "—";
+    secao.querySelector("[data-analise-categoria-mais-urgente]").textContent =
+      maisUrgente ? `${maisUrgente.nome} (${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%)` : "—";
+    secao.querySelector("[data-analise-categoria-maior-sla]").textContent =
+      maiorSla ? `${maiorSla.nome} (${formatarDuracao(maiorSla.valor)})` : "—";
+  }
+
+  function desenharGraficoCategoriasEmpilhado(chamados) {
+    const grupos = agruparPorCategoria(chamados);
+
+    const linhas = [...grupos.entries()]
+      .map(([nome, doGrupo]) => ({
+        nome,
+        normais: doGrupo.filter((chamado) => !chamado.eh_urgente).length,
+        urgentes: doGrupo.filter((chamado) => chamado.eh_urgente).length,
+      }))
+      .sort((a, b) => (b.normais + b.urgentes) - (a.normais + a.urgentes));
+
+    const texto = corDoTexto("--texto-2");
+    const espessura = espessuraDaBarra(linhas.length);
+
+    const CANTO_ESQUERDO = { topLeft: 6, bottomLeft: 6, topRight: 0, bottomRight: 0 };
+    const CANTO_DIREITO = { topLeft: 0, bottomLeft: 0, topRight: 6, bottomRight: 6 };
+    const CANTO_TODOS = { topLeft: 6, bottomLeft: 6, topRight: 6, bottomRight: 6 };
+
+    graficoCategoriasEmpilhado?.destroy();
+    graficoCategoriasEmpilhado = new Chart(canvasCategoriasEmpilhado, {
+      type: "bar",
+      data: {
+        labels: linhas.map((linha) => linha.nome),
+        datasets: [
+          {
+            label: "Normal",
+            data: linhas.map((linha) => linha.normais),
+            backgroundColor: "#9a9aa2",
+            stack: "total",
+            maxBarThickness: espessura,
+            // Mesma logica do grafico de unidades: a ponta direita so
+            // arredonda sozinha quando nao ha segmento "Urgente" pra
+            // cobri-la (valor 0 nao desenha nada nesse dataset).
+            borderRadius: linhas.map((linha) => (linha.urgentes ? CANTO_ESQUERDO : CANTO_TODOS)),
+            borderSkipped: false,
+          },
+          {
+            label: "Urgente",
+            data: linhas.map((linha) => linha.urgentes),
+            backgroundColor: "#e5484d",
+            stack: "total",
+            maxBarThickness: espessura,
+            borderRadius: linhas.map(() => CANTO_DIREITO),
+            borderSkipped: false,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "top",
+            align: "start",
+            labels: { color: texto, boxWidth: 10, boxHeight: 10, padding: 14, font: { weight: "500" } },
+          },
+        },
+        scales: {
+          x: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { color: texto, precision: 0, padding: 6 },
+            grid: { display: false },
+          },
+          y: { stacked: true, ticks: { color: texto, padding: 8 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  function desenharGraficoCategoriasSla(chamados) {
+    const grupos = agruparPorCategoria(chamados);
+
+    const linhas = [...grupos.entries()]
+      .map(([nome, doGrupo]) => {
+        const duracoes = doGrupo
+          .filter((chamado) => chamado.fechamento_em)
+          .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)))
+          .filter((horas) => horas >= 0);
+
+        const media = duracoes.length
+          ? duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length
+          : null;
+
+        return { nome, media };
+      })
+      // Fora as categorias sem nenhum chamado fechado no periodo.
+      .filter((linha) => linha.media != null)
+      .sort((a, b) => b.media - a.media);
+
+    const texto = corDoTexto("--texto-2");
+
+    graficoCategoriasSla?.destroy();
+    graficoCategoriasSla = new Chart(canvasCategoriasSla, {
+      type: "bar",
+      data: {
+        labels: linhas.map((linha) => linha.nome),
+        datasets: [{
+          data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
+          backgroundColor: "#dd5b12",
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: espessuraDaBarra(linhas.length),
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          y: { ticks: { color: texto, padding: 8 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  //SETORES: mesma ideia de agruparPorUnidade/agruparPorCategoria, so que
+  //o setor NAO e um campo direto do chamado — vem do solicitante
+  //(chamado.usuarios.setores.nome), por isso a consulta em carregar()
+  //precisou trazer usuarios!chamados_solicitante_id_fkey(setores(nome))
+  //a mais do que ja buscava pra Unidades/Categorias.
+  function agruparPorSetor(chamados) {
+    const grupos = new Map();
+
+    chamados.forEach((chamado) => {
+      const nome = chamado.usuarios?.setores?.nome ?? "Sem setor";
+      if (!grupos.has(nome)) grupos.set(nome, []);
+      grupos.get(nome).push(chamado);
+    });
+
+    return grupos;
+  }
+
+  function desenharCardsDeSetores(chamados) {
+    const grupos = agruparPorSetor(chamados);
+
+    let maisChamados = null;
+    let maisUrgente = null;
+    let maiorSla = null;
+
+    grupos.forEach((chamadosDoSetor, nome) => {
+      const total = chamadosDoSetor.length;
+
+      if (!maisChamados || total > maisChamados.valor) {
+        maisChamados = { nome, valor: total };
+      }
+
+      const urgentes = chamadosDoSetor.filter((chamado) => chamado.eh_urgente).length;
+      const percentualUrgentes = total ? (urgentes / total) * 100 : 0;
+
+      if (!maisUrgente || percentualUrgentes > maisUrgente.valor) {
+        maisUrgente = { nome, valor: percentualUrgentes };
+      }
+
+      const duracoes = chamadosDoSetor
+        .filter((chamado) => chamado.fechamento_em)
+        .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)))
+        .filter((horas) => horas >= 0);
+
+      // So compara setores que TEM chamado fechado no periodo — mesmo
+      // criterio do card "Media de solucao" do Resumo.
+      if (duracoes.length) {
+        const media = duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length;
+        if (!maiorSla || media > maiorSla.valor) {
+          maiorSla = { nome, valor: media };
+        }
+      }
+    });
+
+    secao.querySelector("[data-analise-setor-mais-chamados]").textContent =
+      maisChamados ? `${maisChamados.nome} (${maisChamados.valor.toLocaleString("pt-BR")})` : "—";
+    secao.querySelector("[data-analise-setor-mais-urgente]").textContent =
+      maisUrgente ? `${maisUrgente.nome} (${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%)` : "—";
+    secao.querySelector("[data-analise-setor-maior-sla]").textContent =
+      maiorSla ? `${maiorSla.nome} (${formatarDuracao(maiorSla.valor)})` : "—";
+  }
+
+  function desenharGraficoSetoresEmpilhado(chamados) {
+    const grupos = agruparPorSetor(chamados);
+
+    const linhas = [...grupos.entries()]
+      .map(([nome, doGrupo]) => ({
+        nome,
+        normais: doGrupo.filter((chamado) => !chamado.eh_urgente).length,
+        urgentes: doGrupo.filter((chamado) => chamado.eh_urgente).length,
+      }))
+      .sort((a, b) => (b.normais + b.urgentes) - (a.normais + a.urgentes));
+
+    const texto = corDoTexto("--texto-2");
+    const espessura = espessuraDaBarra(linhas.length);
+
+    const CANTO_ESQUERDO = { topLeft: 6, bottomLeft: 6, topRight: 0, bottomRight: 0 };
+    const CANTO_DIREITO = { topLeft: 0, bottomLeft: 0, topRight: 6, bottomRight: 6 };
+    const CANTO_TODOS = { topLeft: 6, bottomLeft: 6, topRight: 6, bottomRight: 6 };
+
+    graficoSetoresEmpilhado?.destroy();
+    graficoSetoresEmpilhado = new Chart(canvasSetoresEmpilhado, {
+      type: "bar",
+      data: {
+        labels: linhas.map((linha) => linha.nome),
+        datasets: [
+          {
+            label: "Normal",
+            data: linhas.map((linha) => linha.normais),
+            backgroundColor: "#9a9aa2",
+            stack: "total",
+            maxBarThickness: espessura,
+            // Mesma logica de Unidades/Categorias: a ponta direita so
+            // arredonda sozinha quando nao ha segmento "Urgente" pra
+            // cobri-la (valor 0 nao desenha nada nesse dataset).
+            borderRadius: linhas.map((linha) => (linha.urgentes ? CANTO_ESQUERDO : CANTO_TODOS)),
+            borderSkipped: false,
+          },
+          {
+            label: "Urgente",
+            data: linhas.map((linha) => linha.urgentes),
+            backgroundColor: "#e5484d",
+            stack: "total",
+            maxBarThickness: espessura,
+            borderRadius: linhas.map(() => CANTO_DIREITO),
+            borderSkipped: false,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "top",
+            align: "start",
+            labels: { color: texto, boxWidth: 10, boxHeight: 10, padding: 14, font: { weight: "500" } },
+          },
+        },
+        scales: {
+          x: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { color: texto, precision: 0, padding: 6 },
+            grid: { display: false },
+          },
+          y: { stacked: true, ticks: { color: texto, padding: 8 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  function desenharGraficoSetoresSla(chamados) {
+    const grupos = agruparPorSetor(chamados);
+
+    const linhas = [...grupos.entries()]
+      .map(([nome, doGrupo]) => {
+        const duracoes = doGrupo
+          .filter((chamado) => chamado.fechamento_em)
+          .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)))
+          .filter((horas) => horas >= 0);
+
+        const media = duracoes.length
+          ? duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length
+          : null;
+
+        return { nome, media };
+      })
+      // Fora os setores sem nenhum chamado fechado no periodo.
+      .filter((linha) => linha.media != null)
+      .sort((a, b) => b.media - a.media);
+
+    const texto = corDoTexto("--texto-2");
+
+    graficoSetoresSla?.destroy();
+    graficoSetoresSla = new Chart(canvasSetoresSla, {
+      type: "bar",
+      data: {
+        labels: linhas.map((linha) => linha.nome),
+        datasets: [{
+          data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
+          backgroundColor: "#dd5b12",
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: espessuraDaBarra(linhas.length),
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          y: { ticks: { color: texto, padding: 8 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  //SOLICITANTES: mesma ideia de agruparPorSetor, so que a chave e quem
+  //abriu o chamado (nomeCompleto de chamado.usuarios, ja importado de
+  //chamado-comum.js — mesma funcao que o Portal usa pro mesmo dado).
+  //LIMITE DE 10: diferente de unidade/categoria/setor (poucas opcoes
+  //fixas), solicitante pode ser dezenas de pessoas diferentes — sem
+  //limite os graficos de barra ficariam ilegiveis. So os graficos
+  //cortam em 10; os CARDS de destaque continuam olhando todo mundo.
+  const LIMITE_SOLICITANTES_NO_GRAFICO = 10;
+
+  function agruparPorSolicitante(chamados) {
+    const grupos = new Map();
+
+    chamados.forEach((chamado) => {
+      const nome = nomeCompleto(chamado.usuarios) ?? "Sem solicitante";
+      if (!grupos.has(nome)) grupos.set(nome, []);
+      grupos.get(nome).push(chamado);
+    });
+
+    return grupos;
+  }
+
+  function desenharCardsDeSolicitantes(chamados) {
+    const grupos = agruparPorSolicitante(chamados);
+
+    let maisChamados = null;
+    let maisUrgente = null;
+    let maiorSla = null;
+
+    grupos.forEach((chamadosDoSolicitante, nome) => {
+      const total = chamadosDoSolicitante.length;
+
+      if (!maisChamados || total > maisChamados.valor) {
+        maisChamados = { nome, valor: total };
+      }
+
+      const urgentes = chamadosDoSolicitante.filter((chamado) => chamado.eh_urgente).length;
+      const percentualUrgentes = total ? (urgentes / total) * 100 : 0;
+
+      if (!maisUrgente || percentualUrgentes > maisUrgente.valor) {
+        maisUrgente = { nome, valor: percentualUrgentes };
+      }
+
+      const duracoes = chamadosDoSolicitante
+        .filter((chamado) => chamado.fechamento_em)
+        .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)))
+        .filter((horas) => horas >= 0);
+
+      // So compara solicitantes que TEM chamado fechado no periodo —
+      // mesmo criterio do card "Media de solucao" do Resumo.
+      if (duracoes.length) {
+        const media = duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length;
+        if (!maiorSla || media > maiorSla.valor) {
+          maiorSla = { nome, valor: media };
+        }
+      }
+    });
+
+    secao.querySelector("[data-analise-solicitante-mais-chamados]").textContent =
+      maisChamados ? `${maisChamados.nome} (${maisChamados.valor.toLocaleString("pt-BR")})` : "—";
+    secao.querySelector("[data-analise-solicitante-mais-urgente]").textContent =
+      maisUrgente ? `${maisUrgente.nome} (${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%)` : "—";
+    secao.querySelector("[data-analise-solicitante-maior-sla]").textContent =
+      maiorSla ? `${maiorSla.nome} (${formatarDuracao(maiorSla.valor)})` : "—";
+  }
+
+  function desenharGraficoSolicitantesEmpilhado(chamados) {
+    const grupos = agruparPorSolicitante(chamados);
+
+    const linhas = [...grupos.entries()]
+      .map(([nome, doGrupo]) => ({
+        nome,
+        normais: doGrupo.filter((chamado) => !chamado.eh_urgente).length,
+        urgentes: doGrupo.filter((chamado) => chamado.eh_urgente).length,
+      }))
+      .sort((a, b) => (b.normais + b.urgentes) - (a.normais + a.urgentes))
+      .slice(0, LIMITE_SOLICITANTES_NO_GRAFICO);
+
+    const texto = corDoTexto("--texto-2");
+    const espessura = espessuraDaBarra(linhas.length);
+
+    const CANTO_ESQUERDO = { topLeft: 6, bottomLeft: 6, topRight: 0, bottomRight: 0 };
+    const CANTO_DIREITO = { topLeft: 0, bottomLeft: 0, topRight: 6, bottomRight: 6 };
+    const CANTO_TODOS = { topLeft: 6, bottomLeft: 6, topRight: 6, bottomRight: 6 };
+
+    graficoSolicitantesEmpilhado?.destroy();
+    graficoSolicitantesEmpilhado = new Chart(canvasSolicitantesEmpilhado, {
+      type: "bar",
+      data: {
+        labels: linhas.map((linha) => linha.nome),
+        datasets: [
+          {
+            label: "Normal",
+            data: linhas.map((linha) => linha.normais),
+            backgroundColor: "#9a9aa2",
+            stack: "total",
+            maxBarThickness: espessura,
+            // Mesma logica das outras sub-abas: a ponta direita so
+            // arredonda sozinha quando nao ha segmento "Urgente" pra
+            // cobri-la (valor 0 nao desenha nada nesse dataset).
+            borderRadius: linhas.map((linha) => (linha.urgentes ? CANTO_ESQUERDO : CANTO_TODOS)),
+            borderSkipped: false,
+          },
+          {
+            label: "Urgente",
+            data: linhas.map((linha) => linha.urgentes),
+            backgroundColor: "#e5484d",
+            stack: "total",
+            maxBarThickness: espessura,
+            borderRadius: linhas.map(() => CANTO_DIREITO),
+            borderSkipped: false,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "top",
+            align: "start",
+            labels: { color: texto, boxWidth: 10, boxHeight: 10, padding: 14, font: { weight: "500" } },
+          },
+        },
+        scales: {
+          x: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { color: texto, precision: 0, padding: 6 },
+            grid: { display: false },
+          },
+          y: { stacked: true, ticks: { color: texto, padding: 8 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  function desenharGraficoSolicitantesSla(chamados) {
+    const grupos = agruparPorSolicitante(chamados);
+
+    const linhas = [...grupos.entries()]
+      .map(([nome, doGrupo]) => {
+        const duracoes = doGrupo
+          .filter((chamado) => chamado.fechamento_em)
+          .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)))
+          .filter((horas) => horas >= 0);
+
+        const media = duracoes.length
+          ? duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length
+          : null;
+
+        return { nome, media };
+      })
+      // Fora os solicitantes sem nenhum chamado fechado no periodo.
+      .filter((linha) => linha.media != null)
+      .sort((a, b) => b.media - a.media)
+      .slice(0, LIMITE_SOLICITANTES_NO_GRAFICO);
+
+    const texto = corDoTexto("--texto-2");
+
+    graficoSolicitantesSla?.destroy();
+    graficoSolicitantesSla = new Chart(canvasSolicitantesSla, {
+      type: "bar",
+      data: {
+        labels: linhas.map((linha) => linha.nome),
+        datasets: [{
+          data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
+          backgroundColor: "#dd5b12",
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: espessuraDaBarra(linhas.length),
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          y: { ticks: { color: texto, padding: 8 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  //ATENDENTES: DIFERENTE das outras sub-abas — um chamado pode ter VARIOS
+  //atendentes ao mesmo tempo (chamado_membros e N:N, nao um campo unico
+  //como unidade/categoria/setor/solicitante). Por isso o mesmo chamado
+  //entra no grupo de CADA atendente nele, sem dividir/ratear — se dois
+  //atendentes estao no mesmo chamado, os dois "ganham" esse chamado na
+  //contagem, nao meio chamado cada.
+  //Guarda { pessoa, chamados } por atendente, nao so a lista de chamados —
+  //o rotulo do grafico precisa do PRIMEIRO NOME de verdade (campo `nome`
+  //no banco, que pode ter mais de uma palavra: "João Gabriel"), nao um
+  //split(" ")[0] ingenuo em cima do nome completo (cortaria "João
+  //Gabriel Arantes" em so "João", perdendo metade do primeiro nome).
+  function agruparPorAtendente(chamados) {
+    const grupos = new Map();
+
+    chamados.forEach((chamado) => {
+      chamado.chamado_membros.forEach((membro) => {
+        if (!membro.usuarios) return;
+        const nome = nomeCompleto(membro.usuarios) ?? "Alguém";
+        if (!grupos.has(nome)) grupos.set(nome, { pessoa: membro.usuarios, chamados: [] });
+        grupos.get(nome).chamados.push(chamado);
+      });
+    });
+
+    return grupos;
+  }
+
+  function desenharCardsDeAtendentes(chamados) {
+    const grupos = agruparPorAtendente(chamados);
+
+    let maisChamados = null;
+    let maisUrgente = null;
+    let maiorSla = null;
+    let melhorResposta = null;
+
+    grupos.forEach(({ chamados: chamadosDoAtendente }, nome) => {
+      const total = chamadosDoAtendente.length;
+
+      if (!maisChamados || total > maisChamados.valor) {
+        maisChamados = { nome, valor: total };
+      }
+
+      const urgentes = chamadosDoAtendente.filter((chamado) => chamado.eh_urgente).length;
+      const percentualUrgentes = total ? (urgentes / total) * 100 : 0;
+
+      if (!maisUrgente || percentualUrgentes > maisUrgente.valor) {
+        maisUrgente = { nome, valor: percentualUrgentes };
+      }
+
+      const duracoes = chamadosDoAtendente
+        .filter((chamado) => chamado.fechamento_em)
+        .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)));
+
+      if (duracoes.length) {
+        const media = duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length;
+        if (!maiorSla || media > maiorSla.valor) {
+          maiorSla = { nome, valor: media };
+        }
+      }
+
+      const respostas = chamadosDoAtendente
+        .map(horasAtePrimeiraResposta)
+        .filter((horas) => horas != null);
+
+      // "MELHOR" primeira resposta = MENOR tempo (mais rapido) — unico
+      // card da pagina onde o numero menor e o destaque, nao o maior.
+      if (respostas.length) {
+        const media = respostas.reduce((soma, horas) => soma + horas, 0) / respostas.length;
+        if (!melhorResposta || media < melhorResposta.valor) {
+          melhorResposta = { nome, valor: media };
+        }
+      }
+    });
+
+    secao.querySelector("[data-analise-atendente-mais-chamados]").textContent =
+      maisChamados ? `${maisChamados.nome} (${maisChamados.valor.toLocaleString("pt-BR")})` : "—";
+    secao.querySelector("[data-analise-atendente-mais-urgente]").textContent =
+      maisUrgente ? `${maisUrgente.nome} (${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%)` : "—";
+    secao.querySelector("[data-analise-atendente-maior-sla]").textContent =
+      maiorSla ? `${maiorSla.nome} (${formatarDuracao(maiorSla.valor)})` : "—";
+    secao.querySelector("[data-analise-atendente-melhor-resposta]").textContent =
+      melhorResposta ? `${melhorResposta.nome} (${formatarDuracao(melhorResposta.valor)})` : "—";
+  }
+
+  //GRAFICOS DE COLUNA (EM PE): pedido explicito do usuario — as outras
+  //sub-abas usam barra deitada (indexAxis: "y"), aqui e indexAxis: "x"
+  //(o padrao do Chart.js), rotulos no eixo X embaixo de cada coluna.
+  function desenharGraficoAtendentesTotal(chamados) {
+    const grupos = agruparPorAtendente(chamados);
+
+    const linhas = [...grupos.entries()]
+      .map(([nome, { pessoa, chamados: doGrupo }]) => ({ nome, rotulo: primeiroNome(pessoa), total: doGrupo.length }))
+      .sort((a, b) => b.total - a.total);
+
+    const texto = corDoTexto("--texto-2");
+
+    graficoAtendentesTotal?.destroy();
+    graficoAtendentesTotal = new Chart(canvasAtendentesTotal, {
+      type: "bar",
+      data: {
+        //SO O PRIMEIRO NOME NO EIXO, igual ao Power BI de referencia — os
+        //cards de destaque continuam com nome completo (precisam
+        //diferenciar duas pessoas de primeiro nome igual), so o ROTULO do
+        //grafico que fica curto. Usa primeiroNome(pessoa) — o campo `nome`
+        //de verdade no banco, nao um split(" ")[0] em cima do nome
+        //completo (cortaria "João Gabriel Arantes" em so "João").
+        labels: linhas.map((linha) => linha.rotulo),
+        datasets: [{
+          data: linhas.map((linha) => linha.total),
+          backgroundColor: "#dd5b12",
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: 48,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          //MAXROTATION 0: nome curto (so o primeiro) cabe na horizontal —
+          //sem isso o Chart.js as vezes gira o rotulo na diagonal quando
+          //acha que precisa de mais espaco, o que nao combina com o
+          //padrao "empilhado reto" do BI de referencia.
+          x: { ticks: { color: texto, padding: 8, maxRotation: 0, minRotation: 0 }, grid: { display: false } },
+          y: {
+            beginAtZero: true,
+            ticks: { color: texto, precision: 0, padding: 6 },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  }
+
+  function desenharGraficoAtendentesSla(chamados) {
+    const grupos = agruparPorAtendente(chamados);
+
+    const linhas = [...grupos.entries()]
+      .map(([nome, { pessoa, chamados: doGrupo }]) => {
+        const duracoes = doGrupo
+          .filter((chamado) => chamado.fechamento_em)
+          .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)));
+
+        const media = duracoes.length
+          ? duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length
+          : null;
+
+        return { nome, rotulo: primeiroNome(pessoa), media };
+      })
+      .filter((linha) => linha.media != null)
+      .sort((a, b) => b.media - a.media);
+
+    const texto = corDoTexto("--texto-2");
+
+    graficoAtendentesSla?.destroy();
+    graficoAtendentesSla = new Chart(canvasAtendentesSla, {
+      type: "bar",
+      data: {
+        //SO O PRIMEIRO NOME NO EIXO — mesmo motivo do grafico de total.
+        labels: linhas.map((linha) => linha.rotulo),
+        datasets: [{
+          data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
+          backgroundColor: "#dd5b12",
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: 48,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: texto, padding: 8, maxRotation: 0, minRotation: 0 }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  /* ------------------------------------------------------------------
+     ACOMPANHAMENTO: unica sub-aba que agrupa por MES, nao por dimensao —
+     e a unica com consulta PROPRIA tambem, porque sempre olha os ULTIMOS
+     12 MESES fixos, nunca o periodo escolhido no topo (esse period so
+     vale pras outras 6 sub-abas). O filtro de unidade/categoria/setor/
+     atendente continua valendo aqui — aplicado sobre dadosAcompanhamento
+     do mesmo jeito que aplicarFiltrosAnalise ja faz sobre ultimoResultado.
+     ------------------------------------------------------------------ */
+
+  //12 MESES FIXOS: do primeiro dia do mes 11 meses atras ate hoje —
+  //sempre 12 pontos no grafico, independente de quando a pessoa abrir.
+  function periodoAcompanhamento() {
+    const hoje = new Date();
+    const primeiroDoRange = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1);
+    return { de: primeiroDoRange, ate: hoje };
+  }
+
+  async function carregarAcompanhamento() {
+    const { de, ate } = periodoAcompanhamento();
+    const ateFimDoDia = `${paraTextoLocal(ate)}T23:59:59.999`;
+
+    const { data, error } = await supabase
+      .from("chamados")
+      .select(`
+        eh_urgente, abertura_em, fechamento_em,
+        unidade_id, categoria_id,
+        usuarios!chamados_solicitante_id_fkey(setor_id),
+        chamado_membros(usuario_id)
+      `)
+      .gte("abertura_em", `${paraTextoLocal(de)}T00:00:00`)
+      .lte("abertura_em", ateFimDoDia);
+
+    if (error) {
+      console.error("Erro ao carregar o acompanhamento:", error);
+      erroEl.hidden = false;
+      erroEl.textContent = "Não foi possível carregar os dados de acompanhamento. Tente novamente.";
+      return;
+    }
+
+    dadosAcompanhamento = data ?? [];
+    desenharAcompanhamento();
+  }
+
+  //MESMOS FILTROS GLOBAIS (unidade/categoria/setor/atendente), so que
+  //sobre dadosAcompanhamento em vez de ultimoResultado — a funcao de
+  //filtro em si (aplicarFiltrosAnalise) e a mesma, reaproveitada aqui.
+  function dadosAcompanhamentoFiltrados() {
+    return aplicarFiltrosAnalise(dadosAcompanhamento);
+  }
+
+  const NOMES_MES_CURTO = [
+    "jan", "fev", "mar", "abr", "mai", "jun",
+    "jul", "ago", "set", "out", "nov", "dez",
+  ];
+
+  //AGRUPA POR MES-ANO ("2026-09"), NAO SO PELO NOME DO MES: sem o ano
+  //junto, chamados de setembro/2025 e setembro/2026 cairiam no mesmo
+  //grupo (o range de 12 meses pode cruzar a virada de ano).
+  function agruparPorMes(chamados) {
+    const grupos = new Map();
+
+    chamados.forEach((chamado) => {
+      const data = new Date(chamado.abertura_em);
+      const chave = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+      if (!grupos.has(chave)) grupos.set(chave, []);
+      grupos.get(chave).push(chamado);
+    });
+
+    return grupos;
+  }
+
+  //GARANTE OS 12 MESES NA ORDEM CERTA, mesmo os que nao tem nenhum
+  //chamado — sem isso um mes vazio simplesmente sumiria do eixo, em vez
+  //de aparecer com 0 (o grafico do Power BI de referencia sempre mostra
+  //os 12 pontos seguidos).
+  function mesesDoRange() {
+    const { de } = periodoAcompanhamento();
+    const meses = [];
+
+    for (let indice = 0; indice < 12; indice += 1) {
+      const data = new Date(de.getFullYear(), de.getMonth() + indice, 1);
+      meses.push({
+        chave: `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`,
+        rotulo: `${NOMES_MES_CURTO[data.getMonth()]} ${data.getFullYear()}`,
+      });
+    }
+
+    return meses;
+  }
+
+  function desenharAcompanhamento() {
+    if (!jaAbriuAcompanhamento) {
+      jaAbriuAcompanhamento = true;
+      carregarAcompanhamento();
+      return;
+    }
+
+    if (!dadosAcompanhamento.length) return;
+
+    const chamados = dadosAcompanhamentoFiltrados();
+    const grupos = agruparPorMes(chamados);
+    const meses = mesesDoRange();
+
+    desenharCardsDeAcompanhamento(grupos, meses);
+    desenharGraficoMesTotal(grupos, meses);
+    desenharGraficoMesSla(grupos, meses);
+  }
+
+  function formatarVariacaoNumero(valor) {
+    const sinal = valor > 0 ? "+" : "";
+    return `${sinal}${valor.toLocaleString("pt-BR")}`;
+  }
+
+  function formatarVariacaoPercentual(valor) {
+    if (!Number.isFinite(valor)) return "—";
+    const sinal = valor > 0 ? "+" : "";
+    return `${sinal}${valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`;
+  }
+
+  function formatarVariacaoHoras(valor) {
+    const sinal = valor > 0 ? "+" : "";
+    return `${sinal}${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}h`;
+  }
+
+  //APLICA A COR SEMANTICA (alta = vermelho, baixa = verde) num <span> de
+  //card — usado pelos 4 cards de variacao. "Alta" aqui SEMPRE significa
+  //"o numero cresceu", nao "isso e ruim": quem le decide se crescer e bom
+  //ou ruim (mais chamados e neutro/ruim, SLA menor e bom — a cor e so um
+  //indicador visual de direcao, o rotulo do card ja diz o que e cada um).
+  function aplicarCorDeVariacao(elemento, valor) {
+    elemento.classList.remove("analise-card__valor--alta", "analise-card__valor--baixa");
+    if (valor > 0) elemento.classList.add("analise-card__valor--alta");
+    else if (valor < 0) elemento.classList.add("analise-card__valor--baixa");
+  }
+
+  function desenharCardsDeAcompanhamento(grupos, meses) {
+    // Mes ATUAL = ultimo do range; ANTERIOR = penultimo — sempre os dois
+    // ultimos dos 12 meses fixos, nao os dois ultimos com dado (um mes
+    // sem chamado nenhum ainda conta como "0", nao e pulado).
+    const mesAtual = meses[meses.length - 1];
+    const mesAnterior = meses[meses.length - 2];
+
+    const chamadosAtual = grupos.get(mesAtual.chave) ?? [];
+    const chamadosAnterior = grupos.get(mesAnterior.chave) ?? [];
+
+    const totalAtual = chamadosAtual.length;
+    const totalAnterior = chamadosAnterior.length;
+    const variacaoTotal = totalAtual - totalAnterior;
+    const variacaoPercentual = totalAnterior
+      ? ((totalAtual - totalAnterior) / totalAnterior) * 100
+      : (totalAtual ? 100 : 0);
+
+    function slaMedio(chamadosDoMes, urgente) {
+      const duracoes = chamadosDoMes
+        .filter((chamado) => chamado.eh_urgente === urgente && chamado.fechamento_em)
+        .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)));
+      return duracoes.length ? duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length : null;
+    }
+
+    const slaNormalAtual = slaMedio(chamadosAtual, false);
+    const slaNormalAnterior = slaMedio(chamadosAnterior, false);
+    const slaUrgenteAtual = slaMedio(chamadosAtual, true);
+    const slaUrgenteAnterior = slaMedio(chamadosAnterior, true);
+
+    const variacaoSlaNormal = (slaNormalAtual != null && slaNormalAnterior != null)
+      ? slaNormalAtual - slaNormalAnterior : null;
+    const variacaoSlaUrgente = (slaUrgenteAtual != null && slaUrgenteAnterior != null)
+      ? slaUrgenteAtual - slaUrgenteAnterior : null;
+
+    const elTotal = secao.querySelector("[data-analise-variacao-total]");
+    const elPercentual = secao.querySelector("[data-analise-variacao-percentual]");
+    const elSlaNormal = secao.querySelector("[data-analise-variacao-sla-normal]");
+    const elSlaUrgente = secao.querySelector("[data-analise-variacao-sla-urgente]");
+
+    elTotal.textContent = formatarVariacaoNumero(variacaoTotal);
+    aplicarCorDeVariacao(elTotal, variacaoTotal);
+
+    elPercentual.textContent = formatarVariacaoPercentual(variacaoPercentual);
+    aplicarCorDeVariacao(elPercentual, variacaoPercentual);
+
+    elSlaNormal.textContent = variacaoSlaNormal != null ? formatarVariacaoHoras(variacaoSlaNormal) : "—";
+    if (variacaoSlaNormal != null) aplicarCorDeVariacao(elSlaNormal, variacaoSlaNormal);
+
+    elSlaUrgente.textContent = variacaoSlaUrgente != null ? formatarVariacaoHoras(variacaoSlaUrgente) : "—";
+    if (variacaoSlaUrgente != null) aplicarCorDeVariacao(elSlaUrgente, variacaoSlaUrgente);
+  }
+
+  //PLUGIN INLINE PRA ANOTAR O VALOR EM CIMA DE CADA PONTO: o Chart.js
+  //core nao tem isso pronto (so via chartjs-plugin-datalabels, uma lib
+  //extra) — como e so um numero por ponto, mais simples desenhar na mao
+  //do que carregar mais um script pra isso. So entra nos 2 graficos de
+  //linha do Acompanhamento (via plugins: [desenharValoresDaLinha]), no
+  //resto do arquivo ninguem mais usa.
+  const desenharValoresDaLinha = {
+    id: "desenharValoresDaLinha",
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      ctx.save();
+      ctx.font = "600 11px 'Poppins', system-ui, sans-serif";
+      ctx.textAlign = "center";
+
+      chart.data.datasets.forEach((dataset, indiceDataset) => {
+        const meta = chart.getDatasetMeta(indiceDataset);
+        if (meta.hidden) return;
+
+        ctx.fillStyle = dataset.borderColor;
+        meta.data.forEach((ponto, indice) => {
+          const valor = dataset.data[indice];
+          if (valor == null) return;
+          ctx.fillText(
+            valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 }),
+            ponto.x,
+            ponto.y - 10,
+          );
+        });
+      });
+
+      ctx.restore();
+    },
+  };
+
+  function desenharGraficoMesTotal(grupos, meses) {
+    const totais = meses.map((mes) => (grupos.get(mes.chave) ?? []).length);
+    const texto = corDoTexto("--texto-2");
+
+    graficoMesTotal?.destroy();
+    graficoMesTotal = new Chart(canvasMesTotal, {
+      type: "line",
+      data: {
+        labels: meses.map((mes) => mes.rotulo),
+        datasets: [{
+          data: totais,
+          borderColor: "#dd5b12",
+          backgroundColor: "#dd5b12",
+          borderWidth: 3,
+          pointRadius: 3,
+          pointBackgroundColor: "#dd5b12",
+          tension: 0.35,
+        }],
+      },
+      plugins: [desenharValoresDaLinha],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 20 } },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          y: {
+            beginAtZero: true,
+            ticks: { color: texto, precision: 0, padding: 6 },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  }
+
+  function desenharGraficoMesSla(grupos, meses) {
+    const texto = corDoTexto("--texto-2");
+
+    function serieSla(urgente) {
+      return meses.map((mes) => {
+        const chamadosDoMes = grupos.get(mes.chave) ?? [];
+        const duracoes = chamadosDoMes
+          .filter((chamado) => chamado.eh_urgente === urgente && chamado.fechamento_em)
+          .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)));
+        return duracoes.length
+          ? Math.round((duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length) * 10) / 10
+          : null;
+      });
+    }
+
+    graficoMesSla?.destroy();
+    graficoMesSla = new Chart(canvasMesSla, {
+      type: "line",
+      data: {
+        labels: meses.map((mes) => mes.rotulo),
+        //CINZA = NORMAL, VERMELHO = URGENTE — mesma paleta de dado fixa
+        //(nao token de tema) usada nos graficos empilhados das outras
+        //sub-abas, pelo mesmo motivo: "normal"/"urgente" tem que parecer
+        //a mesma coisa em claro ou escuro.
+        datasets: [
+          {
+            label: "Normal",
+            data: serieSla(false),
+            borderColor: "#9a9aa2",
+            backgroundColor: "#9a9aa2",
+            borderWidth: 3,
+            pointRadius: 3,
+            pointBackgroundColor: "#9a9aa2",
+            tension: 0.35,
+          },
+          {
+            label: "Urgente",
+            data: serieSla(true),
+            borderColor: "#e5484d",
+            backgroundColor: "#e5484d",
+            borderWidth: 3,
+            pointRadius: 3,
+            pointBackgroundColor: "#e5484d",
+            tension: 0.35,
+          },
+        ],
+      },
+      plugins: [desenharValoresDaLinha],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 20 } },
+        plugins: {
+          legend: {
+            position: "top",
+            align: "start",
+            labels: { color: texto, boxWidth: 10, boxHeight: 10, padding: 14, font: { weight: "500" } },
+          },
+        },
+        scales: {
+          x: { ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  return {
+    aoAbrir: () => {
+      // So consulta o banco na primeira vez que a aba abre — evita uma
+      // consulta pesada em toda carga do Painel se ninguem for olhar.
+      if (jaAbriu) return;
+      jaAbriu = true;
+      carregar();
+    },
+  };
+}
 
 /* ==========================================================================
    ARRANQUE
    ========================================================================== */
 
 async function montarPainel() {
-  ligarAbas();
+  const analise = ligarAnalise();
+
+  ligarAbas((aba) => {
+    if (aba === "analise") analise.aoAbrir();
+  });
 
   const { data: { user } } = await supabase.auth.getUser();
 

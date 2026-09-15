@@ -1556,6 +1556,473 @@ html[data-painel-sidebar="colapsada"] .painel {
 }
 
 /* ==========================================================================
+   ABA ANALISE: FILTRO DE PERIODO, CARDS DE NUMERO, GRAFICOS
+   ========================================================================== */
+
+/*AGRUPA O SELETOR DE PERIODO E O BOTAO DE FILTRO no topo da secao —
+  os dois ficam lado a lado, afetando a mesma consulta compartilhada por
+  todas as sub-abas.*/
+.analise-topo-acoes {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+
+/*SELETOR DE PERIODO: botao + popover (atalhos + calendario), padrao
+  shadcn/ui do projeto (ver docs/preferencias.md) — superficie clara,
+  borda 1px discreta, radius generoso, sombra que aparece so no popover
+  aberto (o botao fechado fica quieto).*/
+.periodo-seletor {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.periodo-seletor__botao {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /*MESMA ALTURA DO BOTAO DE FILTRO (.painel-icone-botao, 2.75rem) — os
+    dois ficam lado a lado no topo da Analise; sem essa altura fixa o
+    botao de periodo (padding + linha de texto) ficava uns 10px mais
+    baixo, dando a impressao de desalinhado/desconfigurado.*/
+  height: 2.75rem;
+  box-sizing: border-box;
+  padding: 0 0.85rem;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background: var(--superficie);
+  color: var(--texto);
+  font: 500 0.8125rem/1.2 "Poppins", sans-serif;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.periodo-seletor__botao:hover {
+  border-color: var(--realce-borda);
+  background: var(--realce);
+}
+
+.periodo-seletor__botao[aria-expanded="true"] {
+  border-color: var(--laranja);
+  background: var(--realce);
+}
+
+.periodo-seletor__seta {
+  color: var(--texto-3);
+  transition: transform 0.15s ease;
+}
+
+.periodo-seletor__botao[aria-expanded="true"] .periodo-seletor__seta {
+  transform: rotate(180deg);
+}
+
+.periodo-painel {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  right: 0;
+  z-index: 5;
+  display: flex;
+  width: 30rem;
+  max-width: calc(100vw - 2rem);
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  background: var(--superficie);
+  box-shadow: 0 14px 34px rgba(26, 26, 26, 0.16);
+  overflow: hidden;
+}
+
+.periodo-painel__atalhos {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 0.15rem;
+  width: 9.5rem;
+  padding: 0.75rem;
+  border-right: 1px solid var(--borda);
+}
+
+.periodo-atalho {
+  padding: 0.5rem 0.65rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--texto-2);
+  font: 500 0.8125rem/1.2 "Poppins", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.periodo-atalho:hover {
+  background: var(--realce);
+  color: var(--laranja-forte);
+}
+
+.periodo-atalho--marcado {
+  background: var(--realce);
+  color: var(--laranja-forte);
+  font-weight: 600;
+}
+
+.periodo-painel__calendario {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding: 0.9rem 1rem 1rem;
+}
+
+.periodo-calendario__cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.periodo-calendario__titulo {
+  color: var(--texto);
+  font: 600 0.8125rem/1.2 "Sora", sans-serif;
+  text-transform: capitalize;
+}
+
+.periodo-calendario__seta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.periodo-calendario__seta:hover {
+  border-color: var(--realce-borda);
+  color: var(--laranja-forte);
+}
+
+.periodo-calendario__semana {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 0.3rem;
+  color: var(--texto-4);
+  font: 500 0.6875rem/1.2 "Poppins", sans-serif;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.periodo-calendario__dias {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.15rem;
+}
+
+.periodo-dia {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--texto);
+  font: 500 0.8125rem/1.2 "Poppins", sans-serif;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.periodo-dia:hover {
+  background: var(--realce);
+}
+
+/*FORA DO MES ATUAL: ainda clicavel (pertence a semana visivel), so mais
+  apagado — mesma ideia de qualquer calendario de referencia.*/
+.periodo-dia--fora {
+  color: var(--texto-4);
+}
+
+/*HOJE: so um contorno discreto, pra nao competir visualmente com o
+  inicio/fim do range escolhido (esses usam fundo solido).*/
+.periodo-dia--hoje {
+  box-shadow: inset 0 0 0 1px var(--laranja);
+}
+
+/*DENTRO DO RANGE ESCOLHIDO: fundo laranja claro continuo, sem separar um
+  dia do outro — e o que faz o range parecer uma faixa, nao uma lista de
+  dias soltos marcados.*/
+.periodo-dia--no-range {
+  border-radius: 0;
+  background: var(--realce);
+}
+
+.periodo-dia--inicio,
+.periodo-dia--fim {
+  background: var(--laranja);
+  color: #fff;
+  font-weight: 600;
+}
+
+.periodo-dia--inicio {
+  border-radius: 8px 0 0 8px;
+}
+
+.periodo-dia--fim {
+  border-radius: 0 8px 8px 0;
+}
+
+/*RANGE DE UM DIA SO: inicio e fim sao o mesmo dia, os dois cantos
+  arredondam.*/
+.periodo-dia--inicio.periodo-dia--fim {
+  border-radius: 8px;
+}
+
+.periodo-painel__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--borda);
+}
+
+.periodo-botao {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  font: 500 0.8125rem/1.2 "Poppins", sans-serif;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.periodo-botao:hover {
+  border-color: var(--realce-borda);
+  color: var(--texto);
+}
+
+.periodo-botao--principal {
+  border-color: var(--laranja);
+  background: var(--laranja);
+  color: #fff;
+}
+
+.periodo-botao--principal:hover {
+  border-color: var(--laranja-forte);
+  background: var(--laranja-forte);
+  color: #fff;
+}
+
+.periodo-botao--principal:disabled {
+  border-color: var(--borda);
+  background: var(--borda);
+  color: var(--texto-4);
+  cursor: not-allowed;
+}
+
+.analise-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.analise-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  background: var(--superficie);
+}
+
+.analise-card__rotulo {
+  color: var(--texto-3);
+  font: 500 0.75rem/1.3 "Poppins", sans-serif;
+}
+
+.analise-card__valor {
+  color: var(--texto);
+  font: 700 1.625rem/1.1 "Sora", sans-serif;
+}
+
+/*CARDS DE VARIACAO (Acompanhamento): sobem/descem sao BONS ou RUINS
+  dependendo do que esta sendo medido (mais chamados = neutro/ruim, SLA
+  menor = bom), entao a cor vem de uma classe que o JS decide caso a
+  caso, nao so da direcao da seta. Vermelho/verde aqui sao SEMANTICOS
+  (bom/ruim), diferentes do vermelho/cinza normal-x-urgente usado nos
+  graficos das outras sub-abas — nunca confundir os dois significados.*/
+.analise-card__valor--alta {
+  color: #b02a2a;
+}
+
+.analise-card__valor--baixa {
+  color: #1a7a4a;
+}
+
+.analise-graficos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/*ACOMPANHAMENTO: os 2 graficos de linha ficam EMPILHADOS, nao lado a
+  lado como as outras sub-abas — cada um e uma serie de 12 meses, larga
+  o suficiente pra precisar da largura toda (mesmo layout do print de
+  referencia do Power BI).*/
+.analise-graficos--linha {
+  grid-template-columns: 1fr;
+}
+
+.analise-grafico {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  background: var(--superficie);
+}
+
+.analise-grafico__titulo {
+  margin: 0 0 1rem;
+  color: var(--texto);
+  font: 600 0.9375rem/1.3 "Sora", sans-serif;
+}
+
+.analise-grafico__caixa {
+  position: relative;
+  min-width: 0;
+}
+
+/*ALTURA FIXA: O CHART.JS PRECISA DE UM CONTAINER COM TAMANHO DEFINIDO —
+  sem isso o canvas cresce sem limite a cada redesenho (responsive:true
+  mede o pai, entao o pai tem que ter uma altura real, nao so o que o
+  conteudo pede).*/
+.analise-grafico__caixa--barra {
+  height: 22rem;
+}
+
+.analise-grafico__caixa--pizza {
+  height: 22rem;
+}
+
+/*GRAFICO DE LINHA (Acompanhamento): um pouco mais alto que os de barra —
+  com 12 pontos e o valor anotado em cima de cada um (ver plugin
+  desenharValoresDaLinha em painel.js), precisa de folga vertical extra
+  pra os numeros nao ficarem colados na borda do card.*/
+.analise-grafico__caixa--linha {
+  height: 18rem;
+}
+
+/*3 CARDS EM VEZ DE 5: a sub-aba Unidades tem um card por destaque
+  (mais chamados / mais urgencia / maior SLA), nao um numero por metrica
+  como o Resumo — a mesma grade de 5 colunas ficaria com espacos vazios.*/
+.analise-cards--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/*O VALOR AQUI E "Nome da unidade (123)" — bem mais comprido que um numero
+  seco como nos cards do Resumo (mesma fonte, mesmo tamanho, so que um
+  quebra em duas linhas e o outro nao). Sem isso o texto do Resumo e o de
+  Unidades pareciam ter TAMANHOS diferentes lado a lado, quando na
+  verdade so a QUANTIDADE de texto diferia. Reduzido aqui pra caber
+  numa linha nos casos comuns e continuar legivel quando quebra.*/
+.analise-cards--3 .analise-card__valor {
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+/*4 CARDS: so a sub-aba Atendentes tem esse numero (as outras tem 3 ou 5)
+  — volume, urgencia, SLA e primeira resposta juntos.*/
+.analise-cards--4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.analise-cards--4 .analise-card__valor {
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+/*GRAFICO DE COLUNA (em pe): so a sub-aba Atendentes usa esse formato —
+  as outras sub-abas usam barra deitada (indexAxis: "y"). Mesma altura
+  fixa que .analise-grafico__caixa--barra, Chart.js precisa de um
+  container com tamanho definido pra nao crescer sem limite.*/
+.analise-grafico__caixa--coluna {
+  height: 22rem;
+}
+
+/*FAIXA DE CONTEXTO NA EXPORTACAO EM PDF: inserida na FRENTE da sub-aba
+  so durante a captura do html2canvas (ver capturarSubaba em painel.js) e
+  removida logo depois — nunca aparece pro usuario na tela normal, so
+  existe pelo tempo de tirar a "foto". Da pra saber ANALISE/qual sub-aba/
+  qual periodo so olhando o PDF depois, sem precisar reabrir o Painel.*/
+.analise-exportar-faixa {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--laranja);
+}
+
+.analise-exportar-faixa h1 {
+  margin: 0 0 0.25rem;
+  color: var(--texto);
+  font: 700 1.25rem/1.3 "Sora", sans-serif;
+}
+
+.analise-exportar-faixa p {
+  margin: 0;
+  color: var(--texto-3);
+  font: 500 0.8125rem/1.3 "Poppins", sans-serif;
+}
+
+/*SUB-ABAS DA ANALISE: navegacao no RODAPE da secao (pedido do usuario),
+  cada uma um pedaco do relatorio de Power BI sendo substituido aos
+  poucos. Visual de "pilulas" — mais leve que .painel-nav__item (que e
+  pensado pra navegacao vertical principal), pra nao competir com ela.
+  Vive dentro de um cartao proprio (fundo + borda + padding nos 4 lados),
+  nao so uma linha fina em cima — sem isso a separacao ficava fraca
+  demais perto dos cards de grafico logo acima, que ja tem sua propria
+  borda visivel (a "linha" some visualmente entre os dois).*/
+.analise-subabas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  background: var(--superficie-2);
+}
+
+.analise-subaba {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  font: 500 0.8125rem/1.2 "Poppins", sans-serif;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.analise-subaba:hover {
+  border-color: var(--realce-borda);
+  color: var(--texto);
+}
+
+.analise-subaba--atual,
+.analise-subaba--atual:hover {
+  border-color: var(--laranja);
+  background: var(--laranja);
+  color: #fff;
+}
+
+/* ==========================================================================
    TELAS ESTREITAS
    ========================================================================== */
 
@@ -1620,6 +2087,53 @@ html[data-painel-sidebar="colapsada"] .painel {
   }
 
   .pessoa__campos {
+    grid-template-columns: 1fr;
+  }
+
+  /*TITULO + ACAO DA ABA (botao Novo, filtro de periodo) NAO CABEM LADO A
+    LADO EM TELA ESTREITA: mesma regra pra qualquer aba que use esse topo,
+    nao so a Analise — sem isso o titulo espreme contra o que vier depois.*/
+  .painel-aba__topo {
+    flex-wrap: wrap;
+  }
+
+  .analise-topo-acoes {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .periodo-seletor {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .periodo-seletor__botao {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /*O POPOVER LARGO (30rem, atalhos + calendario lado a lado) nao cabe na
+    tela — empilha em vez de encolher, senao o calendario fica espremido
+    demais pra clicar num dia.*/
+  .periodo-painel {
+    flex-direction: column;
+    width: calc(100vw - 2rem);
+    right: 0;
+  }
+
+  .periodo-painel__atalhos {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+    border-right: 0;
+    border-bottom: 1px solid var(--borda);
+  }
+
+  .analise-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .analise-graficos {
     grid-template-columns: 1fr;
   }
 }

@@ -11,6 +11,16 @@
   <link rel="stylesheet" href="css/index.css">
   <link rel="stylesheet" href="css/portal.css">
   <link rel="stylesheet" href="css/painel.css">
+  <!--GRAFICOS DA ABA ANALISE. So essa pagina usa — mesmo padrao do jsPDF
+      na Base (CDN direto, sem passo de build), versao travada.-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
+  <!--EXPORTAR ANALISE EM PDF: html2canvas tira uma "foto" da sub-aba
+      renderizada (inclusive os graficos em canvas do Chart.js) e o jsPDF
+      cola essa imagem numa pagina A4 retrato — mesma dupla usada por
+      muita gente pra "imprimir a tela exatamente como esta", sem
+      reimplementar layout nenhum no PDF.-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>
     // Antes da primeira pintura, senao a tela pisca no tema errado ao recarregar.
     // O Painel acompanha o tema do Portal: e a mesma area de trabalho.
@@ -122,6 +132,10 @@
           <button class="painel-nav__item" type="button" data-aba="tickets">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M7.5 9.5h9M7.5 13h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
             <span>Todos os tickets</span>
+          </button>
+          <button class="painel-nav__item" type="button" data-aba="analise">
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M4.5 19.5h15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><rect x="6" y="12" width="3" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="10.5" y="8" width="3" height="10" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="15" y="5" width="3" height="13" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+            <span>Análise</span>
           </button>
           <button class="painel-nav__item" type="button" data-aba="contatos">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5 20a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
@@ -294,6 +308,426 @@
                     stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
+        </nav>
+      </section>
+
+      <!--ABA: ANALISE. Substitui o relatorio de Power BI — dados direto do
+          Supabase, filtrados por periodo, sem extracao/tratamento manual.
+          So carrega ao abrir a aba pela primeira vez (ligarAnalise em
+          painel.js), nao no carregamento inicial do Painel: a query de
+          chamados aqui e propria (campos leves, filtrada por data), nunca
+          reaproveita o chamados.data pesado de montarPainel.-->
+      <section class="painel-aba" data-painel-aba="analise" hidden>
+        <header class="painel-aba__topo">
+          <div>
+            <h1 class="painel-aba__titulo">Análise</h1>
+            <p class="painel-aba__resumo">Resumo geral do período selecionado.</p>
+          </div>
+
+          <!--PERIODO + FILTRO: agrupados, os dois no topo desta secao
+              afetam a MESMA consulta que TODAS as sub-abas compartilham
+              (nao so a sub-aba visivel no momento) — filtrar por unidade
+              aqui reflete no Resumo, Unidades, Categorias, etc.-->
+          <div class="analise-topo-acoes">
+            <!--SELETOR DE PERIODO: atalhos prontos + calendario pra range
+                customizado, no padrao shadcn/ui pedido pelo usuario. Mesma
+                logica de abrir/fechar dos outros dropdowns desta tela
+                (painel-dropdown), so que com um painel proprio por causa do
+                calendario/atalhos (nao reaproveita painel-dropdown__painel).-->
+            <div class="periodo-seletor" data-periodo-caixa>
+            <button class="periodo-seletor__botao" type="button" data-periodo-abrir
+                    aria-haspopup="true" aria-expanded="false">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <rect x="4" y="5.5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M4 9.5h16M8 3.5v3.5M16 3.5v3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+              <span data-periodo-rotulo>Este mês</span>
+              <svg class="periodo-seletor__seta" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+
+            <div class="periodo-painel" data-periodo-painel hidden>
+              <div class="periodo-painel__atalhos">
+                <button class="periodo-atalho" type="button" data-periodo-atalho="hoje">Hoje</button>
+                <button class="periodo-atalho" type="button" data-periodo-atalho="semana">Esta semana</button>
+                <button class="periodo-atalho periodo-atalho--marcado" type="button" data-periodo-atalho="mes">Este mês</button>
+                <button class="periodo-atalho" type="button" data-periodo-atalho="mes-passado">Mês passado</button>
+                <button class="periodo-atalho" type="button" data-periodo-atalho="ano">Este ano</button>
+              </div>
+
+              <div class="periodo-painel__calendario">
+                <div class="periodo-calendario__cabecalho">
+                  <button class="periodo-calendario__seta" type="button" data-periodo-mes-anterior aria-label="Mês anterior">
+                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                      <path d="m14.5 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                  <span class="periodo-calendario__titulo" data-periodo-mes-titulo></span>
+                  <button class="periodo-calendario__seta" type="button" data-periodo-mes-proximo aria-label="Próximo mês">
+                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                      <path d="m9.5 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <div class="periodo-calendario__semana">
+                  <span>seg</span><span>ter</span><span>qua</span><span>qui</span><span>sex</span><span>sáb</span><span>dom</span>
+                </div>
+
+                <div class="periodo-calendario__dias" data-periodo-dias></div>
+
+                <div class="periodo-painel__acoes">
+                  <button class="periodo-botao" type="button" data-periodo-cancelar>Cancelar</button>
+                  <button class="periodo-botao periodo-botao--principal" type="button" data-periodo-confirmar disabled>Confirmar</button>
+                </div>
+              </div>
+            </div>
+            </div>
+
+            <!--FILTRAR: UNIDADE, CATEGORIA, SETOR, ATENDENTE — mesmo padrao
+                visual do filtro de "Todos os tickets" (painel-dropdown +
+                painel-filtro-grupo), so que filtrando o conjunto de dados
+                que TODAS as sub-abas da Analise compartilham.-->
+            <div class="painel-dropdown" data-analise-filtro-caixa>
+              <button class="painel-icone-botao" type="button" data-analise-filtro-abrir
+                      aria-haspopup="true" aria-expanded="false" aria-label="Filtrar análise">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M4 5.5h16l-6.2 7.3v5.2l-3.6 1.8v-7Z" fill="none" stroke="currentColor"
+                        stroke-width="1.7" stroke-linejoin="round"/>
+                </svg>
+                <span class="painel-icone-botao__contador" data-analise-filtro-contador hidden></span>
+              </button>
+
+              <div class="painel-dropdown__painel" data-analise-filtro-painel hidden>
+                <div class="painel-dropdown__cabecalho">
+                  <span>Filtrar análise</span>
+                  <button class="painel-dropdown__limpar" type="button" data-analise-filtro-limpar>Limpar filtros</button>
+                </div>
+                <div data-analise-filtro-grupos></div>
+              </div>
+            </div>
+
+            <!--EXPORTAR EM PDF: "foto" da sub-aba atual (ou de todas, uma
+                por pagina) colada num PDF retrato — pensado pra
+                compartilhar o dashboard como documento, nao pra reler os
+                numeros programaticamente (pra isso ja tem os filtros e a
+                tela em si).-->
+            <div class="painel-dropdown" data-analise-exportar-caixa>
+              <button class="painel-icone-botao" type="button" data-analise-exportar-abrir
+                      aria-haspopup="true" aria-expanded="false" aria-label="Exportar análise em PDF">
+                <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+                  <path d="M12 3.5v11M8 11l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.7"
+                        stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4.5 16.5v2a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2" fill="none"
+                        stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                </svg>
+              </button>
+
+              <div class="painel-dropdown__painel painel-dropdown__painel--estreito" data-analise-exportar-painel hidden>
+                <div class="painel-dropdown__cabecalho">
+                  <span>Exportar em PDF</span>
+                </div>
+                <p class="painel-dropdown__dica" data-analise-exportar-status>
+                  Gera um PDF em retrato, igual ao que está na tela agora.
+                </p>
+                <div class="painel-dropdown__acoes-formato">
+                  <button class="painel-formato" type="button" data-analise-exportar="pagina">
+                    <span class="painel-formato__nome">Esta página</span>
+                    <span class="painel-formato__dica">Só a sub-aba aberta agora</span>
+                  </button>
+                  <button class="painel-formato" type="button" data-analise-exportar="tudo">
+                    <span class="painel-formato__nome">Tudo</span>
+                    <span class="painel-formato__dica">As 7 sub-abas, uma por página</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <p class="painel__erro" data-analise-erro role="alert" hidden></p>
+
+        <!--CADA SUB-ABA E UM PEDACO DO RELATORIO DE POWER BI SENDO
+            SUBSTITUIDO. Todas dividem a MESMA consulta ao banco (filtrada
+            pelo periodo escolhido em cima) — trocar de sub-aba so troca
+            qual [data-analise-sub] fica visivel e redesenha os graficos
+            dela a partir dos dados que ja estao em memoria, sem nova
+            consulta. A barra de navegacao fica no RODAPE da secao (pedido
+            do usuario), nao no topo — ver <nav data-analise-subabas> logo
+            depois da ultima sub-aba.-->
+        <div class="analise-sub" data-analise-sub="resumo">
+          <div class="analise-cards" data-analise-cards>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Total de tickets</span>
+              <span class="analise-card__valor" data-analise-total>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Total de urgentes</span>
+              <span class="analise-card__valor" data-analise-urgentes>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">% de urgentes</span>
+              <span class="analise-card__valor" data-analise-percentual-urgentes>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Média de solução</span>
+              <span class="analise-card__valor" data-analise-media>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Tempo até a primeira resposta</span>
+              <span class="analise-card__valor" data-analise-primeira-resposta>—</span>
+            </div>
+          </div>
+
+          <div class="analise-graficos">
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Total de tickets por unidade</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--barra">
+                <canvas data-analise-grafico-unidades></canvas>
+              </div>
+            </div>
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Total de tickets por categoria</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--pizza">
+                <canvas data-analise-grafico-categorias></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="analise-sub" data-analise-sub="unidades" hidden>
+          <div class="analise-cards analise-cards--3" data-analise-unidades-cards>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Unidade com mais chamados</span>
+              <span class="analise-card__valor" data-analise-unidade-mais-chamados>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Unidade com mais urgência</span>
+              <span class="analise-card__valor" data-analise-unidade-mais-urgente>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Unidade com maior tempo de solução</span>
+              <span class="analise-card__valor" data-analise-unidade-maior-sla>—</span>
+            </div>
+          </div>
+
+          <div class="analise-graficos">
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Total de tickets por unidade</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--barra">
+                <canvas data-analise-grafico-unidades-empilhado></canvas>
+              </div>
+            </div>
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Tempo de solução por unidade (h)</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--barra">
+                <canvas data-analise-grafico-unidades-sla></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!--CATEGORIAS: mesma estrutura de Unidades, so trocando a
+            dimensao de agrupamento (categoria em vez de unidade).-->
+        <div class="analise-sub" data-analise-sub="categorias" hidden>
+          <div class="analise-cards analise-cards--3" data-analise-categorias-cards>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Categoria com mais chamados</span>
+              <span class="analise-card__valor" data-analise-categoria-mais-chamados>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Categoria com mais urgência</span>
+              <span class="analise-card__valor" data-analise-categoria-mais-urgente>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Categoria com maior tempo de solução</span>
+              <span class="analise-card__valor" data-analise-categoria-maior-sla>—</span>
+            </div>
+          </div>
+
+          <div class="analise-graficos">
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Total de tickets por categoria</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--barra">
+                <canvas data-analise-grafico-categorias-empilhado></canvas>
+              </div>
+            </div>
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Tempo de solução por categoria (h)</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--barra">
+                <canvas data-analise-grafico-categorias-sla></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!--SETORES: mesma estrutura de Unidades/Categorias, so trocando
+            a dimensao de agrupamento (setor do solicitante do chamado).-->
+        <div class="analise-sub" data-analise-sub="setores" hidden>
+          <div class="analise-cards analise-cards--3" data-analise-setores-cards>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Setor com mais chamados</span>
+              <span class="analise-card__valor" data-analise-setor-mais-chamados>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Setor com mais urgência</span>
+              <span class="analise-card__valor" data-analise-setor-mais-urgente>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Setor com maior tempo de solução</span>
+              <span class="analise-card__valor" data-analise-setor-maior-sla>—</span>
+            </div>
+          </div>
+
+          <div class="analise-graficos">
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Total de tickets por setor</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--barra">
+                <canvas data-analise-grafico-setores-empilhado></canvas>
+              </div>
+            </div>
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Tempo de solução por setor (h)</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--barra">
+                <canvas data-analise-grafico-setores-sla></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!--SOLICITANTES: mesma estrutura de Unidades/Categorias/Setores,
+            so trocando a dimensao de agrupamento (quem abriu o chamado)
+            e limitando aos 10 primeiros — sao muitas pessoas diferentes,
+            uma barra por solicitante sem limite viraria ilegivel.-->
+        <div class="analise-sub" data-analise-sub="solicitantes" hidden>
+          <div class="analise-cards analise-cards--3" data-analise-solicitantes-cards>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Solicitante com mais chamados</span>
+              <span class="analise-card__valor" data-analise-solicitante-mais-chamados>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Solicitante com mais urgência</span>
+              <span class="analise-card__valor" data-analise-solicitante-mais-urgente>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Solicitante com maior tempo de solução</span>
+              <span class="analise-card__valor" data-analise-solicitante-maior-sla>—</span>
+            </div>
+          </div>
+
+          <div class="analise-graficos">
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Total de tickets por solicitante (top 10)</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--barra">
+                <canvas data-analise-grafico-solicitantes-empilhado></canvas>
+              </div>
+            </div>
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Tempo de solução por solicitante (h, top 10)</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--barra">
+                <canvas data-analise-grafico-solicitantes-sla></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!--ATENDENTES: 4 cards (em vez de 3) e graficos de COLUNA em pe
+            (as outras sub-abas usam barra deitada) — pedido do usuario.-->
+        <div class="analise-sub" data-analise-sub="atendentes" hidden>
+          <div class="analise-cards analise-cards--4" data-analise-atendentes-cards>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Atendente com mais chamados</span>
+              <span class="analise-card__valor" data-analise-atendente-mais-chamados>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Atendente com mais urgência</span>
+              <span class="analise-card__valor" data-analise-atendente-mais-urgente>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Atendente com maior tempo de solução</span>
+              <span class="analise-card__valor" data-analise-atendente-maior-sla>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Atendente com melhor primeira resposta</span>
+              <span class="analise-card__valor" data-analise-atendente-melhor-resposta>—</span>
+            </div>
+          </div>
+
+          <div class="analise-graficos">
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Total de tickets por atendente</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--coluna">
+                <canvas data-analise-grafico-atendentes-total></canvas>
+              </div>
+            </div>
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Média de solução por atendente (h)</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--coluna">
+                <canvas data-analise-grafico-atendentes-sla></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!--ACOMPANHAMENTO: DIFERENTE das outras sub-abas — agrupa por MES,
+            nao por dimensao (unidade/categoria/etc), e sempre olha os
+            ULTIMOS 12 MESES fixos, independente do filtro de periodo no
+            topo (que so vale pras outras 6 sub-abas). O filtro de
+            unidade/categoria/setor/atendente continua valendo aqui.-->
+        <div class="analise-sub" data-analise-sub="acompanhamento" hidden>
+          <div class="analise-cards analise-cards--4" data-analise-acompanhamento-cards>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Variação de chamados (mês anterior)</span>
+              <span class="analise-card__valor" data-analise-variacao-total>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Variação de chamados (%)</span>
+              <span class="analise-card__valor" data-analise-variacao-percentual>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Variação do SLA normal</span>
+              <span class="analise-card__valor" data-analise-variacao-sla-normal>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Variação do SLA urgente</span>
+              <span class="analise-card__valor" data-analise-variacao-sla-urgente>—</span>
+            </div>
+          </div>
+
+          <div class="analise-graficos analise-graficos--linha">
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Total de tickets por mês</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--linha">
+                <canvas data-analise-grafico-mes-total></canvas>
+              </div>
+            </div>
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Tempo de solução por mês (h)</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--linha">
+                <canvas data-analise-grafico-mes-sla></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="painel-vazio" data-analise-vazio hidden>Nenhum chamado no período selecionado.</p>
+
+        <!--NAVEGACAO ENTRE SUB-ABAS DA ANALISE: embaixo de tudo, a pedido
+            do usuario — cada uma vira um pedaco do relatorio de Power BI
+            substituido aos poucos. Todas usam o MESMO periodo filtrado no
+            topo desta secao; trocar de sub-aba nao refaz a consulta.-->
+        <nav class="analise-subabas" aria-label="Seções da análise" data-analise-subabas>
+          <button class="analise-subaba analise-subaba--atual" type="button" data-analise-subaba="resumo">Resumo geral</button>
+          <button class="analise-subaba" type="button" data-analise-subaba="unidades">Unidades</button>
+          <button class="analise-subaba" type="button" data-analise-subaba="categorias">Categorias</button>
+          <button class="analise-subaba" type="button" data-analise-subaba="setores">Setores</button>
+          <button class="analise-subaba" type="button" data-analise-subaba="solicitantes">Solicitantes</button>
+          <button class="analise-subaba" type="button" data-analise-subaba="atendentes">Atendentes</button>
+          <button class="analise-subaba" type="button" data-analise-subaba="acompanhamento">Acompanhamento</button>
         </nav>
       </section>
 

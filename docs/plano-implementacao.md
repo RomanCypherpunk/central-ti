@@ -1883,7 +1883,615 @@ console nos dois fluxos.
 
 ## Fase 5 — Dashboard operacional
 
-**Status: não iniciada.**
+**Status: em andamento — primeira aba ("Resumo geral") pronta.**
+
+### Painel: aba "Análise" — Resumo geral, substituindo o Power BI (2026-09-15)
+
+Início da substituição do relatório em Power BI por um dashboard nativo:
+mesmos gráficos, mas os dados vêm direto do Supabase em vez de uma
+extração/tratamento manual. O usuário vai mandando as demais abas do BI
+aos poucos — esta é a primeira, implementada e testada de ponta a ponta
+antes de seguir para as próximas.
+
+**Nova aba "Análise" no Painel** (`painel.html`, `painel.css`,
+`painel.js`): item de navegação novo, seção própria
+`[data-painel-aba="analise"]`, filtro de período (De/até, `<input
+type="date">`, padrão = do dia 1 do mês até hoje, mesmo recorte do
+exemplo que o usuário mandou do Power BI), 5 cards de número (Total de
+tickets, Total de urgentes, % de urgentes, Média de solução, Tempo até a
+primeira resposta) e 2 gráficos (barra horizontal — tickets por unidade;
+doughnut — tickets por categoria).
+
+O quinto card nasceu como "Mediana de solução" (é o que o print do Power
+BI mostrava) e foi trocado a pedido do usuário para "Tempo até a primeira
+resposta" (média): tempo entre `abertura_em` e o primeiro comentário de
+alguém que NÃO é o solicitante — mesmo critério de "quem falou" que
+`derivarStatus` usa (`chamado-comum.js`), só comentário público e humano
+conta, nota interna e mensagem automática de abertura não. Isso trouxe a
+tabela `comentarios` pra dentro da consulta desta aba
+(`autor_id, criado_em, visibilidade, tipo`), que antes só buscava campos
+de `chamados`.
+
+**Carregamento sob demanda** (`ligarAnalise`, chamada de `montarPainel`,
+disparada via um novo parâmetro `aoMostrar` em `ligarAbas`): diferente das
+outras abas do Painel — que carregam tudo de uma vez em `montarPainel()`
+via `CAMPOS_CHAMADO` sem filtro de data —, a consulta desta aba só roda na
+primeira vez que a aba é aberta (ou de cara, se a pessoa chegar direto por
+`?aba=analise`), e é uma query própria e enxuta: só os campos que os
+gráficos precisam (`eh_urgente, abertura_em, fechamento_em,
+unidades(nome), categorias(nome)`), sempre com o período aplicado no
+banco (`gte`/`lte` em `abertura_em`). A base tem ~15 mil chamados; a regra
+combinada com o usuário foi nunca trazer tudo de uma vez, o filtro de data
+é quem limita a busca.
+
+**Cálculos em JS** (client-side, não uma function/view nova no banco —
+decisão do usuário dado que cada consulta já vem filtrada por período, não
+pela base inteira): total e urgentes são contagem direta; % de urgentes é
+`urgentes / total`; média/mediana de solução usam só os chamados com
+`fechamento_em` preenchido (`fechamento_em - abertura_em` em horas); as
+duas listas de contagem (por unidade, por categoria) são um `Map` que
+agrupa e ordena do maior pro menor, alimentando os dois gráficos.
+
+**Formato do tempo de solução** — combinado com o usuário: abaixo de 24h
+mostra em horas ("7,2 horas"), 24h ou mais mostra em dias ("3,5 dias"),
+nunca uma unidade fixa só (o print original do Power BI mostrava números
+crus tipo "2.79" sem dizer a unidade).
+
+**Chart.js 4.5.1 via CDN** (`cdnjs.cloudflare.com`, versão travada) — mesmo
+padrão já usado pelo jsPDF na Base de Soluções (nenhuma dependência nova
+instalada, sem passo de build). Cores do gráfico usam os tokens de cor do
+projeto (`--texto-2`, `--borda`) pra texto/grade dos eixos, então o gráfico
+já nasce certo em tema claro e escuro sem código duplicado; a paleta da
+pizza é uma lista fixa de 10 cores (não um gerador aleatório), pensada pra
+nunca repetir tom entre fatias vizinhas.
+
+**Bug pego no teste, não no código em si**: o eixo X do gráfico de barras
+às vezes mostrava passo decimal (0,2 / 0,4 / ...) quando a maior barra
+tinha um valor baixo — estranho pra uma contagem de tickets, que é sempre
+inteira. Corrigido com `ticks: { precision: 0 }` no eixo X.
+
+Testado no navegador: cards e gráficos com números batendo com os dados
+mockados (total, urgentes, %, média/mediana calculados à mão pra
+conferir); mensagem de "nenhum chamado no período" aparecendo e escondendo
+os cards quando o filtro não bate com nada; consulta rodando só uma vez
+mesmo trocando de aba e voltando (cache do "já abriu"); chegada direta via
+`?aba=analise` carregando sem precisar clicar; tema escuro com cores dos
+gráficos corretas; mobile 390px com os cards em duas colunas e os
+gráficos empilhados (mais um ajuste de quebra de linha no cabeçalho da
+aba, `.painel-aba__topo { flex-wrap: wrap }`, que beneficia qualquer aba
+com esse padrão de título + ação à direita, não só esta); zero erro no
+console em todos os cenários.
+
+### Análise: seletor de período estilo shadcn/ui — atalhos + calendário (2026-09-15)
+
+Substituídos os dois `<input type="date">` simples por um seletor
+completo, a pedido do usuário (mandou print de referência de outro
+sistema): um botão que abre um popover com atalhos prontos (Hoje, Esta
+semana, Este mês, Mês passado, Este ano — clicar já aplica e fecha) e um
+calendário navegável ao lado para escolher um intervalo customizado
+(dois cliques: início e fim; precisa confirmar). Construído do zero em
+CSS/JS puro, sem lib de calendário — visual no **padrão shadcn/ui** do
+projeto (superfície clara, borda 1px discreta, radius generoso, ver
+`docs/preferencias.md`).
+
+**Semana começa na segunda-feira** (padrão BR), tanto no atalho "Esta
+semana" quanto na primeira linha da grade do calendário.
+
+**Bug real encontrado no teste, não no design**: clicar num dia do
+calendário fechava o popover sozinho, sem deixar escolher o segundo dia
+do intervalo. Causa raiz: o clique em cada dia chamava uma função que
+recriava a grade inteira (`diasEl.replaceChildren()` + 42 `<button>`
+novos) dentro do próprio handler de clique — isso removia da árvore o
+botão que acabou de ser clicado ANTES do evento terminar de subir
+(bubbling) até o listener de "fechar ao clicar fora" no `document`; nesse
+listener, `evento.target.closest(...)` num nó já desconectado da árvore
+retorna `null`, então o clique era interpretado como "clique fora do
+popover" e fechava tudo. Corrigido separando as duas responsabilidades:
+`desenharCalendario()` (recria a grade — só quando o MÊS visível muda,
+navegação ou abrir o popover) de `atualizarSelecaoNaGrade()` (só troca
+classes CSS nos botões que já existem — a cada clique num dia), que
+nunca remove nenhum nó da árvore durante o clique.
+
+**Bug de fuso horário evitado, não corrigido — pego antes de escrever o
+código**: `Date.toISOString().slice(0, 10)` converte pra UTC antes de
+cortar a string; perto da meia-noite isso pode voltar um dia (23h de um
+dia no Brasil já é depois da meia-noite em UTC). Um novo helper
+`paraTextoLocal(data)` monta a string `AAAA-MM-DD` direto de
+`getFullYear/getMonth/getDate` (hora local, nunca UTC) — usado em todo
+lugar que precisa da data de um `Date` como texto (o filtro em si, o
+rótulo do botão, a comparação de qual dia é hoje/início/fim no
+calendário).
+
+Testado no navegador: abrir/fechar o popover (botão, clicar fora, Esc);
+os 5 atalhos aplicando e fechando na hora; selecionar um range de dias
+com "Confirmar" habilitando só depois do segundo clique; "Cancelar" não
+aplicando nada; navegar entre meses; o rótulo do botão mostrando o nome
+do atalho ou "DD/MM – DD/MM" pro range customizado; a consulta ao banco
+disparando com o `gte`/`lte` correto em cada cenário (conferido
+capturando os parâmetros reais enviados); tema escuro; mobile 390px com
+o popover empilhando (atalhos em linha no topo, calendário embaixo) em
+vez de espremer os dois lado a lado; zero erro no console.
+
+### Análise: sub-abas (Resumo geral / Unidades) e segunda página do Power BI (2026-09-15)
+
+Segunda página do relatório Power BI sendo substituída ("UNIDADES"),
+mais uma barra de navegação para trocar entre as páginas do dashboard —
+o usuário mandou print de referência da Power BI original pra calibrar os
+dois graficos.
+
+**Sub-abas dentro de "Análise"** (`analise-subabas`/`analise-subaba` em
+painel.html/painel.css): navegação no **rodapé** da seção (pedido
+explícito do usuário — não no topo), pílulas horizontais, "Resumo geral"
+e "Unidades" por enquanto, mais entram conforme o usuário for mandando as
+próximas páginas do Power BI. O filtro de período no topo é compartilhado
+por todas as sub-abas — trocar de sub-aba não reconsulta o banco, só
+reprocessa em cima do `ultimoResultado` (a mesma consulta de chamados do
+período) já guardado em memória.
+
+**Aba "Unidades"** — 3 cards de destaque (não os 5 números gerais do
+Resumo, que já aparecem na outra sub-aba): Unidade com mais chamados,
+Unidade com mais urgência (maior % de urgentes), Unidade com maior tempo
+de solução. "SLA" aqui foi confirmado com o usuário como o tempo médio de
+solução em si (não existe meta/prazo configurável no sistema hoje para
+calcular uma taxa de cumprimento de verdade).
+
+Dois gráficos, calculados a partir do mesmo `agruparPorUnidade`:
+- **Total de tickets por unidade** — barra empilhada (`Chart.js` com
+  `stack: "total"`), cinza para chamados normais e vermelho para
+  urgentes na mesma barra, ordenada pelo total (as duas fatias somadas).
+- **Tempo de solução por unidade (h)** — barra simples, cor laranja
+  (mesma do gráfico "por unidade" do Resumo), ordenada do maior pro menor
+  tempo médio; unidades sem nenhum chamado fechado no período ficam de
+  fora (não tem tempo de solução formado, uma barra zerada só confundiria).
+
+As cores cinza/vermelho do gráfico empilhado são literais fixos
+(`#9a9aa2`/`#e5484d`), não tokens de tema: são cor de DADO (o significado
+de "normal" e "urgente" tem que ser reconhecível igual em claro ou
+escuro), diferente de `--texto-4` — que existe pra legibilidade de texto
+e muda de tom entre os temas.
+
+Testado no navegador: os números dos 3 cards conferidos à mão contra um
+cenário com duas unidades (uma com mais volume, outra com mais urgência e
+SLA pior); trocar de sub-aba sem refazer a consulta; trocar o período
+mantém a sub-aba atual e recalcula os gráficos dela; tema escuro; mobile
+390px com os cards em duas colunas e a barra de sub-abas no rodapé
+empilhando; zero erro no console.
+
+**Correção**: com um nome de unidade comprido, o valor do card
+("Corporativo Tecsat (14%)") quebrava em duas linhas e parecia MAIOR que
+os cards de número seco do Resumo — mesma fonte/tamanho nos dois, só que
+um cabe numa linha e o outro não, dando a impressão de tamanhos
+diferentes lado a lado. Reduzido o `font-size` só de
+`.analise-cards--3 .analise-card__valor` (os 3 cards de destaque por
+unidade), deixando o texto visualmente equivalente ao dos cards do
+Resumo mesmo quando quebra.
+
+**Correção**: espessura das barras (`maxBarThickness`) nos 3 gráficos de
+barra da Análise (unidade no Resumo, empilhado e SLA em Unidades) era um
+número fixo (22px) — com poucas unidades (3, no exemplo do usuário) as
+barras ficavam finas e bem espaçadas dentro dos 352px de altura do
+container, sobrando muito vazio; com muitas unidades a mesma espessura
+fixa faria as barras se espremerem ou vazarem. Trocado por
+`espessuraDaBarra(quantidade)`: divide a altura do container pela
+quantidade de barras e usa 60% disso como espessura, sempre entre um
+piso de 14px (continua clicável/legível com muitas unidades) e um teto
+de 48px (não vira um bloco gigante com só 1 ou 2 barras). Testado com 2,
+3 e 15 unidades — poucas barras ficam grossas e preenchem o espaço
+vertical, muitas ficam finas e cabem todas; tema escuro; zero erro no
+console.
+
+### Correção: fonte e arredondamento dos gráficos, padrão shadcn (2026-09-15)
+
+Usuário reportou que os gráficos da Análise pareciam "fora do padrão" —
+fonte diferente do resto do site e cantos sem arredondar em alguns
+lugares. Causa: o Chart.js não herda fonte nenhuma do CSS da página,
+cai na fonte genérica do navegador (Helvetica/Arial) se ninguém
+configurar — nenhum gráfico até então tinha configuração de fonte.
+
+**Fonte Poppins em tudo** — `Chart.defaults.font.family` e
+`Chart.defaults.plugins.tooltip.*Font` setados uma vez só (`Chart` é
+global do CDN, os defaults valem pra todo gráfico criado depois), em vez
+de repetir a mesma opção em cada um dos 4 gráficos.
+
+**Tooltip no padrão shadcn do projeto**: cantos arredondados
+(`cornerRadius: 8`), fundo `#1a1a1a` fixo (não muda com o tema — um
+tooltip escuro sobre qualquer fundo é o padrão usual de biblioteca de
+gráfico, não precisa seguir --superficie), padding maior, texto em
+Poppins. Também via `Chart.defaults`, então vale pros 4 gráficos.
+
+**Arredondamento**: os dois gráficos de barra simples (unidade no
+Resumo, SLA em Unidades) tinham `borderRadius: 4` — pouco visível,
+aumentado pra 6 com `borderSkipped: false` (arredonda os 4 cantos, não só
+os "de fora"). O gráfico **empilhado** (Total de tickets por unidade)
+não tinha NENHUM arredondamento — era o que mais chamava atenção no
+print que o usuário mandou, a barra cinza+vermelha parecia um bloco
+reto. Corrigido com `borderRadius` por canto em cada dataset: o dataset
+"Normal" arredonda só os cantos ESQUERDOS (início da barra), o "Urgente"
+só os DIREITOS (fim) — arredondar os dois lados dos dois deixaria um vão
+estranho onde as fatias se encontram no meio. Resultado: a barra inteira
+parece uma única pílula com duas cores, não dois blocos colados.
+
+O gráfico de pizza (categorias) ganhou um respiro entre fatias
+(`borderColor` na cor do card, `borderWidth: 2` — usa `--superficie`, não
+branco fixo, senão sobraria uma linha branca cortando o gráfico no tema
+escuro) e `borderRadius` nas pontas das fatias.
+
+Testado no navegador: os 4 gráficos com Poppins visível nos eixos/
+legendas; a barra empilhada com as duas pontas arredondadas e sem quina
+no meio (conferido com um recorte ampliado da imagem); tema escuro com
+as mesmas cores/arredondamentos; `Chart.defaults` confirmado com os
+valores certos via `page.evaluate`; zero erro no console.
+
+### Correção: bug real de raiz na borda preta da pizza, arredondamento incompleto no empilhado, caixa das sub-abas (2026-09-15)
+
+Usuário reportou três problemas depois de ver o ajuste anterior: a pizza
+ganhou uma borda preta feia (era pra ser um respiro sutil), a barra
+empilhada ficava reta numa ponta quando a unidade não tinha chamado
+urgente, e a separação entre os gráficos e a barra de sub-abas embaixo
+estava fraca demais.
+
+**Causa raiz da borda preta — não era só a cor errada, era um bug de
+verdade em `corDoTexto`**: a função lia
+`getComputedStyle(document.documentElement)...` (a tag `<html>`), mas os
+tokens de cor (`--texto-2`, `--borda`, `--superficie`) são declarados em
+`body.portal-pagina` (`portal.css`), nunca em `:root`/`<html>`. Isso
+sempre retornou string vazia — só que passou despercebido nos eixos e na
+grade porque o **próprio Chart.js** já tem um cinza padrão parecido
+quando a cor chega vazia; ficou óbvio só quando a borda da pizza caiu no
+**preto** padrão do Chart.js em vez do branco/escuro pretendido. Corrigido
+lendo de `document.body` em vez de `document.documentElement` — conserta
+os 4 gráficos de uma vez, não só a pizza (os outros três já estavam
+"certos por sorte", mas a mesma correção evita o mesmo bug se algum dia o
+cinza padrão do Chart.js e o token do projeto divergirem visualmente).
+
+**Arredondamento incompleto no empilhado**: só o dataset "Urgente" cobria
+a ponta direita da barra — quando esse valor é 0 (unidade sem chamado
+urgente, ex: Diadema, São José dos Campos), o Chart.js não desenha nada
+nesse dataset, então a ponta direita nunca era arredondada e a barra
+ficava com um lado reto. Corrigido calculando o `borderRadius` **por
+linha** (array, não um objeto fixo pro dataset inteiro): o dataset
+"Normal" arredonda só a esquerda quando a linha TEM urgente (o "Urgente"
+cobre a direita), ou os 4 cantos quando a linha NÃO tem urgente (vira a
+pílula inteira sozinho).
+
+**Caixa das sub-abas**: tinha só uma borda fina em cima
+(`border-top: 1px`), que sumia visualmente colada nos cards de gráfico
+logo acima (que já tem sua própria borda visível). Trocado por um
+cartão próprio — borda nos 4 lados, `border-radius: 12px`, fundo
+`--superficie-2` (mesmo tom de apoio usado em fila/selo/campo no resto
+do projeto, contrasta com as pílulas que usam `--superficie`) — fica
+claramente uma seção separada, não uma continuação dos gráficos.
+
+Testado no navegador: cor da borda da pizza confirmada via
+`chart.data.datasets[0].borderColor` (branco no tema claro, escuro no
+tema escuro — nunca preto); `borderRadius` por linha do dataset "Normal"
+conferido via API do Chart.js (canto único quando tem urgente, 4 cantos
+quando não tem); recorte ampliado da barra "Diadema" mostrando os dois
+lados arredondados; caixa das sub-abas visível com fundo e borda
+próprios em claro, escuro e mobile; zero erro no console.
+
+### Correção: linhas de grade vertical removidas dos gráficos de barra (2026-09-15)
+
+A correção anterior (`corDoTexto` lendo de `document.body`) fez as linhas
+de grade verticais dos 3 gráficos de barra (unidade no Resumo, empilhado
+e SLA em Unidades) aparecerem de verdade pela primeira vez — antes elas
+existiam na configuração mas nunca renderizavam, por causa do mesmo bug
+do `document.documentElement`. Usuário achou poluído. Trocado
+`grid: { color: grade }` por `grid: { display: false }` no eixo X dos
+três; a variável `grade` (`corDoTexto("--borda")`) ficou sem uso nas três
+funções e foi removida. Os gráficos ficam só com os números do eixo,
+sem linhas de fundo — confirmado pelo usuário que testou direto.
+
+### Análise: terceira sub-aba — Categorias (2026-09-15)
+
+Terceira página do relatório Power BI ("CATEGORIAS"), estrutura idêntica
+à sub-aba Unidades, só trocando a dimensão de agrupamento (categoria em
+vez de unidade). Nova pílula "Categorias" na barra de sub-abas no
+rodapé; mesmo filtro de período do topo, mesma consulta já feita
+(`categorias(nome)` já vinha selecionado desde a Fase 5 original, não
+precisou de nenhuma mudança na query).
+
+**3 cards**: Categoria com mais chamados, Categoria com mais urgência
+(maior % de urgentes), Categoria com maior tempo de solução — mesmo
+critério e formatação dos cards de Unidades.
+
+**2 gráficos**: barra empilhada (Total de tickets por categoria, cinza/
+vermelho normal/urgente) e barra simples laranja (Tempo de solução por
+categoria, em horas) — mesma lógica de arredondamento por linha
+(`borderRadius` como array, ponta cheia quando não há segmento urgente)
+já corrigida na sub-aba Unidades.
+
+**Decisão de implementação**: em vez de generalizar
+`agruparPorUnidade`/`desenharCardsDeUnidades`/etc. num único conjunto de
+funções parametrizadas, as quatro funções de Categorias
+(`agruparPorCategoria`, `desenharCardsDeCategorias`,
+`desenharGraficoCategoriasEmpilhado`, `desenharGraficoCategoriasSla`)
+espelham as de Unidades quase linha por linha, só trocando a chave de
+agrupamento. Prioriza manter o código já testado e funcionando intacto
+(mudança cirúrgica) em vez de arriscar um refactor mais amplo — o
+padrão shadcn/código do projeto favorece ajuste pontual quando o custo
+de generalizar não compensa o risco.
+
+Testado no navegador: os 3 cards conferidos à mão contra um cenário com
+três categorias (uma com mais volume, outra 100% urgente, outra com pior
+tempo de solução); trocar entre Resumo/Unidades/Categorias sem refazer a
+consulta e sem quebrar nenhuma das outras; tema escuro; mobile 390px;
+zero erro no console.
+
+### Análise: quarta sub-aba — Setores (2026-09-15)
+
+Quarta página do relatório Power BI, pedida pelo usuário como "exatamente
+igual" às de Unidades e Categorias — mesma estrutura, 3 cards + 2
+gráficos, só trocando a dimensão de agrupamento pra setor.
+
+**Diferença de schema que exigiu ajuste na consulta**: ao contrário de
+unidade/categoria (colunas diretas em `chamados`), setor é um dado do
+**solicitante** do chamado (`chamado.usuarios.setores.nome`), não do
+chamado em si — mesmo relacionamento já usado em `CAMPOS_CHAMADO`
+(`chamado-comum.js`). A consulta de `carregar()` ganhou
+`usuarios!chamados_solicitante_id_fkey(setores(nome))` a mais do que já
+buscava.
+
+Fora essa diferença de onde o dado vem, a implementação é idêntica às
+duas sub-abas anteriores: `agruparPorSetor`, `desenharCardsDeSetores`,
+`desenharGraficoSetoresEmpilhado`, `desenharGraficoSetoresSla` espelham
+as funções de Unidades/Categorias linha por linha, incluindo a mesma
+lógica de arredondamento por linha na barra empilhada.
+
+Testado no navegador: os 3 cards conferidos à mão contra um cenário com
+dois setores (um com mais volume normal, outro 100% urgente e com pior
+tempo de solução); confirmado que o setor vem certo através do
+relacionamento solicitante → setor (não uma coluna direta); trocar entre
+todas as quatro sub-abas sem quebrar nenhuma; tema escuro; mobile 390px;
+zero erro no console.
+
+### Análise: quinta sub-aba — Solicitantes (2026-09-15)
+
+Quinta página do relatório Power BI ("SOLICITANTES"). O print original
+tinha, ao lado da barra, uma segunda área com uma lista de textos soltos
+(parecia conteúdo de descrição/comentário dos chamados, meio bagunçado
+no BI original) — o usuário pediu pra não replicar isso e dar "mais uma
+ideia de gráfico baseado nos solicitantes" no lugar. Combinado com o
+usuário: mesmo segundo gráfico que Unidades/Categorias/Setores já têm
+(barra de tempo de solução), mantendo o padrão já estabelecido em vez de
+inventar um formato novo.
+
+**Limite de 10 nos gráficos** (pedido explícito do usuário, diferente
+das sub-abas anteriores): solicitante pode ser dezenas de pessoas
+diferentes, não um punhado de opções fixas como unidade/categoria/setor
+— sem limite os dois gráficos de barra ficariam ilegíveis. `.slice(0,
+10)` depois de ordenar em `desenharGraficoSolicitantesEmpilhado` e
+`desenharGraficoSolicitantesSla`; os títulos dos gráficos dizem "(top
+10)" pra deixar claro que é um recorte. Os 3 CARDS de destaque continuam
+olhando todos os solicitantes do período, não só os 10 do gráfico.
+
+**Consulta**: solicitante não tinha nome/sobrenome selecionados ainda —
+a consulta só trazia `usuarios!chamados_solicitante_id_fkey(setores(nome))`
+pra sub-aba Setores. Acrescentado `nome, sobrenome` no mesmo join.
+Nome formatado com `nomeCompleto` (já importado de `chamado-comum.js`,
+mesma função que o Portal usa pro mesmo dado).
+
+Testado no navegador: os 3 cards conferidos à mão contra um cenário com
+solicitantes diferentes (um com mais volume, outro 100% urgente, outro
+com pior tempo de solução); confirmado que o gráfico corta em exatamente
+10 barras mesmo com 15 solicitantes no conjunto de dados (contado via
+`chart.data.labels.length`); trocar entre todas as cinco sub-abas sem
+quebrar nenhuma; tema escuro; mobile 390px; zero erro no console.
+
+### Análise: SLA em horas úteis, filtro global e sexta sub-aba — Atendentes (2026-09-15)
+
+Última página do relatório Power BI da Fase 5 pedida até agora, mas veio
+com duas mudanças que afetam TODA a seção Análise, não só esta sub-aba:
+uma regra de SLA em horas úteis (confirmada pelo usuário como valendo
+retroativamente pras 5 sub-abas já feitas) e um filtro global por
+unidade/categoria/setor/atendente.
+
+**SLA em horas úteis, não horas corridas** (`horasUteisEntre`, nova
+função) — regra do expediente do TI: segunda a sexta 8h–17h48, sábado
+8h–12h, domingo sem expediente. Um chamado aberto fora do expediente só
+começa a "contar" na próxima abertura (confirmado com o usuário: sexta
+17h47 não conta os minutos até a meia-noite, e sábado 8h–12h conta
+normalmente como expediente — o exemplo original do usuário era só
+ilustrativo, não um cálculo exato). Feriados não são considerados por
+enquanto (decisão do usuário — só dia da semana + horário).
+
+Algoritmo: para cada dia entre abertura e fechamento, soma a sobreposição
+entre o intervalo do chamado e a janela de expediente daquele dia
+(`Math.max` dos inícios, `Math.min` dos fins). Sem tabela de feriados,
+sem hora extra — direto dia-a-dia, no máximo algumas centenas de
+iterações mesmo pra um chamado aberto há anos.
+
+Substituiu `(fechamento - abertura) / 3_600_000` em **9 lugares**: Média
+de solução e Tempo até a primeira resposta (Resumo), e o SLA por grupo em
+Unidades/Categorias/Setores/Solicitantes — busca e substituição em bloco,
+já que o padrão de código era idêntico nos 9 pontos.
+
+**Validado com o próprio exemplo do usuário antes de espalhar pelo
+código**: escrito um teste isolado da função com o cenário "sexta 17h47 →
+segunda 8h" — bateu exatamente 4h01min (1 minuto de sexta + as 4h de
+expediente do sábado de manhã, que o usuário confirmou que TAMBÉM conta
+— o "quase 0" do exemplo original era só a ideia geral de não contar o
+fim de semana fechado, não um valor exato a reproduzir). Só depois de
+validar a função isolada ela foi espalhada pelos 9 pontos do código.
+
+**Filtro global** (`data-analise-filtro-*`, ao lado do seletor de
+período): unidade/categoria/setor em chips, atendente com busca e
+checkbox (pode ter muita gente) — mesmo componente visual do filtro de
+"Todos os tickets" (`ligarFiltroDeTickets`), reimplementado com funções
+próprias (`grupoChipsAnalise`/`grupoPessoasAnalise`) porque o filtro de
+tickets é de uma tabela paginada e este é sobre o conjunto agregado
+compartilhado por todas as sub-abas. Client-side, sobre o que a consulta
+já trouxe do período — nunca uma segunda consulta ao banco. As opções de
+cada grupo são derivadas de quem realmente aparece no período carregado
+(`ultimoResultado`), não uma lista fixa — nunca mostra uma opção sem
+nenhum chamado correspondente.
+
+A consulta de `carregar()` ganhou `unidade_id`, `categoria_id`, `setor_id`
+(do solicitante) e `chamado_membros(usuario_id, usuarios(nome,
+sobrenome))` — precisos pro filtro cruzar id, não só nome.
+
+**Aba "Atendentes"**: 4 cards (mais chamados, mais urgência, maior SLA,
+melhor tempo de primeira resposta — único card da página onde o número
+MENOR é o destaque, não o maior) e 2 **gráficos de coluna em pé**
+(`indexAxis` padrão do Chart.js, diferente das barras deitadas das outras
+sub-abas — pedido explícito do usuário). Como um chamado pode ter VÁRIOS
+atendentes ao mesmo tempo (`chamado_membros` é N:N, diferente de unidade/
+categoria/setor/solicitante que são 1:1), `agruparPorAtendente` soma o
+mesmo chamado no grupo de CADA atendente nele, sem dividir/ratear — dois
+atendentes no mesmo chamado "ganham" ele inteiro cada um na contagem.
+
+Testado no navegador: `horasUteisEntre` isolada contra 5 cenários (mesmo
+dia, atravessando sábado, domingo inteiro, atravessando fim de semana
+completo) antes de integrar; o cenário do Resumo mostrando "4 horas" em
+vez das ~62h corridas que seria sem a regra; o filtro reduzindo o total
+de tickets corretamente ao marcar uma unidade, voltando ao total ao
+limpar, e filtrando corretamente por "Sem atendente"; os 4 cards e os 2
+gráficos de coluna da aba Atendentes com números conferidos à mão contra
+um cenário de dois atendentes (um com mais volume, outro com mais
+urgência e pior SLA); as 6 sub-abas testadas em sequência sem quebrar
+nenhuma; tema escuro; mobile 390px; zero erro no console.
+
+### Correção: rótulo do eixo nos gráficos de Atendentes — só primeiro nome (2026-09-15)
+
+Usuário mandou print do Power BI de referência mostrando os rótulos do
+eixo em duas linhas ("ENZO XAVIER" empilhado); pedido inicial foi
+replicar esse empilhamento, mas na conversa ficou confirmado que o
+usuário queria só o **primeiro nome**, sem sobrenome nenhum — mais curto
+que o exemplo do BI, não uma cópia exata dele.
+
+**Bug pego durante o teste, corrigido antes de declarar pronto**: a
+primeira implementação cortava o nome completo com `nome.split(" ")[0]`
+— funciona pra "Enzo Xavier" (vira "Enzo"), mas quebra pra alguém como
+"João Gabriel Arantes", cujo PRIMEIRO NOME de verdade no banco (coluna
+`nome`) já é "João Gabriel" (duas palavras) — o split cortava no meio do
+primeiro nome e mostrava só "João". Corrigido usando `primeiroNome()` (de
+`chamado-comum.js`, que só retorna `pessoa.nome` sem tentar adivinhar
+onde o nome "termina") em vez de reimplementar a lógica errada na mão.
+Isso exigiu adaptar `agruparPorAtendente` pra guardar `{ pessoa,
+chamados }` por grupo (não só a lista de chamados), já que o rótulo
+precisa do objeto usuário original, não só do nome completo já
+concatenado usado como chave do mapa. `primeiroNome` também precisou ser
+importado — não estava na lista de imports de `chamado-comum.js` neste
+arquivo até agora.
+
+Os CARDS de destaque continuam com nome completo (`nomeCompleto`, ex.
+"Enzo Xavier (7)") — só o rótulo dos dois gráficos ficou curto. Sem
+rotação diagonal (`maxRotation: 0, minRotation: 0`): com nome curto o
+rótulo cabe na horizontal, então nunca precisa do giro automático que o
+Chart.js aplicava antes quando os nomes completos não cabiam.
+
+Testado no navegador: rótulo "Enzo" e "João Gabriel" lado a lado sem
+cortar nem girar (confirmado via API do Chart.js, não só visualmente);
+card de destaque continuando com nome completo; cenário com dois
+atendentes de primeiro nome igual mas sobrenomes diferentes ("João
+Gabriel Arantes" e "João Paulo Cardoso Antunes") sem colidir na contagem
+nem no rótulo; tema escuro; mobile 390px; zero erro no console.
+
+### Análise: sétima sub-aba — Acompanhamento (2026-09-15)
+
+Última página do relatório Power BI da Fase 5. Estruturalmente diferente
+das outras 6: agrupa por **MÊS**, não por dimensão (unidade/categoria/
+setor/solicitante/atendente), e usa uma **consulta própria** — sempre os
+**últimos 12 meses fixos**, independente do filtro de período no topo da
+Análise (esse período só vale pras outras 6 sub-abas; confirmado com o
+usuário). O filtro global de unidade/categoria/setor/atendente continua
+valendo aqui, aplicado sobre os 12 meses da mesma forma que já aplica
+sobre o período das outras abas.
+
+**Carregamento próprio e preguiçoso**: `carregarAcompanhamento()` só
+dispara na primeira vez que a sub-aba abre (`jaAbriuAcompanhamento`,
+espelhando o mesmo padrão da seção inteira), guardando o resultado em
+`dadosAcompanhamento` — trocar de sub-aba ou mexer no filtro depois não
+refaz essa consulta, só reprocessa o que já está em memória.
+
+**4 cards de variação** (mês atual vs. mês anterior, sempre os dois
+últimos dos 12 meses fixos, mesmo que um deles não tenha chamado
+nenhum): variação de chamados em número, em percentual, variação do SLA
+médio dos chamados normais, e dos urgentes — os quatro comparando só o
+mês corrente contra o anterior, não uma tendência ao longo dos 12. Cor
+semântica nova (`.analise-card__valor--alta` vermelho / `--baixa` verde)
+indica só a DIREÇÃO da variação (subiu/desceu), não se é bom ou ruim —
+mais chamados subir é neutro/ruim, SLA subir é ruim, mas a cor em si é
+sempre "vermelho = número maior que o mês anterior", quem interpreta o
+significado é o rótulo do card.
+
+**2 gráficos de linha** (`type: "line"`, sempre 12 pontos — meses sem
+nenhum chamado aparecem como 0, nunca somem do eixo): "Total de tickets
+por mês" (uma linha laranja) e "Tempo de solução por mês" (duas linhas,
+cinza para normal e vermelho para urgente — mesma paleta de dado fixa já
+usada nos gráficos empilhados das outras sub-abas). Layout empilhado
+verticalmente (`.analise-graficos--linha`), não lado a lado como as
+outras 6 — mesmo layout do print de referência do Power BI.
+
+**Valor anotado em cima de cada ponto**: o Chart.js core não tem isso
+pronto (só via `chartjs-plugin-datalabels`, uma lib externa) — em vez de
+carregar mais um script CDN só pra desenhar um número por ponto, foi
+escrito um plugin inline (`desenharValoresDaLinha`, um objeto com
+`afterDatasetsDraw` que usa a Canvas API direto) e passado via `plugins:
+[...]` só nesses dois gráficos — mantém o padrão do projeto de não
+adicionar dependência nova quando dá pra resolver com poucas linhas.
+
+Testado no navegador: os 4 cards de variação conferidos à mão contra um
+cenário com 10 chamados no mês atual e 5 no anterior (esperado +5, +100%)
+e tempos de SLA normal/urgente diferentes entre os dois meses
+(recalculado à mão em horas úteis pra bater com os dois casos, incluindo
+um chamado aberto sábado que só conta as horas de expediente do
+sábado); os 12 pontos aparecendo na ordem certa com zero nos meses sem
+chamado; o filtro global (testado com unidade) reduzindo o total do
+gráfico corretamente; trocar de sub-aba sem refazer a consulta; as 7
+sub-abas testadas em sequência com troca rápida entre todas, sem
+acumular erro; tema escuro; mobile 390px; zero erro no console.
+
+### Correção do botão de filtro + exportar Análise em PDF (2026-09-15)
+
+Dois pedidos depois de ver a Análise pronta.
+
+**Botão de filtro desalinhado**: `.periodo-seletor__botao` não tinha
+altura fixa (crescia com o padding + linha de texto, ~35px), enquanto
+`.painel-icone-botao` (usado pelo filtro) tem `height: 2.75rem` (44px)
+fixo — os dois lado a lado no topo da seção ficavam com alturas
+diferentes, dando a impressão de "desconfigurado". Corrigido com a mesma
+altura fixa nos dois.
+
+**Exportar em PDF**: novo botão de ícone ao lado do filtro, dropdown com
+"Esta página" (só a sub-aba aberta) e "Tudo" (as 7 sub-abas, uma por
+página, no mesmo arquivo). Pedido era "o resultado exato do dashboard"
+— cores, gráficos, layout — não um relatório de texto, então o padrão de
+PDF já existente na Base de Soluções (`baixarPdfSolucao` em `base.js`,
+que desenha tudo à mão com jsPDF puro) não servia aqui. Solução:
+**html2canvas** (nova dependência via CDN, mesmo padrão sem-build do
+projeto) tira uma "foto" da sub-aba renderizada — inclusive os canvas do
+Chart.js — e o **jsPDF** (já usado no projeto) cola essa imagem numa
+página A4 retrato, escalada pra caber na largura útil mantendo a
+proporção (nunca distorce).
+
+Cada página ganha uma faixa de contexto no topo ("Análise — Resumo
+geral", "Período: Este mês") inserida no DOM só durante a captura e
+removida logo depois — nunca aparece na tela normal do usuário, só existe
+o tempo de tirar a "foto".
+
+**"Exportar tudo" precisa mostrar cada sub-aba de verdade antes de
+capturar**, não só tirar o `[hidden]`: um canvas do Chart.js que nunca
+ficou visível neste carregamento da página nasce com largura 0 (mesmo
+problema já resolvido antes pra troca normal de sub-aba). A função usa
+`mostrarSubaba(chave)` de verdade a cada iteração do loop, espera dois
+`requestAnimationFrame` pro Chart.js terminar de desenhar, só então
+captura — e restaura a sub-aba que o usuário estava vendo antes de
+começar, ao final.
+
+Testado no navegador: os dois botões (período e filtro) com a mesma
+altura (44px) medida via `getBoundingClientRect`; "Esta página" baixando
+um PDF de ~125KB com o conteúdo exato da sub-aba (conferido lendo o PDF
+gerado — cards, gráficos, cores batendo com a tela); "Tudo" baixando um
+PDF de ~890KB (7 páginas); a sub-aba original (Resumo) continuando
+visível depois que "Exportar tudo" termina; tema escuro; mobile 390px;
+zero erro no console.
+
+### Próximas abas (aguardando o usuário mandar o que cada uma mostra)
+
+- O usuário vai enviar as demais abas do relatório Power BI aos poucos;
+  cada uma vira uma seção nova dentro da mesma aba "Análise" ou uma aba
+  própria, a definir conforme o conteúdo.
 
 ## Fase 6 — Automação e integrações
 
