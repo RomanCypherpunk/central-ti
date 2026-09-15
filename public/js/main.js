@@ -1,23 +1,42 @@
 // Comportamento compartilhado entre páginas (tema, usuário do topo, sair).
 
 import { supabase } from "./config/supabase-config.js";
+import { pintarFoto, versaoDaMinhaFoto } from "./componentes/avatar.js";
 
-//ENTRADA DA PAGINA: CARTOES E PAINEIS SOBEM COM FADE, EM SEQUENCIA
+//ENTRADA DA PAGINA: CARTOES E PAINEIS SOBEM COM FADE, EM SEQUENCIA.
+//So na primeira visita de cada pagina nesta sessao: repetida a cada troca de
+//tela, a animacao fazia saudacao e cartoes sumirem e voltarem — parecia que
+//a pagina piscava.
 const ELEMENTOS_ENTRADA = [
   ".saudacao",
   ".porta",
   ".coluna",
 ];
 
-document.querySelectorAll(ELEMENTOS_ENTRADA.join(",")).forEach((elemento, indice) => {
-  elemento.classList.add("entrada");
-  elemento.style.setProperty("--entrada-atraso", `${indice * 70}ms`);
-});
+const CHAVE_ENTRADA = `entrada-vista:${window.location.pathname}`;
 
-requestAnimationFrame(() => {
-  document.querySelectorAll(".entrada")
-    .forEach((elemento) => elemento.classList.add("entrada--visivel"));
-});
+function entradaJaVista() {
+  try {
+    if (sessionStorage.getItem(CHAVE_ENTRADA)) return true;
+    sessionStorage.setItem(CHAVE_ENTRADA, "1");
+  } catch {
+    // Sem sessionStorage: anima sempre, como antes.
+  }
+
+  return false;
+}
+
+if (!entradaJaVista()) {
+  document.querySelectorAll(ELEMENTOS_ENTRADA.join(",")).forEach((elemento, indice) => {
+    elemento.classList.add("entrada");
+    elemento.style.setProperty("--entrada-atraso", `${indice * 70}ms`);
+  });
+
+  requestAnimationFrame(() => {
+    document.querySelectorAll(".entrada")
+      .forEach((elemento) => elemento.classList.add("entrada--visivel"));
+  });
+}
 
 //USUARIO DO TOPO
 //As iniciais vem do primeiro nome + sobrenome; o nome pode ser composto
@@ -35,130 +54,200 @@ function preencher(seletor, texto) {
   if (elemento) elemento.textContent = texto;
 }
 
-//AVATAR DO TOPO: FOTO DE "Dados pessoais"; SEM FOTO, AS INICIAIS
-const avatarTopo = document.querySelector("[data-iniciais]");
-let fotoTopo = null;
-let iniciaisTopo = "";
-let imagemTopoAtual = null;
+//TOPO GUARDADO NESTE NAVEGADOR: nome, setor, foto e o que o menu mostra.
+//Sem isso, toda troca de pagina abria o topo vazio e so preenchia depois
+//da consulta ao banco (nome, foto e itens do menu "pulando" na tela). Agora
+//o guardado aparece na hora e a consulta so corrige se algo mudou. Sai ao
+//deslogar, e so vale para o mesmo usuario da sessao.
+const CHAVE_TOPO = "topo-usuario";
 
-function desenharAvatarTopo() {
-  if (!avatarTopo) return;
+function lerTopoGuardado() {
+  try {
+    return JSON.parse(localStorage.getItem(CHAVE_TOPO) ?? "null");
+  } catch {
+    return null;
+  }
+}
 
-  avatarTopo.textContent = iniciaisTopo;
-  imagemTopoAtual = null;
+function guardarTopo(dados) {
+  try {
+    localStorage.setItem(CHAVE_TOPO, JSON.stringify(dados));
+  } catch {
+    // Sem localStorage o topo so nao aparece adiantado na proxima pagina.
+  }
+}
 
-  if (!fotoTopo) return;
+function esquecerTopo() {
+  try {
+    localStorage.removeItem(CHAVE_TOPO);
+  } catch {
+    // Nada guardado para apagar.
+  }
+}
 
-  const { data } = supabase.storage.from("avatares").getPublicUrl(fotoTopo);
-  const imagem = document.createElement("img");
+supabase.auth.onAuthStateChange((_evento, sessao) => {
+  if (!sessao) esquecerTopo();
+});
 
-  imagemTopoAtual = imagem;
+let topoAtual = null;
 
-  imagem.className = "topo__avatar-foto";
-  imagem.alt = "";
-  // A troca grava por cima do mesmo caminho: sem o sufixo, o navegador
-  // continuaria mostrando a foto antiga que tem em cache.
-  imagem.src = `${data.publicUrl}?v=${Date.now()}`;
-  // Só troca as iniciais quando a imagem carregou: arquivo sumido do Storage
-  // não vira imagem quebrada. E só a última pedida vale — uma troca rápida não
-  // deixa a foto anterior terminar de carregar por cima da nova.
-  imagem.addEventListener("load", () => {
-    if (imagemTopoAtual !== imagem) return;
-
-    avatarTopo.textContent = "";
-    avatarTopo.appendChild(imagem);
+//Mostra (ou volta a esconder) o que nasce hidden no HTML e so aparece para
+//quem tem permissao. So esconde de novo o que ele mesmo revelou: nunca
+//mexe num elemento que a pagina deixou visivel por conta propria.
+function revelar(seletor, mostrar) {
+  document.querySelectorAll(seletor).forEach((elemento) => {
+    if (mostrar) {
+      elemento.removeAttribute("hidden");
+      elemento.dataset.reveladoPeloTopo = "";
+    } else if ("reveladoPeloTopo" in elemento.dataset) {
+      elemento.setAttribute("hidden", "");
+      delete elemento.dataset.reveladoPeloTopo;
+    }
   });
 }
 
-// A tela de perfil avisa quando a foto ou o nome mudam, e o topo acompanha
-// sem precisar recarregar.
-window.addEventListener("perfil:atualizado", (evento) => {
-  const { detail } = evento;
+//AVATAR DO TOPO: FOTO DE "Dados pessoais"; SEM FOTO, AS INICIAIS
+const avatarTopo = document.querySelector("[data-iniciais]");
 
-  if ("fotoPath" in detail) fotoTopo = detail.fotoPath;
-  if ("iniciais" in detail) iniciaisTopo = detail.iniciais;
+function desenharAvatarTopo() {
+  if (!avatarTopo || !topoAtual) return;
 
-  desenharAvatarTopo();
-});
+  pintarFoto(avatarTopo, topoAtual.fotoPath, topoAtual.letras, {
+    classeFoto: "topo__avatar-foto",
+    versao: versaoDaMinhaFoto(),
+  });
+}
 
-async function preencherUsuario() {
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) return;
-
-  // Le da tabela, e nao do user_metadata: o metadata e uma foto do momento do
-  // cadastro e nao acompanha quem edita o nome em "Dados pessoais".
-  const { data: perfil } = await supabase
-    .from("usuarios")
-    .select("nome, sobrenome, perfil, status_aprovacao, ativo, foto_path, setores(nome)")
-    .eq("id", user.id)
-    .single();
-
-  const nome = perfil?.nome ?? user.email;
-  const sobrenome = perfil?.sobrenome ?? "";
+function aplicarTopo(dados) {
+  topoAtual = dados;
 
   // O Portal e a tela de quem atende: so admin ve o atalho no menu. Quem
   // nao for admin nem enxerga o item — e o portal.html barra na entrada,
   // porque esconder link no menu nao e controle de acesso.
-  if (perfil?.perfil === "admin") {
-    document.querySelector("[data-menu-portal]")?.removeAttribute("hidden");
-    // Painel (configuracao do Portal): mesma regra, e sao dois elementos no
-    // menu de 3 pontinhos — o divisor e o link.
-    document.querySelectorAll("[data-menu-painel]")
-      .forEach((elemento) => elemento.removeAttribute("hidden"));
-  }
+  // Painel (configuracao do Portal): mesma regra, e sao dois elementos no
+  // menu de 3 pontinhos — o divisor e o link.
+  revelar("[data-menu-portal], [data-menu-painel]", dados.perfil === "admin");
 
   // EQUIPE DE TI: mesma regra do RLS (is_equipe_ti no banco) — admin,
   // analista ou parceiro, aprovado e ativo. Usado na Base de Soluções:
   // só quem pode cadastrar/editar vê "Nova Solução" e os botões de
   // editar/excluir do painel. Esconder não substitui o RLS — é só pra
   // não mostrar um botão que sempre vai falhar.
-  const ehEquipeTi = ["admin", "analista", "parceiro"].includes(perfil?.perfil)
-    && perfil?.status_aprovacao === "aprovado"
-    && perfil?.ativo;
-
-  if (ehEquipeTi) {
-    document.querySelectorAll("[data-equipe-ti]")
-      .forEach((elemento) => elemento.removeAttribute("hidden"));
-  }
+  revelar("[data-equipe-ti]", dados.equipeTi);
 
   // BASE DE SOLUÇÕES PENDENTE: quem ainda não foi aprovado só vê o botão
   // apagado, sem link — a Base já barra na entrada (acesso-guard.js) e a
   // RLS de artigos também; isto aqui só evita oferecer algo que ia
   // sempre voltar a pessoa pra cá.
-  const aprovado = perfil?.status_aprovacao === "aprovado" && perfil?.ativo;
+  document.querySelectorAll("[data-porta-base-link]").forEach((link) => {
+    if (!link.dataset.hrefOriginal && link.getAttribute("href")) {
+      link.dataset.hrefOriginal = link.getAttribute("href");
+    }
 
-  if (!aprovado) {
-    document.querySelectorAll("[data-porta-base-link]").forEach((link) => {
-      link.classList.add("botao--desativado");
+    link.classList.toggle("botao--desativado", !dados.aprovado);
+
+    if (dados.aprovado) {
+      if (link.dataset.hrefOriginal) link.setAttribute("href", link.dataset.hrefOriginal);
+      link.removeAttribute("aria-disabled");
+    } else {
       link.removeAttribute("href");
       link.setAttribute("aria-disabled", "true");
-      link.addEventListener("click", (evento) => evento.preventDefault());
-    });
+    }
+  });
 
-    // Nas outras telas o item "Soluções" do menu simplesmente some — não
-    // é um destaque da home, é só navegação, não precisa do aviso visual.
-    document.querySelectorAll("[data-menu-base]")
-      .forEach((item) => item.setAttribute("hidden", ""));
-  }
+  // Nas outras telas o item "Soluções" do menu simplesmente some — não
+  // é um destaque da home, é só navegação, não precisa do aviso visual.
+  document.querySelectorAll("[data-menu-base]").forEach((item) => {
+    item.hidden = !dados.aprovado;
+  });
 
   // main.js roda em toda pagina autenticada, e cada uma tem so parte destes
   // campos — a saudacao, por exemplo, existe so na home.
   // So o primeiro nome aparece no topo e na saudacao; o completo fica para
   // as telas que precisam identificar a pessoa (detalhe do chamado).
-  preencher("[data-nome]", nome);
-  preencher("[data-saudacao-nome]", nome);
-  iniciaisTopo = iniciais(nome, sobrenome);
-  fotoTopo = perfil?.foto_path ?? null;
+  preencher("[data-nome]", dados.nome);
+  preencher("[data-saudacao-nome]", dados.nome);
   desenharAvatarTopo();
 
-  const setor = perfil?.setores?.nome;
+  if (!dados.setor) return;
 
-  if (!setor) return;
-
-  preencher("[data-setor]", setor);
+  preencher("[data-setor]", dados.setor);
   // A Base de Soluções mostra só o setor de quem está logado.
-  preencher("[data-setor-marca]", setor);
+  preencher("[data-setor-marca]", dados.setor);
+}
+
+// Link da Base desativado: sem href ele ja nao navega; o clique tambem nao
+// pode fazer nada (ex.: alguem que ainda tenha o foco nele).
+document.addEventListener("click", (evento) => {
+  if (evento.target.closest?.('[data-porta-base-link][aria-disabled="true"]')) {
+    evento.preventDefault();
+  }
+});
+
+// A tela de perfil avisa quando a foto ou o nome mudam, e o topo acompanha
+// sem precisar recarregar.
+window.addEventListener("perfil:atualizado", (evento) => {
+  const { detail } = evento;
+
+  if (!topoAtual) return;
+
+  if ("fotoPath" in detail) topoAtual.fotoPath = detail.fotoPath;
+  if ("iniciais" in detail) topoAtual.letras = detail.iniciais;
+  if ("nome" in detail) {
+    topoAtual.nome = detail.nome;
+    preencher("[data-nome]", detail.nome);
+  }
+
+  guardarTopo(topoAtual);
+  desenharAvatarTopo();
+});
+
+async function preencherUsuario() {
+  // getSession le a sessao ja guardada, sem ida ao servidor: o topo nao
+  // precisa esperar a rede para saber de quem e. Quem protege os dados e o
+  // RLS, nao esta leitura.
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+
+  if (!user) {
+    esquecerTopo();
+    return;
+  }
+
+  const guardado = lerTopoGuardado();
+  const guardadoValido = guardado?.id === user.id;
+
+  if (guardadoValido) aplicarTopo(guardado);
+
+  // Le da tabela, e nao do user_metadata: o metadata e uma foto do momento do
+  // cadastro e nao acompanha quem edita o nome em "Dados pessoais".
+  const { data: perfil, error } = await supabase
+    .from("usuarios")
+    .select("nome, sobrenome, perfil, status_aprovacao, ativo, foto_path, setores(nome)")
+    .eq("id", user.id)
+    .single();
+
+  // Falha de rede com o topo ja guardado: fica o guardado, que e melhor que
+  // trocar o nome pelo e-mail e apagar os itens do menu.
+  if (error && guardadoValido) return;
+
+  const nome = perfil?.nome ?? user.email;
+  const sobrenome = perfil?.sobrenome ?? "";
+  const aprovado = perfil?.status_aprovacao === "aprovado" && Boolean(perfil?.ativo);
+
+  const dados = {
+    id: user.id,
+    nome,
+    letras: iniciais(nome, sobrenome),
+    setor: perfil?.setores?.nome ?? "",
+    fotoPath: perfil?.foto_path ?? null,
+    perfil: perfil?.perfil ?? null,
+    aprovado,
+    equipeTi: ["admin", "analista", "parceiro"].includes(perfil?.perfil) && aprovado,
+  };
+
+  guardarTopo(dados);
+  aplicarTopo(dados);
 }
 
 preencherUsuario();
@@ -215,6 +304,8 @@ botaoSair?.addEventListener("click", async () => {
     await esperarTransicao(document.body);
   }
 
+  // O proximo a entrar neste navegador nao pode ver o topo de quem saiu.
+  esquecerTopo();
   await supabase.auth.signOut();
   // O auth-guard escuta a queda da sessão e redireciona para o login.
 });

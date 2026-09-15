@@ -1,6 +1,7 @@
 // Dados pessoais: foto, nome e troca de senha.
 
 import { supabase } from "../config/supabase-config.js";
+import { marcarMinhaFotoTrocada, urlDoAvatar, versaoDaMinhaFoto } from "../componentes/avatar.js";
 
 const foto = document.querySelector("[data-foto]");
 const fotoIniciais = document.querySelector("[data-foto-iniciais]");
@@ -36,11 +37,10 @@ function iniciais(nome, sobrenome) {
 }
 
 //O bucket de avatares e publico, entao a URL e direta e serve para <img>.
-//O sufixo de tempo evita o navegador mostrar a foto antiga depois da troca.
+//A versao so muda quando a foto e trocada (marcarMinhaFotoTrocada): com o
+//Date.now() de antes, cada visita baixava a foto de novo e ela piscava.
 function urlDaFoto(caminho) {
-  const { data } = supabase.storage.from("avatares").getPublicUrl(caminho);
-
-  return `${data.publicUrl}?v=${Date.now()}`;
+  return urlDoAvatar(caminho, versaoDaMinhaFoto());
 }
 
 //O avatar do topo e do main.js: ele escuta este evento e se redesenha.
@@ -137,6 +137,9 @@ fotoArquivo.addEventListener("change", async () => {
 
   eu.foto_path = caminho;
   fotoArquivo.value = "";
+  // Gravou por cima do mesmo caminho: versao nova para esta tela, o topo e
+  // as proximas paginas deixarem a foto antiga do cache.
+  marcarMinhaFotoTrocada();
   desenharFoto();
   avisarTopo({ fotoPath: caminho });
   avisar("Foto atualizada");
@@ -210,7 +213,7 @@ botaoSalvar.addEventListener("click", async () => {
   // O topo da pagina mostra so o primeiro nome; sem isso ele so mudaria ao recarregar.
   document.querySelector("[data-nome]").textContent = nome;
   // As iniciais passam pelo main.js: escrever direto no avatar apagaria a foto.
-  avisarTopo({ iniciais: iniciais(nome, sobrenome) });
+  avisarTopo({ iniciais: iniciais(nome, sobrenome), nome });
   avisar("Nome atualizado");
 });
 

@@ -14,7 +14,7 @@
 //
 // Todo chamado nasce na fila "Inbox" (a mesma para onde o reabrir devolve).
 // O título é o assunto (suporte) ou "Tipo · Nome" (colaborador); a trigger
-// do banco completa " | Ticket-N" (migration 20260915100000). Nos tipos de
+// do banco completa " | Ticket-N" (migration 20260915103000). Nos tipos de
 // colaborador os campos vão organizados em dados_formulario e também numa
 // descrição legível, que é o que a equipe lê na ficha do Portal.
 

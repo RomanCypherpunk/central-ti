@@ -2,7 +2,7 @@
 // Moram aqui para os dois lerem a mesma verdade — quando o status de um
 // chamado muda de regra, muda numa linha só, não em duas telas.
 
-import { supabase } from "../config/supabase-config.js";
+import { pintarFoto } from "./avatar.js";
 
 //O STATUS NAO E UMA COLUNA: VEM DE QUEM FALOU POR ULTIMO NO CHAMADO.
 //So conta conversa de verdade — nota interna entre a equipe e mensagem
@@ -68,23 +68,12 @@ export function formatarData(iso) {
 export function montarAvatar(pessoa, fotoPath, classe = "comentario__avatar") {
   const avatar = document.createElement("span");
   avatar.className = classe;
-  avatar.textContent = iniciais(pessoa?.nome, pessoa?.sobrenome);
   // O balao mostra so o primeiro nome; o completo fica no title, ao passar o mouse.
   avatar.title = nomeCompleto(pessoa) ?? "Alguém";
 
-  if (!fotoPath) return avatar;
-
-  const { data } = supabase.storage.from("avatares").getPublicUrl(fotoPath);
-
-  const foto = document.createElement("img");
-  foto.src = data.publicUrl;
-  foto.alt = "";
-  foto.loading = "lazy";
-  // Se o arquivo sumiu, a imagem sai e as iniciais que ja estao ali reaparecem.
-  foto.addEventListener("error", () => foto.remove());
-  foto.addEventListener("load", () => { avatar.textContent = ""; avatar.appendChild(foto); });
-
-  avatar.appendChild(foto);
+  // Com foto, as iniciais nao aparecem antes dela: o quadro e a conversa se
+  // redesenham a cada evento do tempo real, e a troca letras -> foto piscava.
+  pintarFoto(avatar, fotoPath, iniciais(pessoa?.nome, pessoa?.sobrenome));
 
   return avatar;
 }
