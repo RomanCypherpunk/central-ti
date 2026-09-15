@@ -48,29 +48,28 @@ body.painel-pagina {
 }
 
 /* ==========================================================================
-   CABECALHO (.barra-portal): BRANCO SOLIDO, TEXTO ESCURO — mesmo padrao do
-   header branco da Base de Soluções. Sobrescreve so a COR aqui, nunca a
-   estrutura: .barra-portal em portal.css é vidro escuro translúcido sobre
-   o degrade do quadro (faz sentido lá, sobre foto/gradiente); aqui o fundo
-   por baixo já não é mais laranja no topo (só a sidebar ficou laranja),
-   então a barra escura sobre fundo cinza claro não fazia mais sentido.
-   Este bloco só troca cor/sombra — nenhum elemento foi adicionado, movido
-   ou removido do cabeçalho, como pedido.
+   CABECALHO (.barra-portal): BRANCO SOLIDO NO TEMA CLARO, ESCURO NO TEMA
+   ESCURO — acompanha o tema do Portal, como o resto do site (pedido do
+   usuario: "no modo escuro tem que ficar tudo escuro"). Antes esse
+   cabecalho ficava branco fixo nos dois temas (pra bater com a Base de
+   Solucoes) — revertido aqui so pro tema escuro; no tema claro nada muda.
+   Sobrescreve so a COR, nunca a estrutura: .barra-portal em portal.css é
+   vidro escuro translúcido sobre o degrade do quadro (faz sentido lá,
+   sobre foto/gradiente); aqui o fundo por baixo não é mais laranja no
+   topo, então a barra translúcida sobre fundo cinza claro não fazia mais
+   sentido no tema claro — mas no tema escuro ela pode simplesmente
+   assumir a MESMA cor solida que o resto da tela usa (--superficie),
+   sem precisar do efeito vidro nem de cor fixa nenhuma.
 
    Especificidade: no tema escuro, portal.css tem a regra
    [data-tema="escuro"] .portal-pagina .topo { background-color: ... }
-   que é MAIS especifica que body.painel-pagina .barra-portal sozinha
-   (3 classes/atributos contra 2) e vence mesmo painel.css carregando
-   depois. Por isso as regras abaixo repetem body.painel-pagina para
-   igualar/superar essa especificidade, tema claro ou escuro.
-
-   Cores fixas, não var(--texto): o cabeçalho é sempre branco aqui,
-   claro ou escuro — mas --texto/--texto-2 trocam de valor no tema
-   escuro (viram quase-branco, pensados pra fundo escuro) e ficariam
-   ilegíveis sobre o branco fixo deste header. Por isso os literais.
+   que e MAIS especifica que body.painel-pagina .barra-portal sozinha
+   (3 classes/atributos contra 2) e venceria mesmo painel.css carregando
+   depois — por isso a regra do tema escuro abaixo repete
+   [data-tema="escuro"] body.painel-pagina pra igualar/superar essa
+   especificidade.
    ========================================================================== */
 
-[data-tema="escuro"] body.painel-pagina .barra-portal,
 body.painel-pagina .barra-portal {
   background-color: #fff;
   /*Mesmo tom da borda do cabeçalho da Base de Soluções (.header em
@@ -99,6 +98,37 @@ body.painel-pagina .painel-voltar {
 body.painel-pagina .painel-voltar:hover {
   background: #f2f2f2;
   color: #1a1a1a;
+}
+
+/*TEMA ESCURO: mesma cor solida do resto da tela (--superficie, o mesmo
+  tom que .painel__conteudo e os cards ja usam), texto claro via
+  var(--texto) — aqui SIM os tokens de tema servem, porque o fundo
+  tambem passou a ser escuro (no bloco claro acima os literais existem
+  justamente porque o fundo era branco fixo, incompativel com o
+  --texto quase-branco do tema escuro).*/
+[data-tema="escuro"] body.painel-pagina .barra-portal {
+  background-color: var(--superficie);
+  border-bottom: 1px solid var(--borda);
+  color: var(--texto);
+}
+
+[data-tema="escuro"] body.painel-pagina .barra-portal .portal__titulo,
+[data-tema="escuro"] body.painel-pagina .barra-portal .portal__subtitulo,
+[data-tema="escuro"] body.painel-pagina .barra-portal .topo__produto {
+  color: var(--texto);
+}
+
+[data-tema="escuro"] body.painel-pagina .barra-portal .topo__divisor {
+  background-color: var(--borda);
+}
+
+[data-tema="escuro"] body.painel-pagina .painel-voltar {
+  color: var(--texto-2);
+}
+
+[data-tema="escuro"] body.painel-pagina .painel-voltar:hover {
+  background: var(--superficie-2);
+  color: var(--texto);
 }
 
 /* ==========================================================================
@@ -259,6 +289,73 @@ html[data-painel-sidebar="colapsada"] .painel-nav__colapsar-texto {
   encolhe mas deixa um vao cinza do lado.*/
 html[data-painel-sidebar="colapsada"] .painel {
   grid-template-columns: 72px 1fr;
+}
+
+/* ==========================================================================
+   MENU LATERAL NO TEMA ESCURO: troca o degrade laranja por uma superficie
+   escura solida (--superficie-2, um tom acima do fundo da pagina) — sem
+   a respiracao de gradiente, que so faz sentido sobre o laranja. Texto e
+   icones passam a usar --texto/--texto-2 em vez dos brancos translucidos
+   fixos, que foram pensados pra contrastar com laranja, nao com escuro.
+   Item atual continua com destaque solido, so que com --laranja-forte
+   (o unico dos dois tokens de laranja que o proprio tema escuro redefine
+   pra um tom mais vivo, em portal.css) em vez do laranja fixo #c77240.
+   ========================================================================== */
+
+[data-tema="escuro"] .painel-nav {
+  background: var(--superficie-2);
+  animation: none;
+  border-right: 1px solid var(--borda);
+}
+
+[data-tema="escuro"] .painel-nav__item {
+  color: var(--texto-2);
+}
+
+[data-tema="escuro"] .painel-nav__item svg {
+  color: var(--texto-2);
+}
+
+[data-tema="escuro"] .painel-nav__item:hover {
+  background: var(--superficie-3);
+  color: var(--texto);
+}
+
+[data-tema="escuro"] .painel-nav__item:hover svg {
+  color: var(--texto);
+}
+
+[data-tema="escuro"] .painel-nav__item:active {
+  background: var(--borda);
+}
+
+[data-tema="escuro"] .painel-nav__item--atual,
+[data-tema="escuro"] .painel-nav__item--atual:hover {
+  background: var(--laranja-forte);
+  color: #fff;
+}
+
+[data-tema="escuro"] .painel-nav__item--atual svg,
+[data-tema="escuro"] .painel-nav__item--atual:hover svg {
+  color: #fff;
+}
+
+[data-tema="escuro"] .painel-nav__grupo-titulo {
+  color: var(--texto-2);
+}
+
+[data-tema="escuro"] .painel-nav__divisor {
+  background: var(--borda);
+}
+
+[data-tema="escuro"] .painel-nav__colapsar {
+  border-top: 1px solid var(--borda);
+  color: var(--texto-2);
+}
+
+[data-tema="escuro"] .painel-nav__colapsar:hover {
+  background: var(--superficie-3);
+  color: var(--texto);
 }
 
 /* ==========================================================================

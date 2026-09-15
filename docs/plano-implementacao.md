@@ -2487,6 +2487,54 @@ PDF de ~890KB (7 páginas); a sub-aba original (Resumo) continuando
 visível depois que "Exportar tudo" termina; tema escuro; mobile 390px;
 zero erro no console.
 
+### Correção: cabeçalho e barra lateral do Painel também escurecem no tema escuro (2026-09-15)
+
+Reverte parte da decisão de [Painel: barra lateral laranja, cabeçalho
+branco e recolher menu](#painel-barra-lateral-laranja-cabecalho-branco-e-recolher-menu-2026-09-15)
+(mais acima, mesma data): lá o pedido era cabeçalho e sidebar **sempre**
+brancos/laranja, ignorando o tema. Agora o pedido inverteu — "no modo
+escuro tem que ficar tudo escuro, a barra lateral e o cabeçalho" — e o
+usuário confirmou que os dois (não só o cabeçalho) devem escurecer.
+Tema claro continua idêntico a antes (branco + laranja).
+
+**Cabeçalho** (`.barra-portal` dentro de `body.painel-pagina`): a regra
+antiga tinha `[data-tema="escuro"] body.painel-pagina .barra-portal`
+junto com a versão sem tema, forçando branco nos dois casos — bastou
+tirar esse seletor extra da regra clara e escrever um bloco novo só
+para `[data-tema="escuro"]`, usando `var(--superficie)` / `var(--texto)`
+/ `var(--borda)` (os mesmos tokens que o resto da tela já usa no
+escuro) em vez dos hexadecimais fixos.
+
+**Barra lateral** (`.painel-nav`): trocado o degrade laranja fixo por
+`var(--superficie-2)` sólido no tema escuro, com a animação de
+respiração desligada (ela anima `background-position`, que não faz
+sentido sem gradiente). Itens do menu passam a usar `var(--texto-2)` /
+`var(--texto)` em vez de branco translúcido; o item ativo usa
+`var(--laranja-forte)` (o único dos dois tokens de laranja que o tema
+escuro já redefine para um tom mais vivo) em vez do `#c77240` fixo.
+Estados de hover/active/colapsado seguem o mesmo padrão de tokens.
+
+Testado no navegador (servidor local + mocks de auth/Supabase): tema
+claro em desktop e mobile (390px) idêntico a antes; tema escuro em
+desktop com cabeçalho e sidebar escuros e o item ativo em laranja
+vivo; sidebar recolhida (`data-painel-sidebar="colapsada"`) no escuro
+também correta; mobile 390px no escuro com o cabeçalho escuro e as
+abas horizontais mantendo o item ativo em laranja; zero erro no
+console em todos os casos.
+
+**Segunda rodada, mesmo dia**: a logo "GASÔMETRO madeiras" no cabeçalho
+ficou ilegível (texto escuro sobre o novo fundo escuro) — faltava trocar
+a imagem, não só a cor de fundo. `portal.css` já tinha as regras prontas
+pra isso (`.topo__logo--claro` / `.topo__logo--escuro`, alternando via
+`display` conforme `[data-tema="escuro"]`), só nunca tinham sido usadas
+em nenhuma página — o `<img class="topo__logo">` do Painel era único, com
+`logo-claro.svg` fixo. Adicionado um segundo `<img>` com
+`logo-branco.svg` e as duas classes modificadoras; `.topo__logo-link`
+já é `display: flex`, então as regras de `display: none` cuidam de
+mostrar sempre exatamente uma das duas. Testado em claro, escuro e
+mobile 390px: logo escura no tema claro, logo branca legível no tema
+escuro, sem as duas aparecendo ao mesmo tempo; zero erro no console.
+
 ### Próximas abas (aguardando o usuário mandar o que cada uma mostra)
 
 - O usuário vai enviar as demais abas do relatório Power BI aos poucos;
