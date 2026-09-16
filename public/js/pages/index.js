@@ -115,6 +115,10 @@ function formatarData(iso) {
 function montarLinha(chamado) {
   const status = derivarStatus(chamado);
 
+  // A linha inteira leva ao chamado: clicar em qualquer celula (numero,
+  // status, data) abre o mesmo que clicar no assunto.
+  const destino = `solicitacoes.html?chamado=${chamado.numero}`;
+
   const linha = document.createElement("tr");
   linha.dataset.status = status.classe;
 
@@ -125,7 +129,7 @@ function montarLinha(chamado) {
   const assunto = document.createElement("td");
   const link = document.createElement("a");
   link.className = "tabela__link";
-  link.href = "solicitacoes.html";
+  link.href = destino;
   link.textContent = tituloDoChamado(chamado);
   assunto.appendChild(link);
 
@@ -140,6 +144,14 @@ function montarLinha(chamado) {
   data.textContent = formatarData(chamado.abertura_em);
 
   linha.append(numero, assunto, statusCel, data);
+
+  // O link do assunto continua sendo o caminho de teclado e o que aparece
+  // na barra do navegador; aqui so o clique do mouse em volta dele conta.
+  linha.addEventListener("click", (evento) => {
+    if (evento.target.closest("a")) return;
+
+    window.location.href = destino;
+  });
 
   return linha;
 }
