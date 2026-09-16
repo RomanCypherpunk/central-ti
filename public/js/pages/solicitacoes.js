@@ -599,6 +599,22 @@ botoesFiltro.forEach((botao) => {
   });
 });
 
+//A home manda para ca com ?chamado=<numero> ao clicar numa linha de "Suas
+//ultimas solicitacoes": abre esse chamado direto, como se a pessoa tivesse
+//clicado nele aqui na lista. A URL e limpa depois, senao recarregar a
+//pagina abriria a janela de novo sozinha.
+function abrirChamadoDaUrl() {
+  const numero = new URLSearchParams(window.location.search).get("chamado");
+
+  if (!numero) return;
+
+  window.history.replaceState(null, "", window.location.pathname);
+
+  const chamado = chamados.find((atual) => String(atual.numero) === numero);
+
+  if (chamado) abrirDetalhe(chamado);
+}
+
 async function carregar() {
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -624,6 +640,8 @@ async function carregar() {
 
   atualizarResumo();
   desenharLista();
+
+  abrirChamadoDaUrl();
 
   ligarTempoReal();
 }

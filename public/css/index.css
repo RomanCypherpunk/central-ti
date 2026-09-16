@@ -616,7 +616,10 @@ body {
 }
 
 /*CADA LINHA E MARCADA PELO STATUS COM UM TRACO A ESQUERDA, NAO UM CHIP*/
+/*A LINHA INTEIRA ABRE O CHAMADO (ver montarLinha em index.js): o cursor
+  precisa dizer isso em qualquer celula, nao so no assunto.*/
 .tabela tbody tr {
+  cursor: pointer;
   transition: background-color 0.2s ease;
 }
 
