@@ -307,6 +307,35 @@ body {
   min-height: 5rem;
 }
 
+/*CONTADOR DE CARACTERES: fica alinhado a direita logo abaixo do campo, no
+  mesmo cinza discreto do "opcional" — e so ganha destaque (laranja) quando
+  a pessoa chega no limite, que e o momento em que o campo para de aceitar
+  texto e ela precisa entender por que.*/
+.abrir__contador {
+  display: block;
+  margin-top: 0.3rem;
+  color: #94a3b8;
+  font-size: 0.6875rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.abrir__contador--cheio {
+  color: #dd5b12;
+  font-weight: 500;
+}
+
+/*DICA ABAIXO DO CAMPO: explica de onde veio um valor que a pessoa não
+  digitou (o acesso remoto herdado do chamado anterior), para ela não achar
+  que o sistema inventou o dado.*/
+.abrir__dica {
+  display: block;
+  margin-top: 0.3rem;
+  color: #94a3b8;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
 .abrir__select {
   appearance: none;
   -webkit-appearance: none;

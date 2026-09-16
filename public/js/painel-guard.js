@@ -1,8 +1,8 @@
 // GUARDA DO PAINEL: só admin entra, mesmo digitando a URL direto — mesma
 // ideia do acesso-guard.js, trocando "aprovado" por "admin". O Painel edita
 // setores, unidades, categorias, filas, textos rápidos e os dados dos
-// usuários: quem atende chamado (analista/parceiro) usa o Portal, mas não
-// configura o sistema.
+// usuários: quem atende chamado (analista) usa o Portal, mas não configura
+// o sistema.
 //
 // Esconder o item no menu de 3 pontinhos não é controle de acesso — quem
 // segura de verdade é a RLS (as policies de escrita pedem equipe de TI).

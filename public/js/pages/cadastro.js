@@ -78,6 +78,7 @@ function mostrarEtapa(indice, direcao) {
 //MENSAGENS DE ERRO
 const erroEtapa1 = document.querySelector("[data-erro='etapa1']");
 const erroEtapa2 = document.querySelector("[data-erro='etapa2']");
+const erroEtapa3 = document.querySelector("[data-erro='etapa3']");
 
 function mostrarErro(elemento, mensagem) {
   elemento.textContent = mensagem;
@@ -97,6 +98,10 @@ const campoUnidade = document.getElementById("unidade");
 const campoEmail = document.getElementById("email");
 const campoSenha = document.getElementById("senha");
 const campoConfirmar = document.getElementById("confirmar");
+
+// Guardado no envio: a etapa 3 precisa do e-mail para conferir o código, e
+// ler o campo de novo daria a chance de a pessoa ter editado depois.
+let emailCadastrado = "";
 
 //POPULAR SETOR E UNIDADE A PARTIR DO SUPABASE
 async function popularSelect(select, tabela) {
@@ -206,12 +211,80 @@ formulario.addEventListener("submit", async (evento) => {
     },
   });
 
+  botaoCriar.disabled = false;
+  botaoCriar.textContent = "Criar conta";
+
   if (error) {
     mostrarErro(erroEtapa2, MENSAGENS_ERRO_SUPABASE[error.code] ?? "Não foi possível criar a conta. Tente novamente.");
-    botaoCriar.disabled = false;
-    botaoCriar.textContent = "Criar conta";
+    return;
+  }
+
+  // A conta existe mas ainda não está confirmada: o Supabase acabou de
+  // mandar o código de 6 dígitos. Só depois de conferir é que ela serve
+  // para entrar — e é nesse momento que o chamado de Aprovação de Acesso
+  // nasce (trigger on_auth_user_email_confirmed no banco).
+  emailCadastrado = campoEmail.value.trim();
+  document.querySelector("[data-email-destino]").textContent = emailCadastrado;
+  mostrarEtapa(2, "frente");
+});
+
+//ETAPA 3: CONFERIR O CODIGO QUE CHEGOU NO E-MAIL
+const campoCodigo = document.getElementById("codigo");
+const botaoConfirmar = document.querySelector("[data-acao='confirmar']");
+
+botaoConfirmar.addEventListener("click", async () => {
+  const codigo = campoCodigo.value.trim();
+
+  if (codigo.length !== 6) {
+    mostrarErro(erroEtapa3, "Digite os 6 dígitos do código.");
+    return;
+  }
+
+  esconderErro(erroEtapa3);
+  botaoConfirmar.disabled = true;
+  botaoConfirmar.textContent = "Confirmando…";
+
+  // type "signup": é o código da confirmação de cadastro, não o de
+  // recuperação de senha (que a tela de recuperar usa com type "recovery").
+  const { error } = await supabase.auth.verifyOtp({
+    email: emailCadastrado,
+    token: codigo,
+    type: "signup",
+  });
+
+  botaoConfirmar.disabled = false;
+  botaoConfirmar.textContent = "Confirmar e-mail";
+
+  if (error) {
+    mostrarErro(erroEtapa3, "Código inválido ou expirado. Confira o e-mail ou peça outro.");
     return;
   }
 
   window.location.href = "index.html";
+});
+
+//REENVIAR O CODIGO
+const botaoReenviar = document.querySelector("[data-acao='reenviar']");
+
+botaoReenviar.addEventListener("click", async () => {
+  botaoReenviar.disabled = true;
+  botaoReenviar.textContent = "Enviando…";
+
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: emailCadastrado,
+  });
+
+  botaoReenviar.textContent = "Enviar de novo";
+
+  if (error) {
+    mostrarErro(erroEtapa3, "Não foi possível reenviar o código. Tente em alguns instantes.");
+    botaoReenviar.disabled = false;
+    return;
+  }
+
+  mostrarErro(erroEtapa3, "Código reenviado. Confira o e-mail.");
+  // Espera antes de liberar outro envio: o Supabase limita a frequência
+  // (max_frequency = 1m no config.toml).
+  setTimeout(() => { botaoReenviar.disabled = false; }, 60000);
 });

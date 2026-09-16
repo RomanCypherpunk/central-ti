@@ -527,6 +527,35 @@ body {
   color: #14181f;
 }
 
+/*CODIGO DE 6 DIGITOS: monoespaçado e espaçado, para conferir dígito a
+  dígito contra o e-mail. Mesmo tratamento da recuperação de senha.*/
+.cadastro__codigo {
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.5em;
+  text-align: center;
+  text-indent: 0.5em;
+}
+
+/*BOTAO COM CARA DE LINK PARA REENVIAR O CODIGO*/
+.cadastro__reenviar {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #14181f;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cadastro__reenviar:disabled {
+  color: #94a3b8;
+  cursor: default;
+}
+
 /*TELAS GRANDES: A BASE REM CRESCE E TUDO CRESCE JUNTO*/
 @media (min-width: 1600px) {
   html {

@@ -62,6 +62,12 @@ let tipoAtual = null;
 // Quem está abrindo, lido do cadastro. unidadeId vai no chamado.
 let solicitante = { nome: "", email: "", setor: "", unidade: "", unidadeId: null };
 
+// Último acesso remoto que esta pessoa informou em um chamado anterior.
+// Guardado aqui (e não só escrito no campo) porque o formulario.reset() do
+// "Abrir outro chamado" apagaria o valor — mesma razão pela qual os campos
+// de quem está abrindo são repreenchidos depois do reset.
+let acessoRemotoSalvo = "";
+
 function avisar(texto) {
   aviso.textContent = texto;
 }
@@ -152,6 +158,34 @@ formulario.querySelectorAll("[data-mascara]").forEach((entrada) => {
   entrada.addEventListener("input", () => {
     entrada.value = MASCARAS[entrada.dataset.mascara](soNumeros(entrada.value));
   });
+});
+
+/*CONTADOR DE CARACTERES: o maxlength sozinho trava o campo sem explicar por
+  que parou de aceitar texto. O contador mostra quanto ainda cabe antes de a
+  pessoa esbarrar no limite. So aparece em quem tem [data-contador] — os
+  campos curtos (CPF, CEP, telefone) ja tem mascara e nao precisam.*/
+formulario.querySelectorAll("[data-contador][maxlength]").forEach((entrada) => {
+  const limite = Number(entrada.getAttribute("maxlength"));
+  const marcador = document.createElement("span");
+
+  marcador.className = "abrir__contador";
+  entrada.insertAdjacentElement("afterend", marcador);
+
+  const atualizar = () => {
+    marcador.textContent = `${entrada.value.length}/${limite}`;
+    marcador.classList.toggle("abrir__contador--cheio", entrada.value.length >= limite);
+  };
+
+  entrada.addEventListener("input", atualizar);
+  atualizar();
+});
+
+// Editou o acesso remoto herdado? A dica ("veio do seu último chamado")
+// deixa de valer — o valor agora é o que a pessoa acabou de digitar.
+formulario.querySelector('[data-campo="acesso_remoto"]')?.addEventListener("input", () => {
+  const dica = document.querySelector("[data-acesso-remoto-dica]");
+
+  if (dica) dica.hidden = true;
 });
 
 /* ==========================================================================
@@ -307,6 +341,19 @@ function categoriaDoTipo(tipo) {
   return padrao ? categorias.find((categoria) => padrao.test(categoria.nome))?.id ?? null : null;
 }
 
+// Põe o acesso remoto guardado no campo e explica de onde ele veio — sem a
+// dica a pessoa estranha um IP que não digitou. A dica some se ela editar,
+// porque aí o valor passa a ser dela, não herdado.
+function aplicarAcessoRemotoSalvo() {
+  const campo = formulario.querySelector('[data-campo="acesso_remoto"]');
+  const dica = document.querySelector("[data-acesso-remoto-dica]");
+
+  if (!campo || !acessoRemotoSalvo) return;
+
+  campo.value = acessoRemotoSalvo;
+  if (dica) dica.hidden = false;
+}
+
 async function carregar() {
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -317,12 +364,22 @@ async function carregar() {
   // Unidades e setores vêm inteiros (e não por junção no select do usuário):
   // servem para traduzir os ids do cadastro e, os setores, para o select do
   // colaborador.
-  const [unidades, setores, listaCategorias, filas, perfil] = await Promise.all([
+  const [unidades, setores, listaCategorias, filas, perfil, ultimoAcesso] = await Promise.all([
     supabase.from("unidades").select("id, nome").order("nome"),
     supabase.from("setores").select("id, nome, ativo").order("nome"),
     supabase.from("categorias").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("filas").select("id, nome").eq("ativo", true).order("ordem"),
     supabase.from("usuarios").select("nome, sobrenome, email, unidade_id, setor_id").eq("id", user.id).single(),
+    // ÚLTIMO ACESSO REMOTO INFORMADO por esta pessoa: quase sempre é o mesmo
+    // computador, então o campo já vem preenchido em vez de exigir que ela
+    // redigite o IP a cada chamado. Pega o mais recente que NÃO seja nulo —
+    // abrir um chamado sem preencher não apaga o que ela já informou antes.
+    supabase.from("chamados")
+      .select("acesso_remoto")
+      .eq("solicitante_id", user.id)
+      .not("acesso_remoto", "is", null)
+      .order("abertura_em", { ascending: false })
+      .limit(1),
   ]);
 
   const erro = unidades.error ?? setores.error ?? listaCategorias.error ?? filas.error ?? perfil.error;
@@ -349,6 +406,12 @@ async function carregar() {
   formulario.querySelectorAll("[data-solicitante]").forEach((entrada) => {
     entrada.value = solicitante[entrada.dataset.solicitante] || "Não informado no cadastro";
   });
+
+  // De propósito fora do check de erro acima: é uma conveniência, não um
+  // dado necessário para abrir chamado. Se essa consulta falhar o campo só
+  // fica vazio, em vez de travar o formulário inteiro.
+  acessoRemotoSalvo = ultimoAcesso.data?.[0]?.acesso_remoto ?? "";
+  aplicarAcessoRemotoSalvo();
 
   categorias = listaCategorias.data ?? [];
 
@@ -592,12 +655,25 @@ document.addEventListener("paste", (evento) => {
 
 // Descrição legível dos tipos de colaborador: um campo por linha, só os
 // preenchidos — é o que a equipe lê na ficha do chamado no Portal.
+//
+// O corte no fim é uma rede de segurança: esta descrição é MONTADA, não
+// digitada, então o tamanho final depende dos maxlength somados dos campos.
+// Hoje o pior caso cabe (cadastro ~1104, desligamento ~1028), mas afrouxar um
+// maxlength no HTML sem refazer essa conta faria o banco recusar o chamado —
+// aqui o texto é cortado em vez de o envio falhar. Os campos vão inteiros em
+// dados_formulario de qualquer forma.
+const LIMITE_DESCRICAO = 1200;
+
 function descricaoEmLinhas(titulo, linhas) {
-  return [
+  const texto = [
     titulo,
     "",
     ...linhas.filter(([, conteudo]) => conteudo).map(([rotulo, conteudo]) => `${rotulo}: ${conteudo}`),
   ].join("\n");
+
+  if (texto.length <= LIMITE_DESCRICAO) return texto;
+
+  return `${texto.slice(0, LIMITE_DESCRICAO - 1).trimEnd()}…`;
 }
 
 function dadosDoSolicitante() {
@@ -620,11 +696,17 @@ function montarChamado() {
 
     return {
       ...base,
-      titulo: assunto,
+      // O trigger no banco prefixa o número do ticket ("#46 - Impressora com
+      // erro"). Assunto em branco vira null de propósito: é o sinal para o
+      // banco cair no formato com a categoria ("#46 - Pedidos: Enzo").
+      titulo: assunto || null,
       descricao: valor("descricao"),
       categoria_id: valor("categoria"),
       cliente_na_loja: simNao("cliente_na_loja"),
       sistema_lento_ou_fora: simNao("sistema_lento_ou_fora"),
+      // Campo vazio grava null, e não "": assim a busca pelo último acesso
+      // remoto informado (is not null) ignora os chamados sem preenchimento.
+      acesso_remoto: valor("acesso_remoto") || null,
       dados_formulario: { origem: "abrir-chamado", tipo: "suporte", solicitante: dadosDoSolicitante(), assunto },
     };
   }
@@ -654,7 +736,10 @@ function montarChamado() {
 
     return {
       ...base,
-      titulo: `${titulo} · ${nome}`,
+      // Sem título: quem monta é o trigger no banco, que precisa do número do
+      // ticket ("#46 - Cadastro de Colaborador: Enzo") — e o número só existe
+      // depois do insert. O nome do colaborador vai em dados_formulario.
+      titulo: null,
       descricao: descricaoEmLinhas(titulo, [
         ["Nome", colaborador.nome],
         ["Cargo", colaborador.cargo],
@@ -690,7 +775,7 @@ function montarChamado() {
 
   return {
     ...base,
-    titulo: `${titulo} · ${nome}`,
+    titulo: null,
     descricao: descricaoEmLinhas(titulo, [
       ["Nome", colaborador.nome],
       ["E-mail", colaborador.email],
@@ -830,6 +915,8 @@ botaoOutro.addEventListener("click", () => {
   formulario.querySelectorAll("[data-solicitante]").forEach((entrada) => {
     entrada.value = solicitante[entrada.dataset.solicitante] || "Não informado no cadastro";
   });
+
+  aplicarAcessoRemotoSalvo();
 
   irPara(null);
 });

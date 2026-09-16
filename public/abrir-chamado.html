@@ -244,10 +244,13 @@
             </div>
 
             <div class="abrir__campo">
-              <label class="abrir__label" for="suporte-assunto">Assunto</label>
-              <input class="abrir__input" id="suporte-assunto" type="text" maxlength="120" autocomplete="off"
-                     data-campo="assunto" data-obrigatorio data-minimo="3"
-                     data-mensagem="Escreva um assunto curto para o chamado."
+              <label class="abrir__label" for="suporte-assunto">
+                Assunto <span class="abrir__opcional">opcional</span>
+              </label>
+              <!--110, e nao 120: o banco prefixa "#46 - " no titulo final, que
+                  tem teto de 120. O prefixo cresce com o numero do ticket.-->
+              <input class="abrir__input" id="suporte-assunto" type="text" maxlength="110" data-contador autocomplete="off"
+                     data-campo="assunto"
                      placeholder="Ex.: Impressora do caixa não imprime">
             </div>
 
@@ -261,7 +264,7 @@
 
             <div class="abrir__campo">
               <label class="abrir__label" for="suporte-descricao">Descrição</label>
-              <textarea class="abrir__input abrir__textarea" id="suporte-descricao" rows="5"
+              <textarea class="abrir__input abrir__textarea" id="suporte-descricao" rows="5" maxlength="1200" data-contador
                         data-campo="descricao" data-obrigatorio data-mensagem="Descreva o que está acontecendo."
                         placeholder="Desde quando acontece, o que você já tentou, a mensagem de erro que aparece…"></textarea>
             </div>
@@ -295,6 +298,23 @@
                   </label>
                 </div>
               </fieldset>
+            </div>
+
+            <!--ACESSO REMOTO: o dado que a equipe precisa pra entrar na
+                máquina. Vem pré-preenchido com o último que a pessoa
+                informou (ver ultimoAcessoRemoto em abrir-chamado.js) —
+                quase sempre é o mesmo computador, e redigitar o IP a cada
+                chamado era trabalho repetido.-->
+            <div class="abrir__campo">
+              <label class="abrir__label" for="suporte-acesso-remoto">
+                Acesso remoto <span class="abrir__opcional">opcional</span>
+              </label>
+              <input class="abrir__input" id="suporte-acesso-remoto" type="text" maxlength="120"
+                     data-campo="acesso_remoto" autocomplete="off"
+                     placeholder="IP ou ID do VNC, TeamViewer ou AnyDesk">
+              <span class="abrir__dica" data-acesso-remoto-dica hidden>
+                Repetido do seu último chamado. Altere se mudou.
+              </span>
             </div>
           </section>
         </div>
@@ -425,7 +445,7 @@
               <label class="abrir__label" for="cadastro-observacoes">
                 Observações <span class="abrir__opcional">opcional</span>
               </label>
-              <textarea class="abrir__input abrir__textarea abrir__textarea--curta" id="cadastro-observacoes" rows="3"
+              <textarea class="abrir__input abrir__textarea abrir__textarea--curta" id="cadastro-observacoes" rows="3" maxlength="300" data-contador
                         data-campo="observacoes"
                         placeholder="Algo que a equipe precise saber: horário, data de início, etc."></textarea>
             </div>
@@ -492,7 +512,7 @@
               <label class="abrir__label" for="desligamento-observacoes">
                 Observações <span class="abrir__opcional">opcional</span>
               </label>
-              <textarea class="abrir__input abrir__textarea abrir__textarea--curta" id="desligamento-observacoes" rows="3"
+              <textarea class="abrir__input abrir__textarea abrir__textarea--curta" id="desligamento-observacoes" rows="3" maxlength="300" data-contador
                         data-campo="observacoes"
                         placeholder="Algo que a equipe precise saber: backup de arquivos, horário do último dia, etc."></textarea>
             </div>

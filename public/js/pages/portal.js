@@ -217,10 +217,13 @@ function confirmarNoSite({ titulo, mensagem, confirmar = "Confirmar", perigo = f
 
 //SO A EQUIPE DE TI ATENDE CHAMADOS. O RLS JA PROTEGE OS DADOS; ISSO EVITA
 //DEIXAR UM SOLICITANTE OLHANDO UM QUADRO QUE NUNCA VAI TER NADA PRA ELE.
-//Devolve o id de quem esta logado se for admin, ou null se nao for —
-//o id e usado depois como autor das mensagens.
-//O atalho no menu do perfil segue a mesma regra; aqui e o que vale de
-//verdade, porque esconder link nao impede ninguem de digitar a URL.
+//Devolve o id de quem esta logado se ele atende, ou null se nao — o id e
+//usado depois como autor das mensagens.
+//
+//Analista E admin, mesma lista de is_equipe_ti() no banco e do
+//portal-guard.js (que barra a entrada antes desta funcao rodar). Antes aqui
+//so passava admin, o que na pratica deixava o Portal restrito a admin
+//mesmo com o banco permitindo analista.
 async function quemEstaAtendendo() {
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -232,7 +235,9 @@ async function quemEstaAtendendo() {
     .eq("id", user.id)
     .single();
 
-  return perfil?.perfil === "admin" ? user.id : null;
+  if (!["analista", "admin"].includes(perfil?.perfil)) return null;
+
+  return { id: user.id, perfil: perfil.perfil };
 }
 
 //RODAPE DO CARD: QUEM ESTA ATENDENDO. Foto maior e o primeiro nome ao lado,
@@ -1354,7 +1359,7 @@ function ligarBusca(chamados, filas, detalhe) {
 //as funcoes do quadro; o Painel (que nao tem quadro) passa um redesenho da
 //tabela dele. Assim o mesmo modal serve as duas telas sem duplicar as ~950
 //linhas de conversa, anexos, membros e aprovacao.
-function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}) {
+function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfilAtendente = null) {
   const {
     // Sem quadro, procurar card sempre devolve nada: cada uso ja trata isso.
     acharCard = (id) => quadro?.querySelector(`[data-chamado="${id}"]`) ?? null,
@@ -1389,10 +1394,15 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}) {
   const painelAprovacao = document.querySelector("[data-aprovacao]");
   const campoAprovacaoDados = document.querySelector("[data-aprovacao-dados]");
   const campoAprovacaoSetor = document.querySelector("[data-aprovacao-setor]");
+  const campoAprovacaoPerfil = document.querySelector("[data-aprovacao-perfil]");
+  const dicaAprovacaoPerfil = document.querySelector("[data-aprovacao-perfil-dica]");
   const avisoAprovacao = document.querySelector("[data-aprovacao-aviso]");
   const botaoAprovar = document.querySelector("[data-aprovacao-aprovar]");
   const botaoRejeitar = document.querySelector("[data-aprovacao-rejeitar]");
   let setoresDisponiveis = [];
+  // Enquanto false, trocar o setor re-sugere o perfil; depois que quem
+  // aprova escolhe um perfil na mao, a sugestao para de sobrescrever.
+  let perfilEscolhidoNaMao = false;
 
   let aberto = null;
 
@@ -2713,9 +2723,45 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}) {
     });
   }
 
+  //PERFIL SUGERIDO PELO SETOR: quem escolheu "Administrador" no cadastro
+  //quase sempre vai virar admin, entao o campo ja vem preenchido assim —
+  //mas e so sugestao, quem aprova confirma ou troca. O perfil NAO e gravado
+  //no cadastro justamente para ninguem se auto-promover pelo formulario.
+  const NOME_SETOR_ADMIN = "Administrador";
+
+  const ROTULO_STATUS_CADASTRO = {
+    pendente: "Pendente",
+    aprovado: "Aprovado",
+    rejeitado: "Rejeitado",
+  };
+
+  function perfilSugeridoPeloSetor(setorId) {
+    const setor = setoresDisponiveis.find((s) => s.id === setorId);
+
+    return setor?.nome === NOME_SETOR_ADMIN ? "admin" : "solicitante";
+  }
+
+  function aplicarPerfilSugerido() {
+    if (perfilEscolhidoNaMao) return;
+
+    const sugerido = perfilSugeridoPeloSetor(campoAprovacaoSetor.value);
+
+    campoAprovacaoPerfil.value = sugerido;
+    dicaAprovacaoPerfil.textContent = sugerido === "admin"
+      ? "Sugerido pelo setor Administrador — confirme antes de aprovar."
+      : "";
+  }
+
+  campoAprovacaoSetor.addEventListener("change", aplicarPerfilSugerido);
+
+  campoAprovacaoPerfil.addEventListener("change", () => {
+    perfilEscolhidoNaMao = true;
+    dicaAprovacaoPerfil.textContent = "";
+  });
+
   //FICHA ENXUTA DA APROVACAO: so os campos que decidem se a conta e
-  //liberada. Setor vem de <select> porque e o unico editavel — os outros
-  //sao so conferencia (o que a pessoa preencheu no cadastro).
+  //liberada. Setor e perfil vem de <select> porque sao os editaveis — os
+  //outros sao so conferencia (o que a pessoa preencheu no cadastro).
   async function desenharAprovacao() {
     await carregarSetores();
 
@@ -2730,11 +2776,21 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}) {
     campoAprovacaoDados.replaceChildren();
 
     [
+      // Mesma grade de duas colunas da ficha comum (desenharDados): os pares
+      // ficam lado a lado e o campo longo fecha a linha inteira no fim. Sem
+      // um número par de células duplas sobra um buraco na grade — era o que
+      // acontecia com o e-mail largo no meio e cinco campos em volta.
       { rotulo: "Solicitante", valor: nomeCompleto(solicitante) },
       { rotulo: "Aberto em", valor: aberturaEm },
-      { rotulo: "E-mail", valor: solicitante?.email, largo: true },
       { rotulo: "Unidade", valor: aberto.unidades?.nome },
       { rotulo: "Categoria", valor: aberto.categorias?.nome },
+      // O setor que a PESSOA escolheu no cadastro — é o que sugere o perfil
+      // no campo abaixo. Aparece aqui como conferência porque o <select> de
+      // setor pode ser trocado por quem aprova, e aí some a informação
+      // original de onde ela disse que trabalha.
+      { rotulo: "Setor informado", valor: solicitante?.setores?.nome },
+      { rotulo: "Cadastro", valor: ROTULO_STATUS_CADASTRO[solicitante?.status_aprovacao] },
+      { rotulo: "E-mail", valor: solicitante?.email, largo: true },
     ].forEach(({ rotulo, valor, largo }) => {
       const item = document.createElement("div");
       item.className = "dados__item";
@@ -2755,6 +2811,22 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}) {
 
     campoAprovacaoSetor.value = solicitante?.setor_id ?? "";
 
+    // Cadastro novo entra sempre como solicitante/pendente — ninguem se
+    // auto-promove no formulario. Quem ja tem um perfil definido (reabriu a
+    // ficha de alguem ja decidido) aparece com o dele; os demais recebem a
+    // sugestao vinda do setor.
+    const jaTemPerfil = solicitante?.status_aprovacao
+      && solicitante.status_aprovacao !== "pendente";
+
+    perfilEscolhidoNaMao = false;
+
+    if (jaTemPerfil && solicitante?.perfil) {
+      campoAprovacaoPerfil.value = solicitante.perfil;
+      dicaAprovacaoPerfil.textContent = "";
+    } else {
+      aplicarPerfilSugerido();
+    }
+
     //O AVISO E SO INFORMATIVO: aprovar/rejeitar fica sempre clicavel, mesmo
     //com uma decisao anterior — quem revisa pode mudar de ideia (aprovou
     //errado, ou quer rejeitar de novo depois de reabrir), sem travar o
@@ -2765,6 +2837,23 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}) {
       ? `Cadastro já ${solicitante.status_aprovacao === "aprovado" ? "aprovado" : "rejeitado"} — pode alterar se precisar.`
       : "";
     avisoAprovacao.classList.toggle("aprovacao__aviso--feito", Boolean(jaDecidido));
+
+    //SO ADMIN DECIDE ACESSO. O analista abre o chamado e ve os dados (ele
+    //atende no Portal), mas quem libera conta e define perfil e o admin —
+    //e o banco concorda: trocar perfil passa pelo trigger
+    //protege_perfil_usuario, que so aceita admin. Sem isto o analista
+    //clicaria em Aprovar e receberia um erro seco vindo do banco.
+    const podeDecidir = perfilAtendente === "admin";
+
+    botaoAprovar.hidden = !podeDecidir;
+    botaoRejeitar.hidden = !podeDecidir;
+    campoAprovacaoSetor.disabled = !podeDecidir;
+    campoAprovacaoPerfil.disabled = !podeDecidir;
+
+    if (!podeDecidir) {
+      avisoAprovacao.textContent = "Somente um administrador pode aprovar ou rejeitar cadastros.";
+      avisoAprovacao.classList.add("aprovacao__aviso--feito");
+    }
   }
 
   //APROVAR/REJEITAR: grava em usuarios (nao em chamados) — o trigger do
@@ -2787,6 +2876,17 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}) {
     // no valor original.
     if (setorEscolhido && setorEscolhido !== (solicitante.setor_id ?? "")) {
       mudancas.setor_id = setorEscolhido;
+    }
+
+    // O perfil so vai junto ao APROVAR: rejeitar nao concede acesso nenhum,
+    // entao mudar o perfil de quem foi recusado nao faria sentido. Como
+    // trocar perfil e exclusividade do admin (trigger protege_perfil_usuario
+    // no banco), so mandamos o campo quando ele realmente mudou — assim o
+    // analista continua aprovando cadastro sem esbarrar na regra.
+    const perfilEscolhido = campoAprovacaoPerfil.value;
+
+    if (aprovar && perfilEscolhido && perfilEscolhido !== (solicitante.perfil ?? "")) {
+      mudancas.perfil = perfilEscolhido;
     }
 
     const { error } = await supabase.from("usuarios").update(mudancas).eq("id", solicitante.id);
@@ -4278,12 +4378,14 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados }
 }
 
 async function montarQuadro() {
-  const atendente = await quemEstaAtendendo();
+  const usuarioAtendendo = await quemEstaAtendendo();
 
-  if (!atendente) {
+  if (!usuarioAtendendo) {
     window.location.href = "index.html";
     return;
   }
+
+  const atendente = usuarioAtendendo.id;
 
   const [filas, chamados, equipe, cores] = await Promise.all([
     supabase.from("filas").select("id, nome, ordem").eq("ativo", true).order("ordem"),
@@ -4291,11 +4393,13 @@ async function montarQuadro() {
       .from("chamados")
       .select(CAMPOS_CHAMADO)
       .order("abertura_em", { ascending: false }),
-    // Quem pode ser posto num chamado: a propria equipe de TI.
+    // Quem pode ser posto num chamado: a propria equipe de TI (mesma regra de
+    // is_equipe_ti no banco). Lista explicita, e nao "todo mundo que nao e
+    // solicitante": o contribuinte escreve na Base mas nao atende chamado.
     supabase
       .from("usuarios")
       .select("id, nome, sobrenome, foto_path")
-      .neq("perfil", "solicitante")
+      .in("perfil", ["analista", "admin"])
       .eq("ativo", true)
       .order("nome"),
     // Cor de destaque em consulta separada, de proposito: se a coluna ainda
@@ -4350,7 +4454,9 @@ async function montarQuadro() {
   ligarArrastar();
   ligarArrastoDoFundo();
   ligarBarra();
-  const detalhe = ligarDetalhe(chamados.data, filas.data, equipe.data ?? [], atendente);
+  const detalhe = ligarDetalhe(
+    chamados.data, filas.data, equipe.data ?? [], atendente, {}, usuarioAtendendo.perfil,
+  );
   // A busca abre o modal (via detalhe.abrir) quando o achado e um chamado
   // finalizado — esse nao tem card no quadro para rolar ate.
   ligarBusca(chamados.data, filas.data, detalhe);

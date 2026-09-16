@@ -126,14 +126,17 @@ function aplicarTopo(dados) {
   // porque esconder link no menu nao e controle de acesso.
   // Painel (configuracao do Portal): mesma regra, e sao dois elementos no
   // menu de 3 pontinhos — o divisor e o link.
-  revelar("[data-menu-portal], [data-menu-painel]", dados.perfil === "admin");
+  // O Portal é de quem atende chamado (analista e admin); o Painel, que
+  // configura o sistema, continua só do admin.
+  revelar("[data-menu-portal]", dados.equipeTi);
+  revelar("[data-menu-painel]", dados.perfil === "admin");
 
-  // EQUIPE DE TI: mesma regra do RLS (is_equipe_ti no banco) — admin,
-  // analista ou parceiro, aprovado e ativo. Usado na Base de Soluções:
-  // só quem pode cadastrar/editar vê "Nova Solução" e os botões de
-  // editar/excluir do painel. Esconder não substitui o RLS — é só pra
-  // não mostrar um botão que sempre vai falhar.
-  revelar("[data-equipe-ti]", dados.equipeTi);
+  // BASE DE SOLUÇÕES: mesma regra do RLS (pode_escrever_artigo no banco) —
+  // admin, analista ou contribuinte, aprovado e ativo. Só quem pode
+  // cadastrar/editar vê "Nova Solução" e os botões de editar/excluir.
+  // Esconder não substitui o RLS — é só pra não mostrar um botão que
+  // sempre vai falhar.
+  revelar("[data-equipe-ti]", dados.escreveArtigo);
 
   // BASE DE SOLUÇÕES PENDENTE: quem ainda não foi aprovado só vê o botão
   // apagado, sem link — a Base já barra na entrada (acesso-guard.js) e a
@@ -243,7 +246,11 @@ async function preencherUsuario() {
     fotoPath: perfil?.foto_path ?? null,
     perfil: perfil?.perfil ?? null,
     aprovado,
-    equipeTi: ["admin", "analista", "parceiro"].includes(perfil?.perfil) && aprovado,
+    // Duas permissões diferentes, e não dois nomes para a mesma: quem ATENDE
+    // chamado (Portal) não é a mesma lista de quem ESCREVE na Base. Espelham
+    // is_equipe_ti() e pode_escrever_artigo() no banco.
+    equipeTi: ["admin", "analista"].includes(perfil?.perfil) && aprovado,
+    escreveArtigo: ["admin", "analista", "contribuinte"].includes(perfil?.perfil) && aprovado,
   };
 
   guardarTopo(dados);

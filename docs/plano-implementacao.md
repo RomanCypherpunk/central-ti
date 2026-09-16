@@ -2535,6 +2535,339 @@ mostrar sempre exatamente uma das duas. Testado em claro, escuro e
 mobile 390px: logo escura no tema claro, logo branca legível no tema
 escuro, sem as duas aparecendo ao mesmo tempo; zero erro no console.
 
+### Urgência automática, título padronizado e limites de texto (2026-09-16)
+
+Três mudanças pedidas juntas, todas no banco (migration
+`20260916090000_urgencia_automatica_e_limites_texto.sql`, já aplicada).
+
+**Bug da prioridade (relatado pelo usuário)**: um chamado aberto com
+"cliente na loja" e "sistema fora do ar" marcados veio como normal. Causa
+raiz: **nada no sistema escrevia em `eh_urgente`** — a coluna tinha
+default `false`, o formulário só mandava `cliente_na_loja` /
+`sistema_lento_ou_fora`, e nenhum dos 5 triggers de `chamados` olhava
+essas flags. Não era um cálculo errado, era um cálculo que nunca existiu:
+nenhum chamado no banco tinha urgência automática. Corrigido com o trigger
+`chamados_definir_urgencia` (BEFORE INSERT OR UPDATE das duas colunas):
+qualquer uma das duas marcadas ⇒ urgente. Ficou no banco, e não no JS,
+porque vale para qualquer origem — inclusive a migração dos ~14 mil
+chamados. O histórico foi corrigido retroativamente (o #49 do usuário e o
+#42). O #7, que estava urgente manualmente sem nenhuma das flags, foi
+preservado: o `update` só marca, nunca desmarca. Efeito colateral a
+lembrar: editar as flags do #7 recalcula a urgência dele para `false`.
+
+**Título padronizado com o número do ticket**. Formato definido pelo
+usuário:
+
+| Caso | Título |
+|---|---|
+| Assunto digitado | `#46 - Impressora com erro` |
+| Categoria comum, sem assunto | `#46 - Pedidos` |
+| Cadastro / Desligamento / Aprovação de Acesso | `#46 - Cadastro: Enzo` |
+
+Só essas três categorias levam nome (são os chamados sobre uma *pessoa*);
+as outras nove ficam só número + categoria. O rótulo é sempre o nome da
+categoria, venha o chamado do formulário ou não — foi o pedido explícito
+de padronização, depois de uma primeira versão que usava "Cadastro de
+Colaborador" pelo formulário e "Cadastro" pela categoria.
+
+Isso mora no banco por uma razão dura: `numero` é `GENERATED ALWAYS AS
+IDENTITY`, ou seja, **só existe depois do insert** — o formulário não tem
+como montar "#46" antes de gravar. O JS passou a mandar `titulo: null` e
+quem monta é o trigger `chamados_montar_titulo` (BEFORE INSERT, onde
+`new.numero` já está disponível). Substitui `preencher_titulo_chamado`
+(formato antigo `Categoria | Ticket-N`), que ainda por cima fazia um
+`UPDATE` extra na tabela depois do insert; a função antiga foi removida.
+
+De onde vem o nome depende da origem, e isso importa: pelo formulário é o
+**colaborador** digitado num campo único ("Enzo Xavier Santos"), então
+corta no primeiro espaço; fora dele é quem abriu, e aí `usuarios.nome` já
+guarda só o primeiro nome (sobrenome é coluna separada) e vai inteiro —
+cortar no espaço quebraria "João Gabriel" para "João", o mesmo bug de nome
+composto que já tinha aparecido nos gráficos de Atendentes.
+
+**Limites de texto**: título e descrição eram `text` sem teto — dava para
+colar páginas inteiras no assunto. Agora `CHECK` de 120 e 1200. O limite
+real mora no banco porque `maxlength` é só conforto de digitação e não vale
+nada contra inserção pela API. No formulário o assunto ficou em 110 (não
+120) porque o banco prefixa `#46 - `, e o título montado é cortado em 120
+em vez de o chamado ser recusado. A descrição gerada de Cadastro/
+Desligamento (~12 campos concatenados) também é truncada no JS: no pior
+caso ela dá ~1104 e cabe, mas afrouxar um `maxlength` sem refazer a conta
+faria o insert falhar.
+
+O assunto do Suporte virou **opcional** (pedido do usuário) — sem ele o
+título cai no formato com a categoria. Os campos de texto ganharam
+contador (`47/60`, laranja ao encher), já que `maxlength` sozinho trava o
+campo sem explicar por quê.
+
+Testado: lógica dos títulos contra as 12 categorias reais e o usuário de
+nome composto, em tabela temporária; CHECKs recusando 121/1201 e aceitando
+120/1200; e um teste ponta a ponta com 4 chamados inseridos de verdade
+(autorizado pelo usuário, gerando `#51 - Impressora com erro`,
+`#52 - Pedidos`, `#53 - Cadastro: João Gabriel`, `#54 - Cadastro: Enzo`
+com a urgência correta em cada um) e apagados em seguida — sem sobras nem
+comentários órfãos.
+
+### SLA: hora de almoço descontada nos dias de semana (2026-09-16)
+
+O expediente de segunda a sexta virou **duas janelas** — 8h às 12h e 13h
+às 17h48 — em vez de uma corrida das 8h às 17h48. A hora de almoço da
+equipe não conta para o SLA, então chamado aberto e fechado dentro dela
+tem 0 de SLA. Sábado continua 8h às 12h (sem almoço, o expediente já
+termina no horário) e domingo segue fechado.
+
+A mudança foi estrutural: `EXPEDIENTE_POR_DIA_DA_SEMANA` passou de *uma
+janela por dia* (`{ inicio, fim }` ou `null`) para *uma lista de janelas*
+(`[]` no domingo), e `horasUteisEntre` soma a sobreposição de cada janela
+do dia em vez de uma só. O resto do algoritmo não mudou — continua
+andando dia a dia e somando interseções, e os 16 pontos de chamada nas 7
+sub-abas da Análise não precisaram de ajuste nenhum.
+
+Efeito nos números: o dia útil caiu de 9h48 para **8h48**, então toda
+média de solução e de primeira resposta que cruze um almoço diminui
+retroativamente (o SLA é recalculado a cada carregamento do Painel, não
+fica gravado).
+
+Testado com 15 casos em script Node — 4 específicos do almoço (só almoço
+= 0; 11h50→13h10 = 20min e não 1h20; aberto e fechado dentro do almoço =
+0; 12h30→14h = 60min), mais bordas já cobertas antes (fora do expediente,
+virada de dia, sex 17h47→seg 8h, sábado, domingo, fim antes do início).
+Todos passaram. No navegador, a Análise carregou sem erro no console com
+chamados que cruzam o almoço, mostrando média de solução 4,6h (0,33h +
+8,8h) e primeira resposta 0,3h — os valores com o almoço descontado.
+
+### Níveis de acesso: solicitante, contribuinte, analista, admin (2026-09-16)
+
+Hierarquia definida pelo usuário, do menor para o maior:
+
+| Perfil | Abre chamado | Lê a Base | Cadastra solução | Portal | Painel |
+|---|---|---|---|---|---|
+| solicitante | sim | sim | — | — | — |
+| contribuinte | sim | sim | **sim** | — | — |
+| analista | sim | sim | sim | **sim** | — |
+| admin | sim | sim | sim | sim | **sim** |
+
+Os quatro perfis já existiam no CHECK da tabela, mas `parceiro` (renomeado
+para `contribuinte`, ninguém usava) tinha permissões erradas e duas das
+telas não checavam nada. O que foi feito, em três camadas:
+
+**Banco** (`20260916140000_niveis_de_acesso.sql`):
+`is_equipe_ti()` deixou de incluir contribuinte — essa função guarda os
+**chamados**, e contribuinte não vê chamado. Como a escrita de artigos
+usava a mesma função, a Base ganhou a sua própria
+(`pode_escrever_artigo()`), senão o contribuinte perderia justamente o que
+define o perfil dele. São duas permissões distintas que por coincidência
+tinham a mesma lista.
+
+**Dois furos de segurança encontrados no caminho**, ambos fechados por um
+trigger `usuarios_protege_perfil`:
+
+1. A policy "edita o próprio perfil" permitia atualizar a **linha inteira**
+   da própria pessoa, sem restringir colunas — na prática **um solicitante
+   podia se promover a admin pela API**.
+2. A policy de editar outros usava `is_equipe_ti()`, o que daria ao
+   analista o poder de promover alguém. Pelo combinado, só admin promove.
+
+O controle ficou em trigger, e não no `WITH CHECK` da policy, porque lá um
+subselect na própria tabela lê a linha em estado ambíguo — num
+`BEFORE UPDATE` o `OLD` e o `NEW` são explícitos, que é exatamente o que a
+regra precisa comparar. A equipe também não aprova a si mesma.
+
+**Perfil desamarrado do setor** (`20260916150000_perfil_independente_do_setor.sql`):
+existia um `sincronizar_setor_perfil()` que reescrevia o perfil a cada
+update — quem entrasse no setor "Administrador" virava admin, e um admin
+que mudasse de setor era **rebaixado a solicitante silenciosamente**. Fazia
+sentido quando só havia dois perfis; com quatro, atrapalha. Pior: rodava
+*depois* de `protege_perfil_usuario` (ordem alfabética dos triggers), então
+tinha a palavra final sobre quem tinha permissão para decidir. Removido —
+os 5 admins estão todos no setor Administrador, então nenhum perfil mudou.
+`bloquear_autoaprovacao()` foi reescrito para cuidar só do `setor_id`, sem
+sobrepor a regra nova.
+
+**Guards** (dois arquivos novos): `portal.html` e `nova-solucao.html` só
+tinham o `auth-guard` — qualquer pessoa logada que digitasse a URL via a
+interface. Criados `portal-guard.js` (analista + admin) e
+`solucao-guard.js` (contribuinte + analista + admin), no mesmo padrão do
+`painel-guard.js`. A checagem duplicada que vivia dentro do
+`nova-solucao.js`, com a lista desatualizada, foi removida.
+
+**Front alinhado**: o link do Portal no menu aparecia só para admin —
+agora acompanha `equipeTi`. `main.js` passou a ter duas flags (`equipeTi` e
+`escreveArtigo`) em vez de uma. E o `portal.js` tinha a regra real de
+acesso ao Portal hardcoded em `admin` (`quemEstaAtendendo`), o que deixava
+o Portal restrito a admin mesmo com o banco permitindo analista. Duas
+consultas de "quem pode ser posto num chamado" usavam
+`neq("perfil","solicitante")`, que passaria a incluir o contribuinte —
+trocadas por lista explícita. Rótulos "Parceiro" → "Contribuinte" no
+Painel, e a Edge Function `criar-usuario` (que valida o perfil no servidor)
+teve a lista corrigida e **foi redeployada**.
+
+Testado: 8 casos do trigger de perfil em tabela temporária (solicitante não
+se promove nem se auto-aprova mas edita o próprio nome; analista aprova
+outro cadastro mas não promove; admin promove e desativa; equipe não
+aprova a si mesma) — todos passaram. No navegador, a matriz 4 perfis × 3
+telas bateu exatamente com a tabela acima, sem erro de JS.
+
+### Perfil de acesso na ficha de aprovação de cadastro (2026-09-16)
+
+Continuação direta da mudança de níveis de acesso, a partir da pergunta do
+usuário: "quem se cadastra escolhendo o setor Administrador entra com qual
+perfil?". Resposta: **solicitante/pendente** — e isso era um efeito
+colateral não anunciado da remoção do `sincronizar_setor_perfil` no mesmo
+dia. Antes, o setor promovia a admin automaticamente, inclusive num
+cadastro novo; ao remover o trigger, a promoção sumiu junto.
+
+A decisão foi manter o cadastro manual (ninguém se auto-promove pelo
+formulário) e levar a escolha para onde ela já acontece: a ficha de
+aprovação que chega no Portal como chamado de "Aprovação de Acesso". O que
+mudou nela:
+
+- **Campo "Perfil de acesso"** abaixo do de Setor, com os quatro perfis. O
+  padrão vem do setor escolhido no cadastro: setor "Administrador" sugere
+  **Admin** (com a dica "Sugerido pelo setor Administrador — confirme antes
+  de aprovar"), qualquer outro sugere **Solicitante**. Trocar o setor
+  re-sugere o perfil, até quem aprova escolher um na mão — daí a sugestão
+  para de sobrescrever.
+- **"Setor informado"** entre os dados de conferência. O `<select>` de
+  setor pode ser trocado por quem aprova, e sem isso a informação original
+  (onde a pessoa disse que trabalha, que é o que justifica a sugestão de
+  perfil) se perderia da tela.
+- **Só admin decide.** Analista continua abrindo o chamado e vendo os
+  dados, mas os dois selects ficam desabilitados, os botões
+  Aprovar/Rejeitar somem e aparece o aviso. Não é só cosmético: trocar
+  perfil passa pelo trigger `protege_perfil_usuario`, que só aceita admin —
+  sem esconder, o analista clicaria em Aprovar e receberia um erro seco do
+  banco.
+- O perfil só é gravado ao **aprovar** (rejeitar não concede acesso) e
+  apenas quando mudou de fato, para o analista continuar aprovando cadastro
+  sem esbarrar na regra do trigger.
+
+Dois ajustes de apoio: `CAMPOS_CHAMADO` passou a trazer o `perfil` do
+solicitante (sem ele a comparação "mudou?" seria sempre verdadeira), e
+`quemEstaAtendendo()` passou a devolver `{ id, perfil }` em vez de só o id
+— o id continua sendo passado como antes para os 9 usos existentes, e o
+perfil vai num parâmetro novo de `ligarDetalhe`.
+
+Testado no navegador com a ficha real de um cadastro pendente com setor
+Administrador: como admin, sugestão "Admin", campos livres e botões
+visíveis; como analista, selects bloqueados, botões ocultos e o aviso; ao
+trocar o setor para Vendas, a sugestão volta para "Solicitante" e a dica
+some. Zero erro de JS nos dois perfis.
+
+**Grade quebrada, corrigida em seguida**: o usuário apontou que a ficha
+ficava "com a grade quebrada" em comparação à do Suporte TI. O CSS era o
+mesmo (`.dados`, duas colunas) — o problema era a contagem de células. A
+grade pinta o fundo pelo gap, então uma célula faltando vira um retângulo
+cinza visível. A ficha tinha 6 campos com o **e-mail largo no meio**, o
+que deixava 5 células simples e sobrava um buraco; o Suporte TI tem 9
+campos, mas o largo é o **último**, fechando a linha. Reordenado para o
+mesmo padrão: pares lado a lado e o campo longo encerrando. Como isso
+deixava 5 simples, entrou "Cadastro" (pendente/aprovado/rejeitado), que é
+informação útil ali e completa o par. Conferido em tema claro e escuro.
+
+### Acesso remoto no formulário de Suporte, com memória do último informado (2026-09-16)
+
+A coluna `chamados.acesso_remoto` existia desde o começo e já aparecia na
+ficha do Portal, mas **nenhum formulário a preenchia** — `montarChamado()`
+mandava `acesso_remoto: null` fixo nos três tipos. Por isso a ficha sempre
+mostrava "Não informado": não havia como informar. Nenhum dos chamados do
+banco tinha valor.
+
+Agora o Suporte TI tem o campo (texto livre, opcional, 120 caracteres):
+IP ou ID do VNC, TeamViewer ou AnyDesk, conforme definido pelo usuário.
+
+**Memória do último informado**: o campo já vem preenchido com o último
+acesso remoto que a pessoa informou em qualquer chamado anterior — é quase
+sempre o mesmo computador, e redigitar o IP a cada chamado era trabalho
+repetido. A consulta entra no mesmo `Promise.all` do carregamento (sem
+round-trip extra) e pega o mais recente com `acesso_remoto is not null`,
+ordenado por `abertura_em`. O `not null` é a regra combinada com o
+usuário: abrir um chamado com o campo vazio **não** apaga a memória — o
+valor anterior volta no próximo. Por isso o envio grava `null` (e não `""`)
+quando o campo está vazio, senão uma string vazia entraria no histórico e
+viraria a "última" resposta.
+
+A consulta fica **fora** do check de erro do carregamento de propósito: é
+conveniência, não dado necessário para abrir chamado. Se falhar, o campo só
+fica vazio em vez de travar o formulário.
+
+Duas sutilezas de interface: uma dica abaixo do campo explica de onde veio
+o valor ("Repetido do seu último chamado"), senão a pessoa estranha um IP
+que não digitou; e ela some assim que a pessoa edita, porque aí o valor
+passa a ser dela. O valor também é guardado em `acessoRemotoSalvo` e
+reaplicado depois do `formulario.reset()` do "Abrir outro chamado" — o
+reset apagaria o campo, mesmo motivo pelo qual os dados de quem está
+abrindo já eram repreenchidos ali.
+
+Testado no navegador: com histórico (campo preenchido + dica), após editar
+(valor novo, dica some), sem histórico (vazio, sem dica), e o envio real
+confirmando `acesso_remoto: "192.168.0.99"` no insert. Zero erro de JS.
+
+### Cadastro com confirmação de e-mail por código (2026-09-16)
+
+Antes o cadastro criava a conta e entrava direto no portal — não havia
+nenhuma prova de que a pessoa tinha acesso ao e-mail informado. Agora o
+fluxo tem uma terceira etapa, com a mesma mecânica da recuperação de senha:
+código de 6 dígitos, `verifyOtp`, reenvio com trava de 1 minuto.
+
+A confirmação é a **nativa do Supabase** (`enable_confirmations`), que
+estava desligada — era por isso que o `signUp` autenticava na hora. Ligada,
+ele mesmo envia o código; o front só chama `verifyOtp` com
+`type: "signup"` (o de recuperação usa `type: "recovery"`). O remetente é o
+mesmo de todos os e-mails de auth, configurado uma vez em
+`[auth.email.smtp]`: `helpdeskti@madeirasgasometro.com.br`.
+
+Template próprio (`supabase/templates/confirmacao.html`, mesmo formato do
+`recovery.html`) porque o padrão do Supabase vem em inglês e com
+`{{ .ConfirmationURL }}` — um link, não o código que a tela espera.
+
+**O chamado de "Aprovação de Acesso" saiu do `handle_new_user`**
+(`20260916170000`): antes nascia junto com a conta, o que agora encheria a
+fila do TI de cadastros começados e abandonados, de e-mails que ninguém
+abriu. Passou para um trigger `on_auth_user_email_confirmed`, que dispara
+quando `auth.users.email_confirmed_at` deixa de ser nulo. A linha em
+`public.usuarios` continua nascendo na criação (o cadastro precisa dela
+para guardar nome/setor/unidade). O trigger ignora qualquer outro update em
+`auth.users` e não abre um segundo chamado numa reconfirmação.
+
+Os 8 usuários existentes já constavam com `email_confirmed_at` preenchido
+(o Supabase confirma sozinho quando a opção está desligada), então ninguém
+foi afetado — não houve migração de dados.
+
+Config do painel (feita pelo usuário, já que `config.toml` só vale para o
+ambiente local): *Authentication > Sign In / Providers > Email >* **Confirm
+email** ligado, e o template de *Confirm signup* trocado pelo nosso.
+
+Testado no navegador com as chamadas de auth mockadas: etapa 1 de 3 →
+criar conta → etapa 3 mostrando o e-mail certo; código errado mostra erro e
+não sai da tela; código certo redireciona; `signUp`, `verifyOtp` e `resend`
+recebendo os parâmetros corretos (`type: "signup"` nos dois últimos); botão
+de reenviar travado por 1 minuto. Zero erro de JS.
+
+### Limpeza do histórico do cron (2026-09-16)
+
+O usuário notou `cron.job_run_details` com 2 MB no painel e perguntou se
+era preocupante. Investigando: 11.366 execuções em 8 dias, **1.440 linhas
+por dia** (o job `processar-retornos-pendentes` roda a cada minuto), 184
+bytes cada — ~265 KB/dia, **~95 MB/ano**, e a tabela nunca apagava nada.
+
+Não era urgente, mas é a única coisa no banco que cresce sozinha mesmo sem
+ninguém usar o sistema: em um ano, o log de um job passaria a ocupar mais
+espaço que os 14 mil chamados da migração planejada.
+
+A frequência do job está certa e não foi mexida — ele devolve chamados para
+a fila 10 minutos depois, então rodar a cada minuto é o que dá essa
+precisão. O que faltava era limpar o log.
+
+Novo job `limpar-historico-do-cron` (03:10 todo dia) apaga as execuções bem
+sucedidas com mais de 24h, guardando todas as falhas (hoje: zero em 11 mil).
+As 24h de sucessos ficam de propósito: com a tabela vazia não haveria como
+distinguir "cron funcionando" de "cron parado".
+
+Resultado imediato: 11.366 → 1.441 linhas, e de 2 MB para **272 kB** depois
+do `vacuum full` (sem ele o Postgres marca o espaço como reutilizável mas
+não devolve ao disco). Daqui pra frente fica estável nesse patamar.
+
 ### Próximas abas (aguardando o usuário mandar o que cada uma mostra)
 
 - O usuário vai enviar as demais abas do relatório Power BI aos poucos;

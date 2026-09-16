@@ -1274,6 +1274,24 @@ body.portal-pagina {
   outline-offset: 1px;
 }
 
+/*O select fica apagado para quem nao pode decidir (so admin aprova): o
+  campo continua visivel como conferencia, mas nao aceita troca.*/
+.aprovacao__select:disabled {
+  background-color: var(--superficie-2);
+  color: var(--texto-3);
+  cursor: not-allowed;
+}
+
+/*DICA DO PERFIL SUGERIDO: so aparece quando ha texto, entao nao ocupa
+  espaco no caso comum (sugestao "solicitante", que dispensa explicacao).*/
+.aprovacao__dica:not(:empty) {
+  display: block;
+  margin: 0.375rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--texto-3);
+}
+
 .aprovacao__acoes {
   display: flex;
   gap: 0.625rem;

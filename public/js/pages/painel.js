@@ -1178,7 +1178,7 @@ function ligarListaDePessoas({ prefixo, pessoas, setores, unidades, dialog, rotu
 
   const ROTULO_PERFIL = {
     solicitante: "Solicitante",
-    parceiro: "Parceiro",
+    contribuinte: "Contribuinte",
     analista: "Analista",
     admin: "Admin",
   };
@@ -2189,23 +2189,26 @@ Chart.defaults.plugins.tooltip.displayColors = true;
 Chart.defaults.plugins.tooltip.boxPadding = 4;
 
 //SLA EM HORAS UTEIS, NAO HORAS CORRIDAS: regra do horario de
-//funcionamento do TI — seg-sex 8h as 17h48, sabado 8h as 12h, domingo
-//sem expediente. Um chamado aberto sexta 17h47 e fechado segunda 8h tem
-//so 1 minuto de SLA (o cronometro so "liga" quando o expediente abre de
-//verdade, nao conta o tempo fechado do fim de semana). Feriados NAO sao
-//considerados por enquanto (decisao do usuario) — so dia da semana e
+//funcionamento do TI — seg-sex 8h as 12h e 13h as 17h48 (a hora de almoco
+//da equipe NAO conta), sabado 8h as 12h, domingo sem expediente. Um
+//chamado aberto sexta 17h47 e fechado segunda 8h tem so 1 minuto de SLA
+//(o cronometro so "liga" quando o expediente abre de verdade, nao conta o
+//tempo fechado do fim de semana); um aberto 11h50 e fechado 13h10 tem 20
+//minutos, e nao 1h20, porque a hora do almoco fica de fora. Feriados NAO
+//sao considerados por enquanto (decisao do usuario) — so dia da semana e
 //horario.
 //
-//Algoritmo: soma, dia a dia entre abertura e fechamento, a sobreposicao
-//entre [abertura, fechamento] e a janela de expediente daquele dia.
+//Cada dia tem uma LISTA de janelas (a semana tem duas por causa do
+//almoco): o algoritmo soma, dia a dia entre abertura e fechamento, a
+//sobreposicao entre [abertura, fechamento] e cada janela daquele dia.
 const EXPEDIENTE_POR_DIA_DA_SEMANA = {
-  0: null, // domingo: sem expediente
-  1: { inicio: [8, 0], fim: [17, 48] },
-  2: { inicio: [8, 0], fim: [17, 48] },
-  3: { inicio: [8, 0], fim: [17, 48] },
-  4: { inicio: [8, 0], fim: [17, 48] },
-  5: { inicio: [8, 0], fim: [17, 48] },
-  6: { inicio: [8, 0], fim: [12, 0] },
+  0: [], // domingo: sem expediente
+  1: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
+  2: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
+  3: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
+  4: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
+  5: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
+  6: [{ inicio: [8, 0], fim: [12, 0] }], // sabado so de manha, sem almoco
 };
 
 function horasUteisEntre(inicio, fim) {
@@ -2218,23 +2221,21 @@ function horasUteisEntre(inicio, fim) {
   const cursor = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
 
   while (cursor <= fim) {
-    const expediente = EXPEDIENTE_POR_DIA_DA_SEMANA[cursor.getDay()];
-
-    if (expediente) {
+    EXPEDIENTE_POR_DIA_DA_SEMANA[cursor.getDay()].forEach((janela) => {
       const abreDoDia = new Date(cursor);
-      abreDoDia.setHours(expediente.inicio[0], expediente.inicio[1], 0, 0);
+      abreDoDia.setHours(janela.inicio[0], janela.inicio[1], 0, 0);
       const fechaDoDia = new Date(cursor);
-      fechaDoDia.setHours(expediente.fim[0], expediente.fim[1], 0, 0);
+      fechaDoDia.setHours(janela.fim[0], janela.fim[1], 0, 0);
 
       // Sobreposicao entre [inicio, fim] do chamado e [abreDoDia, fechaDoDia]
-      // do expediente daquele dia — maior dos inicios, menor dos fins.
+      // desta janela — maior dos inicios, menor dos fins.
       const comeco = inicio > abreDoDia ? inicio : abreDoDia;
       const termino = fim < fechaDoDia ? fim : fechaDoDia;
 
       if (termino > comeco) {
         minutos += (termino - comeco) / 60_000;
       }
-    }
+    });
 
     cursor.setDate(cursor.getDate() + 1);
   }
@@ -4561,9 +4562,12 @@ async function montarPainel() {
       supabase.from("filas").select("id, nome, ordem, ativo").eq("ativo", true).order("ordem"),
       supabase.from("filas").select("id, nome, ordem, ativo").order("nome"),
       supabase.from("chamados").select(CAMPOS_CHAMADO).order("abertura_em", { ascending: false }),
-      // Quem pode ser posto num chamado: a equipe de TI (mesma regra do Portal).
+      // Quem pode ser posto num chamado: a equipe de TI (mesma regra do
+      // Portal e de is_equipe_ti no banco). Lista explícita, e não
+      // "todo mundo que não é solicitante": o contribuinte cadastra solução
+      // na Base mas não atende chamado, então não entra aqui.
       supabase.from("usuarios").select("id, nome, sobrenome, foto_path, cor_destaque")
-        .neq("perfil", "solicitante").eq("ativo", true).order("nome"),
+        .in("perfil", ["analista", "admin"]).eq("ativo", true).order("nome"),
       supabase.from("usuarios")
         .select("id, nome, sobrenome, email, setor_id, unidade_id, perfil, ativo, status_aprovacao, foto_path, created_at")
         .order("nome"),

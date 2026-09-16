@@ -114,7 +114,7 @@ export const CAMPOS_CHAMADO = `
   acesso_remoto, cliente_na_loja, sistema_lento_ou_fora,
   categorias(nome),
   unidades(nome),
-  usuarios!chamados_solicitante_id_fkey(id, nome, sobrenome, email, status_aprovacao, setor_id, setores(id, nome)),
+  usuarios!chamados_solicitante_id_fkey(id, nome, sobrenome, email, perfil, status_aprovacao, setor_id, setores(id, nome)),
   chamado_membros(usuario_id, usuarios(id, nome, sobrenome, foto_path)),
   comentarios(id, autor_id, texto, visibilidade, tipo, criado_em, usuarios(nome, sobrenome, foto_path)),
   anexos(id, comentario_id, nome_arquivo, storage_path, criado_em)

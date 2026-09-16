@@ -46,7 +46,7 @@ function responder(corpo: unknown, status = 200) {
   });
 }
 
-const PERFIS_VALIDOS = ["solicitante", "parceiro", "analista", "admin"];
+const PERFIS_VALIDOS = ["solicitante", "contribuinte", "analista", "admin"];
 const STATUS_VALIDOS = ["pendente", "aprovado", "rejeitado"];
 
 Deno.serve(async (req) => {

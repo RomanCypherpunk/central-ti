@@ -26,7 +26,9 @@ additional_redirect_urls = []
 
 [auth.email]
 double_confirm_changes = false
-enable_confirmations = false
+# Cadastro exige confirmar o e-mail com um código de 6 dígitos, igual à
+# recuperação de senha: garante que a pessoa tem acesso à caixa que informou.
+enable_confirmations = true
 max_frequency = "1m0s"
 otp_length = 6
 
@@ -42,6 +44,13 @@ sender_name = "TI Gasômetro Madeiras"
 [auth.email.template.recovery]
 subject = "Recuperação de senha — TI Gasômetro Madeiras"
 content_path = "./supabase/templates/recovery.html"
+
+# Sem este template o Supabase manda o padrão dele: em inglês e com link de
+# confirmação, em vez do código de 6 dígitos que a tela de cadastro espera.
+# O remetente é o mesmo de todos os e-mails de auth ([auth.email.smtp] acima).
+[auth.email.template.confirmation]
+subject = "Confirme seu e-mail — TI Gasômetro Madeiras"
+content_path = "./supabase/templates/confirmacao.html"
 
 [auth.mfa.totp]
 enroll_enabled = true
