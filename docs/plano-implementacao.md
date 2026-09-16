@@ -2868,6 +2868,92 @@ Resultado imediato: 11.366 → 1.441 linhas, e de 2 MB para **272 kB** depois
 do `vacuum full` (sem ele o Postgres marca o espaço como reutilizável mas
 não devolve ao disco). Daqui pra frente fica estável nesse patamar.
 
+### Portal carrega só os chamados abertos (2026-09-16)
+
+Preparação para os ~14 mil chamados da migração, motivada pelo egress de
+0,45 GB que o usuário viu no painel do Supabase. O Portal baixava **a lista
+inteira de chamados** na carga da página e de novo a cada `ressincronizar()`
+— que roda toda vez que a aba volta a ficar visível e a cada evento de
+tempo real. Com 12 chamados são ~20 KB e ninguém nota; com 14 mil seriam
+vários MB por recarga, e os 5 GB/mês de egress do plano ficariam apertados
+com uso normal.
+
+Agora a carga inicial e a ressincronização filtram `is("fechamento_em",
+null)`. O quadro nunca mostrou chamado fechado (o filtro já existia em
+`cardsDaFila`), então visualmente nada muda.
+
+**Os fechados entram sob demanda** (`criarCarregadorDeFechados`): a primeira
+abertura da janela "Tickets finalizados" ou da exportação dispara a consulta
+e guarda o resultado no mesmo array; as vezes seguintes não repetem. O que é
+guardado é a *promessa*, não um booleano — abrir finalizados e exportar quase
+ao mesmo tempo espera a mesma consulta em vez de disparar duas. Uma falha de
+rede zera o cache para permitir nova tentativa.
+
+**A busca passou a consultar o banco** em vez de filtrar memória: procura os
+abertos localmente (resposta instantânea, sem rede) e complementa com um
+`ilike` em título/descrição — mais `numero.eq` quando o termo é só dígitos —
+restrito aos fechados, com `limit(8)`. Um contador de sequência descarta
+respostas que chegam fora de ordem, senão uma consulta lenta sobrescreveria
+o resultado de uma digitação mais nova.
+
+**Dois pontos sutis que o teste pegou:**
+
+1. `ressincronizar()` remove da memória tudo que não veio na resposta. Com o
+   filtro, "não veio" passou a significar *apagado* **ou** *fechado* — e um
+   fechado já carregado sumiria da janela de finalizados. A remoção agora
+   ignora quem tem `fechamento_em`.
+2. Quando alguém fecha um chamado, o tempo real chama `recarregarChamado(id)`,
+   que busca aquele chamado **sem filtro** — então a cópia em memória recebe
+   o `fechamento_em` e o quadro o esconde pelo filtro que já existia. Não
+   ficou desatualizado.
+
+Testado no navegador com chamados abertos e fechados separados no mock:
+carga inicial faz **uma** consulta, só de abertos, e o quadro mostra só eles;
+abrir finalizados dispara a segunda consulta e lista os fechados; buscar um
+aberto resolve em memória e buscar um fechado vai ao banco; a exportação
+conta "2 em aberto, 2 finalizados" reaproveitando o cache, sem nova consulta;
+e depois de um `visibilitychange` os finalizados continuam na lista. Zero
+erro ou aviso no console.
+
+### Porta da Base: ícone por setor e botão que explica a espera (2026-09-16)
+
+Duas melhorias no cartão da Base de Soluções na home, para quem ainda não
+foi aprovado pelo TI (esse usuário já pode abrir chamado, mas não entra na
+Base).
+
+**Botão**: continuava escrito "Acessar base" mesmo apagado e sem link — um
+botão que não leva a lugar nenhum e não diz por quê. Agora vira **"Aguardando
+aprovação"** e a seta some junto. Só o botão da porta muda: o rótulo ficou
+dentro de `[data-porta-base-texto]`, então o "Ver tudo" mais abaixo na home
+— que usa o mesmo `data-porta-base-link` — segue igual.
+
+**Ícone do selo**: era um monitor fixo para todo mundo. Agora acompanha o
+setor de quem está logado, com um mapa de palavra-chave → SVG. A busca é por
+trecho, e não pelo nome exato, porque "Vendas" e "Líder de Vendas" são o
+mesmo trabalho, e um setor novo ("Vendas Online") já nasce com o ícone certo
+sem ninguém editar o mapa. Carrinho para vendas, cifrão para financeiro,
+caminhão para logística, caixa para suprimentos, pessoas para RH, documento
+para fiscal, gráfico para gestor; sem correspondência fica o monitor.
+
+**Dois bugs que o teste em sequência pegou**, e que não apareceriam testando
+um setor de cada vez:
+
+1. "Líder de Logística" não batia com o termo `logistic` — o acento. Resolvido
+   normalizando (NFD + remoção de diacríticos) antes de comparar, o que também
+   faz um setor digitado sem acento no cadastro achar o mesmo ícone.
+2. Como consequência do primeiro: sem correspondência, o código só *não
+   trocava* o `innerHTML`, deixando o ícone do setor anterior. O desenho
+   original do HTML passou a ser guardado em `dataset.iconePadrao` na primeira
+   passada e é restaurado quando nada bate.
+
+Também removido o `<b data-setor-artigos>` do HTML: existia desde o começo
+mas nunca foi preenchido por ninguém.
+
+Testado no navegador com 13 combinações (os 11 setores reais do banco, mais
+um inventado e o caso pendente): cada setor com o ícone certo, "Setor
+Inventado" e "Administrador" caindo no monitor padrão, e o botão trocando de
+texto só no estado pendente. Zero erro de JS.
+
 ### Próximas abas (aguardando o usuário mandar o que cada uma mostra)
 
 - O usuário vai enviar as demais abas do relatório Power BI aos poucos;

@@ -1292,15 +1292,9 @@ function ligarBusca(chamados, filas, detalhe) {
     return item;
   }
 
-  function buscar(termo) {
-    const busca = termo.trim().toLowerCase();
-
-    if (!busca) {
-      fechar();
-      return;
-    }
-
-    const achados = chamados.filter((chamado) => [
+  //ACHADOS EM MEMORIA: os abertos, que estao todos carregados.
+  function acharEmMemoria(busca) {
+    return chamados.filter((chamado) => [
       `ticket-${chamado.numero}`,
       String(chamado.numero),
       // O titulo pode ter sido editado ("SJC SR VALTER - Equipamentos"):
@@ -1312,7 +1306,73 @@ function ligarBusca(chamados, filas, detalhe) {
       chamado.unidades?.nome,
       chamado.descricao,
     ].some((campo) => campo?.toLowerCase().includes(busca)));
+  }
 
+  //ACHADOS NO BANCO: os fechados, que NAO estao em memoria. Vai ao servidor
+  //em vez de baixar o historico inteiro — com ~14 mil chamados, carregar tudo
+  //so para filtrar no navegador seria desperdicio a cada busca.
+  //
+  //Procura no titulo e na descricao; digitando so numeros, tambem pelo numero
+  //do ticket. Menos campos que a busca em memoria (nome do solicitante,
+  //unidade e categoria estao em outras tabelas e exigiriam junção), mas cobre
+  //o caso real de procurar um ticket antigo pelo numero ou pelo assunto.
+  async function acharNoBanco(busca) {
+    const escapado = busca.replace(/[%_,()]/g, " ").trim();
+
+    if (!escapado) return [];
+
+    const condicoes = [`titulo.ilike.%${escapado}%`, `descricao.ilike.%${escapado}%`];
+
+    if (/^\d+$/.test(escapado)) condicoes.push(`numero.eq.${escapado}`);
+
+    const { data, error } = await supabase
+      .from("chamados")
+      .select(CAMPOS_CHAMADO)
+      .not("fechamento_em", "is", null)
+      .or(condicoes.join(","))
+      .order("fechamento_em", { ascending: false })
+      .limit(8);
+
+    if (error) {
+      console.warn("Busca: não foi possível procurar nos finalizados", error);
+      return [];
+    }
+
+    return data ?? [];
+  }
+
+  // Cada tecla dispara uma busca; sem isto uma resposta lenta poderia chegar
+  // depois de uma mais nova e sobrescrever a tela com o resultado antigo.
+  let buscaAtual = 0;
+
+  async function buscar(termo) {
+    const busca = termo.trim().toLowerCase();
+
+    if (!busca) {
+      fechar();
+      return;
+    }
+
+    const minhaBusca = ++buscaAtual;
+    const emMemoria = acharEmMemoria(busca);
+
+    // Desenha já o que temos em memória e completa com os fechados quando a
+    // consulta volta: quem procura um chamado do quadro vê o resultado na
+    // hora, sem esperar a rede. Sem nada em memória não desenha ainda —
+    // mostrar "Nenhum chamado encontrado" para depois trocar pelos
+    // finalizados faria a resposta piscar.
+    if (emMemoria.length) desenhar(emMemoria);
+
+    const doBanco = await acharNoBanco(busca);
+
+    if (minhaBusca !== buscaAtual) return;
+
+    const conhecidos = new Set(emMemoria.map((chamado) => chamado.id));
+
+    desenhar([...emMemoria, ...doBanco.filter((chamado) => !conhecidos.has(chamado.id))]);
+  }
+
+  function desenhar(achados) {
     painel.replaceChildren();
 
     if (!achados.length) {
@@ -3466,7 +3526,7 @@ function ligarQuadroMenu(exportar) {
 //finalizados). Usa os chamados que ja estao em memoria — os mesmos do
 //quadro, atualizados pelo tempo real —, sem ir de novo ao banco.
 //O periodo e pela data de criacao (abertura_em), no fuso do computador.
-function ligarExportar(chamados, filas) {
+function ligarExportar(chamados, filas, carregarFechados) {
   const janela = document.querySelector("[data-exportar]");
   const campoDe = document.querySelector("[data-exportar-de]");
   const campoAte = document.querySelector("[data-exportar-ate]");
@@ -3681,7 +3741,7 @@ function ligarExportar(chamados, filas) {
   return {
     // Primeira vez: ultimos 30 dias. Depois, mantem o periodo escolhido e so
     // recalcula a contagem (chegaram chamados novos pelo tempo real).
-    abrir() {
+    async abrir() {
       if (!campoDe.value || !campoAte.value) {
         aplicarPeriodo("30");
       } else {
@@ -3689,6 +3749,12 @@ function ligarExportar(chamados, filas) {
       }
 
       janela.showModal();
+
+      // A planilha cobre "em aberto e finalizados", então precisa do
+      // histórico completo — que só entra em memória sob demanda. Recalcula a
+      // contagem depois, senão o resumo mostraria só os abertos do período.
+      await carregarFechados();
+      atualizarContagem();
     },
   };
 }
@@ -3696,7 +3762,7 @@ function ligarExportar(chamados, filas) {
 //TICKETS FINALIZADOS: LISTA OS CHAMADOS COM fechamento_em PREENCHIDO.
 //Reabrir devolve o card ao quadro, na mesma fila de onde saiu — fila_id
 //nunca muda ao fechar, entao nao ha ambiguidade de para onde ele volta.
-function ligarFinalizados(chamados, filas, detalhe) {
+function ligarFinalizados(chamados, filas, detalhe, carregarFechados) {
   const janela = document.querySelector("[data-finalizados]");
   const lista = document.querySelector("[data-finalizados-lista]");
   const nomeDaFila = new Map(filas.map((fila) => [fila.id, fila.nome]));
@@ -3788,8 +3854,28 @@ function ligarFinalizados(chamados, filas, detalhe) {
 
   // A lista e recalculada toda vez que o painel abre, para refletir quem
   // acabou de ser fechado ou reaberto pelo modal do card.
+  //
+  // Na PRIMEIRA abertura os fechados ainda nao estao em memoria (a carga da
+  // pagina traz so os abertos): mostra "Carregando" enquanto busca e desenha
+  // de novo quando chegam. Da segunda vez em diante ja estao la e a consulta
+  // nao se repete.
   document.querySelector("[data-acao-finalizados]")
-    .addEventListener("click", desenhar);
+    .addEventListener("click", async () => {
+      desenhar();
+
+      const aviso = document.createElement("p");
+      aviso.className = "finalizados__vazio";
+      aviso.textContent = "Carregando chamados finalizados…";
+
+      // Só avisa se ainda não há nada para mostrar — com a lista já
+      // preenchida, trocá-la por "Carregando" seria um passo para trás.
+      if (!chamados.some((chamado) => chamado.fechamento_em)) {
+        lista.replaceChildren(aviso);
+      }
+
+      await carregarFechados();
+      desenhar();
+    });
 
   // Tempo real: com a lista aberta, quem fecha ou reabre em outra tela
   // aparece (ou some) na hora. Fechada, ela ja se recalcula ao abrir.
@@ -4265,9 +4351,13 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados }
     clearTimeout(esperaRessincronizar);
 
     esperaRessincronizar = setTimeout(async () => {
+      // Mesma regra da carga inicial: so os abertos. Isto roda a cada volta
+      // para a aba e a cada evento de tempo real, entao e o ponto que mais
+      // pesaria na rede se baixasse a lista inteira.
       const { data, error } = await supabase
         .from("chamados")
         .select(CAMPOS_CHAMADO)
+        .is("fechamento_em", null)
         .order("abertura_em", { ascending: false });
 
       if (error) {
@@ -4277,8 +4367,13 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados }
 
       const visiveis = new Set(data.map((chamado) => chamado.id));
 
+      // "Sumiu da resposta" agora tem dois significados: o chamado foi
+      // apagado OU foi fechado. Um chamado fechado que ja esta em memoria
+      // (porque os fechados foram carregados) nao pode ser removido — ele
+      // ainda aparece na janela de finalizados. Some so do quadro, e disso
+      // cuida o filtro de cardsDaFila.
       [...chamados]
-        .filter((chamado) => !visiveis.has(chamado.id))
+        .filter((chamado) => !visiveis.has(chamado.id) && !chamado.fechamento_em)
         .forEach((chamado) => removerChamado(chamado.id));
 
       data.forEach(guardarChamado);
@@ -4377,6 +4472,53 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados }
   });
 }
 
+//CHAMADOS FECHADOS, SO QUANDO ALGUEM PRECISA DELES.
+//
+//O quadro vive so dos abertos, mas a janela de finalizados, a exportacao por
+//periodo e os contadores precisam do historico inteiro. Em vez de baixar
+//tudo sempre (o que com ~14 mil chamados seria varios MB a cada carga da
+//pagina), os fechados entram na primeira vez que um desses recursos e usado
+//e ficam no mesmo array — as chamadas seguintes nao repetem a consulta.
+//
+//A promessa e guardada, e nao so um booleano: dois recursos abertos ao mesmo
+//tempo (buscar enquanto a janela de finalizados carrega) esperam a MESMA
+//consulta em vez de dispararem duas.
+function criarCarregadorDeFechados(chamados, aoCarregar) {
+  let promessa = null;
+
+  return function carregarFechados() {
+    if (promessa) return promessa;
+
+    promessa = (async () => {
+      const { data, error } = await supabase
+        .from("chamados")
+        .select(CAMPOS_CHAMADO)
+        .not("fechamento_em", "is", null)
+        .order("fechamento_em", { ascending: false });
+
+      if (error) {
+        console.warn("Não foi possível carregar os chamados finalizados", error);
+        // Zera para uma próxima tentativa poder acontecer: uma falha de rede
+        // não pode deixar a janela de finalizados vazia para sempre.
+        promessa = null;
+        return;
+      }
+
+      // Só o que ainda não está em memória: um chamado fechado agora há
+      // pouco pode ter chegado pelo tempo real antes desta consulta.
+      const conhecidos = new Set(chamados.map((chamado) => chamado.id));
+
+      data.forEach((chamado) => {
+        if (!conhecidos.has(chamado.id)) chamados.push(chamado);
+      });
+
+      aoCarregar();
+    })();
+
+    return promessa;
+  };
+}
+
 async function montarQuadro() {
   const usuarioAtendendo = await quemEstaAtendendo();
 
@@ -4389,9 +4531,14 @@ async function montarQuadro() {
 
   const [filas, chamados, equipe, cores] = await Promise.all([
     supabase.from("filas").select("id, nome, ordem").eq("ativo", true).order("ordem"),
+    // SO OS ABERTOS: o quadro nunca mostra chamado fechado (ver o filtro em
+    // cardsDaFila), e a lista completa cresce para sempre — com os ~14 mil da
+    // migracao seriam varios MB baixados a cada carga e a cada volta para a
+    // aba. Os fechados entram sob demanda, em carregarFechados().
     supabase
       .from("chamados")
       .select(CAMPOS_CHAMADO)
+      .is("fechamento_em", null)
       .order("abertura_em", { ascending: false }),
     // Quem pode ser posto num chamado: a propria equipe de TI (mesma regra de
     // is_equipe_ti no banco). Lista explicita, e nao "todo mundo que nao e
@@ -4457,13 +4604,23 @@ async function montarQuadro() {
   const detalhe = ligarDetalhe(
     chamados.data, filas.data, equipe.data ?? [], atendente, {}, usuarioAtendendo.perfil,
   );
+  // Redesenha quem mostra chamado fechado, depois que eles chegam. A função
+  // é declarada aqui mas só roda depois do carregamento, quando `finalizados`
+  // abaixo já existe.
+  // O resumo do topo conta só chamados abertos, então não precisa ser
+  // redesenhado aqui — quem depende dos fechados é a janela de finalizados.
+  let finalizados = null;
+  const carregarFechados = criarCarregadorDeFechados(chamados.data, () => {
+    finalizados?.atualizar();
+  });
+
   // A busca abre o modal (via detalhe.abrir) quando o achado e um chamado
   // finalizado — esse nao tem card no quadro para rolar ate.
   ligarBusca(chamados.data, filas.data, detalhe);
-  const exportar = ligarExportar(chamados.data, filas.data);
+  const exportar = ligarExportar(chamados.data, filas.data, carregarFechados);
   ligarQuadroMenu(exportar);
   ligarFiltros(chamados.data, equipe.data ?? [], filas.data);
-  const finalizados = ligarFinalizados(chamados.data, filas.data, detalhe);
+  finalizados = ligarFinalizados(chamados.data, filas.data, detalhe, carregarFechados);
   ligarFundo();
   ligarListaNova(filas.data);
   ligarArrastarLista(filas.data, chamados.data);

@@ -156,6 +156,19 @@ function aplicarTopo(dados) {
       link.removeAttribute("href");
       link.setAttribute("aria-disabled", "true");
     }
+
+    // "Acessar base" num botão que não leva a lugar nenhum não explica nada.
+    // O texto passa a dizer por que ele está apagado. Só o botão da porta
+    // (que tem o rótulo dentro de [data-porta-base-texto]) muda — o "Ver
+    // tudo" mais abaixo na home usa o mesmo data-attribute e continua igual.
+    const rotulo = link.querySelector("[data-porta-base-texto]");
+
+    if (rotulo) {
+      rotulo.textContent = dados.aprovado ? "Acessar base" : "Aguardando aprovação";
+      // A seta some junto: não há para onde ir.
+      const seta = link.querySelector("[data-porta-base-seta]");
+      if (seta) seta.hidden = !dados.aprovado;
+    }
   });
 
   // Nas outras telas o item "Soluções" do menu simplesmente some — não
@@ -177,6 +190,45 @@ function aplicarTopo(dados) {
   preencher("[data-setor]", dados.setor);
   // A Base de Soluções mostra só o setor de quem está logado.
   preencher("[data-setor-marca]", dados.setor);
+  desenharIconeDoSetor(dados.setor);
+}
+
+//ICONE DO SETOR NO SELO DA BASE.
+//
+//A busca é por palavra-chave, e não pelo nome exato: "Vendas" e "Líder de
+//Vendas" são o mesmo trabalho e merecem o mesmo ícone, e um setor novo
+//cadastrado depois ("Vendas Online") já nasce com o ícone certo sem ninguém
+//mexer aqui. A ordem importa — "Líder de Logística" bate em logistica antes
+//de bater em lider, então os termos mais específicos vêm primeiro.
+const ICONES_POR_SETOR = [
+  ["financeir", '<path d="M12 4v16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M15.5 8a3.5 3.5 0 0 0-3.5-2.5h-.5a3 3 0 0 0 0 6h1a3 3 0 0 1 0 6h-.5A3.5 3.5 0 0 1 8.5 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'],
+  ["fiscal", '<path d="M6.5 3.5h11v17l-2.2-1.6-2.2 1.6-2.1-1.6-2.3 1.6-2.2-1.6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 8h5M9.5 11.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'],
+  ["logistic", '<path d="M2.5 7.5h10v9h-10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12.5 10.5h4l3 3v3h-7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="1.6" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="16.5" cy="18" r="1.6" fill="none" stroke="currentColor" stroke-width="1.8"/>'],
+  ["suprimento", '<path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 8.5 12 13l8-4.5M12 13v7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>'],
+  ["recursos humanos", '<circle cx="9" cy="8.5" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 6.2a3 3 0 0 1 0 4.6M18.5 4.5a6 6 0 0 1 0 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'],
+  ["gestor", '<path d="M4 18.5v-4M9.3 18.5V9M14.7 18.5v-6M20 18.5V5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'],
+  ["administrador", '<rect x="3" y="4.5" width="18" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 20h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'],
+  ["vendas", '<path d="M4 4.5h4l1.6 9.2a1.6 1.6 0 0 0 1.6 1.3h6.4a1.6 1.6 0 0 0 1.6-1.2L21 8H8.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11" cy="19" r="1.4" fill="currentColor"/><circle cx="17.5" cy="19" r="1.4" fill="currentColor"/>'],
+];
+
+function desenharIconeDoSetor(setor) {
+  const alvo = document.querySelector("[data-setor-icone]");
+
+  if (!alvo) return;
+
+  // Guarda o desenho original do HTML na primeira passada: sem isso, um setor
+  // sem ícone próprio ficaria com o do setor anterior (o innerHTML só é
+  // trocado quando há correspondência, nunca restaurado).
+  if (alvo.dataset.iconePadrao === undefined) {
+    alvo.dataset.iconePadrao = alvo.innerHTML;
+  }
+
+  // Sem acento: "Logística" precisa bater com o termo "logistic", e um setor
+  // digitado sem acento no cadastro tem de achar o mesmo ícone.
+  const chave = setor.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const achado = ICONES_POR_SETOR.find(([termo]) => chave.includes(termo));
+
+  alvo.innerHTML = achado ? achado[1] : alvo.dataset.iconePadrao;
 }
 
 // Link da Base desativado: sem href ele ja nao navega; o clique tambem nao

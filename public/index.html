@@ -115,14 +115,16 @@
           </p>
 
           <!--SO O SETOR DO USUARIO: VEM DO CADASTRO, PREENCHIDO PELO main.js-->
+          <!--O icone vem do setor de quem esta logado (main.js o desenha em
+              [data-setor-icone]); o monitor aqui e so o padrao de quem nao
+              tem setor cadastrado.-->
           <div class="setores">
             <span class="setor">
-              <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-setor-icone>
                 <rect x="3" y="4.5" width="18" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
                 <path d="M8 20h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
               </svg>
               <span data-setor-marca></span>
-              <b data-setor-artigos></b>
             </span>
           </div>
 
@@ -131,8 +133,8 @@
               acesso-guard.js na entrada da Base + a RLS de artigos —
               isto aqui só evita oferecer um link que sempre ia barrar.-->
           <a class="botao" href="base.html" data-porta-base-link>
-            Acessar base
-            <span aria-hidden="true">→</span>
+            <span data-porta-base-texto>Acessar base</span>
+            <span aria-hidden="true" data-porta-base-seta>→</span>
           </a>
         </article>
 
