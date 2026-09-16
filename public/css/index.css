@@ -542,7 +542,7 @@ body {
 
 .artigo {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   padding: 0.875rem 0.25rem;
@@ -568,6 +568,12 @@ body {
   min-width: 0;
   font-size: 0.9375rem;
   color: #1a1a1a;
+  /*Uma linha só, com reticências: o corte no JS (truncarTitulo) já limita
+    o texto, mas isto segura qualquer sobra e evita a linha esticar em
+    telas estreitas ou fontes maiores.*/
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /*O SETOR E O DESTAQUE DA LINHA: VEM DO PERFIL DE QUEM ESTA LOGADO*/

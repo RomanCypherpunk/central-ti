@@ -12,6 +12,21 @@ import { supabase } from "../config/supabase-config.js";
 const BUCKET = "artigos";
 const MAX_IMAGENS_POR_PASSO = 3;
 
+// O nome do arquivo (colado ou anexado) vira parte do CAMINHO no Storage, e
+// o Storage recusa alguns caracteres nele — "#" por exemplo devolve
+// InvalidKey. Sem sanitizar, um arquivo com nome comum no Windows (com "#",
+// "%", "?", etc.) derrubava o upload e, por causa do catch genérico do botão
+// Salvar, a pessoa só via "Não foi possível salvar" sem nenhuma pista de
+// qual arquivo era o culpado — mesmo problema (e mesma solução) já resolvido
+// em abrir-chamado.js.
+function nomeSeguro(nome) {
+  return nome
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^\w.-]+/g, "_")
+    .replace(/_+/g, "_");
+}
+
 // Quem pode cadastrar solução é decidido em solucao-guard.js, que roda antes
 // deste arquivo e redireciona quem não pode (contribuinte, analista e admin
 // entram — mesma lista de pode_escrever_artigo() no banco). Antes a checagem
@@ -737,10 +752,11 @@ async function coletarPassos(artigoId) {
       // O que não é File já veio do banco com url: passa direto.
       if (!(arquivo instanceof File)) return arquivo;
 
-      const nomeArquivo = `passo-${indice + 1}-${imgIndice + 1}-${Date.now()}-${arquivo.name || "colada.png"}`;
+      const nomeOriginal = arquivo.name || "colada.png";
+      const nomeArquivo = `passo-${indice + 1}-${imgIndice + 1}-${Date.now()}-${nomeSeguro(nomeOriginal)}`;
       const url = await enviarArquivo(artigoId, nomeArquivo, arquivo);
 
-      return { nome: arquivo.name || nomeArquivo, url };
+      return { nome: nomeOriginal, url };
     }));
 
     return { ordem: indice + 1, texto, imagens };
@@ -754,7 +770,7 @@ async function coletarAnexos(artigoId) {
   return Promise.all(arquivos.map(async (arquivo, indice) => {
     if (!(arquivo instanceof File)) return arquivo;
 
-    const nomeArquivo = `${Date.now()}-${indice + 1}-${arquivo.name}`;
+    const nomeArquivo = `${Date.now()}-${indice + 1}-${nomeSeguro(arquivo.name)}`;
     const url = await enviarArquivo(artigoId, nomeArquivo, arquivo);
 
     return { nome: arquivo.name, url };
@@ -836,7 +852,12 @@ salvarBtn.addEventListener("click", async () => {
     window.location.href = idEdicao ? `base.html?id=${idEdicao}` : "base.html";
   } catch (erro) {
     console.error("Erro ao salvar solução:", erro);
-    publicacaoErro.textContent = "Não foi possível salvar. Tente novamente.";
+    // "InvalidKey" é o Storage recusando um caractere no nome do arquivo —
+    // com nomeSeguro() isso não deveria mais acontecer, mas se acontecer diz
+    // qual é o problema em vez do genérico, que não dava nenhuma pista.
+    publicacaoErro.textContent = erro?.error === "InvalidKey" || erro?.statusCode === "400"
+      ? "Um dos arquivos anexados tem um nome com caractere que o sistema não aceita. Renomeie o arquivo (evite #, %, ? e barras) e tente de novo."
+      : "Não foi possível salvar. Tente novamente.";
   } finally {
     salvarBtn.disabled = false;
     salvarBtn.textContent = idEdicao ? "Confirmar edição" : "Salvar";

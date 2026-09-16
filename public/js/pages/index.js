@@ -8,24 +8,57 @@ const LIMITE = 4;
 /* ==========================================================================
    SOLUÇÕES EM DESTAQUE
    A RLS de `artigos` já filtra por setor sozinha (is_equipe_ti() OR
-   autor_id = auth.uid() OR meu_setor_id() = any(setores)) — quem não é
-   TI só recebe o que o próprio setor pode ver, sem precisar filtrar aqui.
+   autor_id = auth.uid() OR meu_setor_id() = any(setores)) — mas is_equipe_ti
+   e pode_escrever_artigo liberam GERAL para admin/analista/contribuinte, e
+   este widget é "do meu setor", não "tudo que eu tenho permissão de ver".
+   Por isso o filtro extra abaixo: só entra em ação para quem é solicitante
+   puro (a RLS já restringia); quem tem acesso amplo continua vendo geral
+   aqui, igual já via na Base inteira.
    ========================================================================== */
+
+// Título mais longo que isso quebra a linha do card — corta com reticências
+// em vez de deixar o card esticar (e "engrossar" a coluna toda).
+const LIMITE_TITULO = 48;
+
+function truncarTitulo(titulo) {
+  const texto = titulo || "Sem título";
+
+  return texto.length > LIMITE_TITULO
+    ? `${texto.slice(0, LIMITE_TITULO).trimEnd()}…`
+    : texto;
+}
 
 async function carregarSolucoes() {
   const lista = document.querySelector("[data-destaques]");
 
   if (!lista) return;
 
-  const { data: setores } = await supabase.from("setores").select("id, nome");
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const [{ data: setores }, { data: perfil }] = await Promise.all([
+    supabase.from("setores").select("id, nome"),
+    user
+      ? supabase.from("usuarios").select("perfil, setor_id").eq("id", user.id).single()
+      : Promise.resolve({ data: null }),
+  ]);
+
   const nomeDoSetor = new Map((setores ?? []).map((s) => [s.id, s.nome]));
+
+  // Só filtra quem NÃO tem acesso amplo — para os demais, a RLS já limitou
+  // ao próprio setor, então buscar mais do que LIMITE não muda o resultado.
+  const restringirAoSetor = perfil
+    && !["admin", "analista", "contribuinte"].includes(perfil.perfil)
+    && perfil.setor_id;
 
   const { data: artigos, error } = await supabase
     .from("artigos")
     .select("id, titulo, setores")
     .eq("ativo", true)
     .order("criado_em", { ascending: false })
-    .limit(LIMITE);
+    // Busca mais do que o limite quando vai filtrar depois no cliente —
+    // senão os 4 mais recentes de TODOS os setores poderiam não sobrar
+    // nenhum do setor da pessoa depois do corte.
+    .limit(restringirAoSetor ? LIMITE * 10 : LIMITE);
 
   lista.replaceChildren();
 
@@ -37,7 +70,13 @@ async function carregarSolucoes() {
     return;
   }
 
-  if (!artigos.length) {
+  const filtrados = restringirAoSetor
+    ? artigos.filter((artigo) => (artigo.setores ?? []).includes(perfil.setor_id))
+    : artigos;
+
+  const visiveis = filtrados.slice(0, LIMITE);
+
+  if (!visiveis.length) {
     const item = document.createElement("li");
     item.className = "artigos__vazio";
     item.textContent = "Nenhuma solução disponível ainda.";
@@ -45,7 +84,7 @@ async function carregarSolucoes() {
     return;
   }
 
-  artigos.forEach((artigo) => {
+  visiveis.forEach((artigo) => {
     // O setor mostrado na linha é so o primeiro marcado — a etiqueta é um
     // destaque visual, não a lista completa de quem enxerga a solução.
     const nomeSetor = nomeDoSetor.get(artigo.setores?.[0]) ?? "Geral";
@@ -57,7 +96,8 @@ async function carregarSolucoes() {
 
     const titulo = document.createElement("span");
     titulo.className = "artigo__titulo";
-    titulo.textContent = artigo.titulo || "Sem título";
+    titulo.textContent = truncarTitulo(artigo.titulo);
+    titulo.title = artigo.titulo || "Sem título";
 
     const setor = document.createElement("span");
     setor.className = "artigo__setor";

@@ -3034,6 +3034,77 @@ por artigo, zero sobras). No navegador, salvar com todas marcadas grava os
 ids em vez de `[]`, e a edição de um artigo restrito a uma unidade mostra só
 ela marcada. Zero erro de JS.
 
+### Home: "Soluções em destaque" filtra por setor e título não quebra linha (2026-09-16)
+
+O widget da home dizia no próprio comentário "do setor de quem está logado;
+TI vê de todos", mas isso nunca foi implementado — só existia a suposição
+de que a RLS de `artigos` resolvia sozinha. E resolve, só que não do jeito
+que o widget precisa: `is_equipe_ti()`/`pode_escrever_artigo()` liberam
+acesso **geral** para admin, analista e contribuinte, então qualquer um
+desses perfis via artigos de todos os setores aqui — foi o que o usuário
+flagrou, logado como admin do setor Administrador vendo Financeiro e
+Fiscal juntos.
+
+Filtro adicionado só para quem **não** tem acesso amplo (a maioria,
+perfil solicitante): busca 10x o limite normal e filtra no cliente pelo
+`setor_id` do perfil, cortando para 4 depois. Quem já tinha acesso geral
+(admin/analista/contribuinte) continua vendo os mais recentes de qualquer
+setor — decisão do usuário, para não reduzir a visão de quem já podia ver
+tudo na Base inteira.
+
+**Título "grossão"**: sem `overflow`/`text-overflow` no CSS, um título
+longo simplesmente quebrava em várias linhas, esticando o card todo. Duas
+camadas de correção: o JS corta em 48 caracteres com reticências antes de
+inserir no DOM (`truncarTitulo`, com o texto completo guardado em `title`
+para aparecer no hover), e o CSS ganhou
+`overflow:hidden; white-space:nowrap; text-overflow:ellipsis` como reforço
+para qualquer sobra em telas estreitas ou fontes maiores. `.artigo` trocou
+`align-items: flex-start` por `center`, já que o título deixou de precisar
+de várias linhas alinhadas ao topo.
+
+Testado no navegador: solicitante do setor Financeiro Corporativo vendo só
+os 3 artigos daquele setor (o de Fiscal ficou de fora), admin vendo os 4
+mais recentes de qualquer setor sem filtro, e o título longo cortado numa
+linha só com "…" em vez de quebrar. Zero erro de JS.
+
+### Correção: nome de arquivo com caractere especial travava o salvamento na Base (2026-09-16)
+
+Bug relatado pelo usuário: preencheu um procedimento inteiro (5 passos, 3
+setores, unidade Fábrica) e o "Salvar" só devolvia "Não foi possível salvar.
+Tente novamente." — sem apagar o que ele tinha digitado, mas sem dizer por
+quê.
+
+Investigação sem tocar no formulário do usuário (pedido explícito dele, para
+não perder o preenchimento): a causa não estava no schema nem na RLS — um
+insert reconstruído manualmente com os mesmos dados (título, 3 setores,
+unidade Fábrica, 5 passos com imagens) funcionou direto no banco. O problema
+estava um passo antes do insert: `enviarArquivo()` sobe cada imagem ao
+Storage usando `arquivo.name` (o nome real do arquivo do Windows, sem
+tratamento nenhum) como parte do **caminho**.
+
+Confirmado com um teste direto contra o Storage do projeto: nomes com `&`,
+espaços e parênteses passam, mas um nome com `#` devolve
+`400 InvalidKey` — exatamente o tipo de caractere comum em prints e
+relatórios exportados do ERP ("relatório#2.png", nomes com `%` ou `?`). A
+falha em qualquer uma das imagens do formulário derrubava `coletarPassos()`
+inteiro, e o `catch` genérico do botão Salvar escondia qual arquivo era o
+culpado.
+
+A correção é a mesma já usada em `abrir-chamado.js` para o mesmo problema:
+uma função `nomeSeguro()` (remove acentos, troca qualquer caractere fora de
+`\w.-` por `_`) aplicada ao nome antes de montar o caminho no Storage — só no
+caminho, o nome de exibição na UI continua o original. Também melhorada a
+mensagem de erro: se o Storage ainda assim recusar algo (`InvalidKey`), a
+tela agora diz que é um nome de arquivo problemático, em vez do genérico.
+
+Validado em duas pontas: no navegador, um formulário com três nomes de
+arquivo propositalmente problemáticos (`relatório#2.png`,
+`H & RAMUTH LTDA - F-Commerce.png`, `imagem (1)%teste?.png`) salvou sem
+erro, com os caminhos sanitizados corretamente
+(`relatorio_2.png`, `H_RAMUTH_LTDA_-_F-Commerce.png`, `imagem_1_teste_.png`);
+e diretamente contra o Storage de produção, os três nomes sanitizados
+subiram com sucesso (200), confirmando que a correção resolve o caso real.
+
 ### Próximas abas (aguardando o usuário mandar o que cada uma mostra)
 
 - O usuário vai enviar as demais abas do relatório Power BI aos poucos;
