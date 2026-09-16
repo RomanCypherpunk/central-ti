@@ -619,6 +619,97 @@ document.addEventListener("keydown", (evento) => {
   setoresBotao.focus();
 });
 
+//UNIDADES: mesmo dropdown dos setores, com uma diferença de propósito —
+//nasce com TODAS marcadas. O caso comum é a solução valer em todo lugar, e
+//no banco a lista vazia também significa "todas"; assim o que a tela mostra
+//e o que fica gravado querem dizer a mesma coisa.
+const unidadesDropdown = document.getElementById("unidades-dropdown");
+const unidadesBotao = document.getElementById("unidades-botao");
+const unidadesTexto = document.getElementById("unidades-texto");
+const unidadesPainel = document.getElementById("unidades-painel");
+const unidadesLista = document.getElementById("unidades-lista");
+const unidadesTodosBtn = document.getElementById("unidades-todos");
+
+function checkboxesDeUnidade() {
+  return Array.from(unidadesLista.querySelectorAll("input[type='checkbox']"));
+}
+
+function atualizarResumoUnidades() {
+  const checkboxes = checkboxesDeUnidade();
+  const marcados = checkboxes.filter((c) => c.checked);
+  const nomes = marcados.map((c) => c.parentElement.textContent.trim());
+
+  let resumo = "Nenhuma unidade";
+
+  if (marcados.length > 0 && marcados.length === checkboxes.length) resumo = "Todas as unidades";
+  else if (marcados.length > 2) resumo = `${marcados.length} unidades`;
+  else if (marcados.length > 0) resumo = nomes.join(", ");
+
+  unidadesTexto.textContent = resumo;
+  unidadesTexto.classList.toggle("setores-dropdown__texto--vazio", marcados.length === 0);
+  unidadesTodosBtn.textContent = marcados.length === checkboxes.length ? "Desmarcar todos" : "Marcar todos";
+}
+
+function abrirUnidades(aberto) {
+  unidadesPainel.hidden = !aberto;
+  unidadesBotao.setAttribute("aria-expanded", String(aberto));
+}
+
+async function carregarUnidades() {
+  const { data, error } = await supabase.from("unidades").select("id,nome").eq("ativo", true).order("nome");
+
+  if (error) console.error("Erro ao carregar unidades:", error);
+
+  unidadesLista.innerHTML = "";
+
+  (data || []).forEach((registro) => {
+    const opcao = document.createElement("label");
+    opcao.className = "setor-opcao";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = registro.id;
+    checkbox.checked = true; // Todas marcadas por padrão.
+    checkbox.addEventListener("change", atualizarResumoUnidades);
+
+    opcao.append(checkbox, registro.nome);
+    unidadesLista.appendChild(opcao);
+  });
+
+  atualizarResumoUnidades();
+}
+
+const unidadesProntas = carregarUnidades();
+
+unidadesBotao.addEventListener("click", () => abrirUnidades(unidadesPainel.hidden));
+
+unidadesTodosBtn.addEventListener("click", () => {
+  const checkboxes = checkboxesDeUnidade();
+  const todosMarcados = checkboxes.every((c) => c.checked);
+
+  checkboxes.forEach((c) => { c.checked = !todosMarcados; });
+  atualizarResumoUnidades();
+});
+
+document.addEventListener("click", (evento) => {
+  if (!unidadesDropdown.contains(evento.target)) abrirUnidades(false);
+});
+
+document.addEventListener("keydown", (evento) => {
+  if (evento.key !== "Escape" || unidadesPainel.hidden) return;
+
+  abrirUnidades(false);
+  unidadesBotao.focus();
+});
+
+// Grava os ids de verdade, inclusive quando todas estão marcadas: a linha no
+// banco diz exatamente quais unidades enxergam o artigo, sem convenção
+// escondida. Uma unidade criada depois entra sozinha em todos os artigos
+// (trigger unidades_incluir_nos_artigos).
+function coletarUnidades() {
+  return checkboxesDeUnidade().filter((c) => c.checked).map((c) => c.value);
+}
+
 function coletarSetores() {
   return checkboxesDeSetor().filter((c) => c.checked).map((c) => c.value);
 }
@@ -725,8 +816,10 @@ salvarBtn.addEventListener("click", async () => {
       sintomas: coletarTags("tags-campo"),
       passos,
       anexos,
-      autor: document.getElementById("autor-input").value.trim() || null,
+      // Sem `autor`: quem cadastrou já fica em autor_id (gravado no insert
+      // abaixo), e a Base mostra o nome e a foto a partir dele.
       setores,
+      unidades: coletarUnidades(),
       modulo: montarCaminho(
         document.getElementById("caminho-pagina-input")?.value.trim(),
         document.getElementById("caminho-texto-input")?.value.trim()
@@ -751,6 +844,10 @@ salvarBtn.addEventListener("click", async () => {
 });
 
 //MODO EDICAO
+// Guardado para mostrarAutor(): numa edição o autor continua sendo quem
+// cadastrou, e não quem está mexendo agora.
+let artigoEmEdicao = null;
+
 async function iniciarModoEdicao() {
   if (!idEdicao) return;
 
@@ -760,6 +857,8 @@ async function iniciarModoEdicao() {
     console.error("Não foi possível carregar a solução para edição:", error);
     return;
   }
+
+  artigoEmEdicao = data;
 
   document.title = "Editar solução — Central Única de TI";
 
@@ -784,12 +883,38 @@ async function iniciarModoEdicao() {
   document.getElementById("caminho-pagina-input").value = pagina;
   document.getElementById("caminho-texto-input").value = caminho;
 
-  document.getElementById("autor-input").value = data.autor || "";
-
-  await setoresProntos;
+  await Promise.all([setoresProntos, unidadesProntas]);
 
   checkboxesDeSetor().forEach((c) => { c.checked = (data.setores || []).includes(c.value); });
   atualizarResumoSetores();
+
+  const unidadesSalvas = data.unidades || [];
+
+  checkboxesDeUnidade().forEach((c) => { c.checked = unidadesSalvas.includes(c.value); });
+  atualizarResumoUnidades();
 }
 
-iniciarModoEdicao();
+//AUTOR NA TELA: só para a pessoa conferir com que nome a solução vai sair.
+//Quem grava é o autor_id no insert; aqui não há nada para digitar.
+async function mostrarAutor() {
+  const alvo = document.getElementById("autor-nome");
+
+  if (!alvo) return;
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  // Na edição o autor é quem CADASTROU, que pode não ser quem está editando.
+  const id = artigoEmEdicao?.autor_id ?? user.id;
+
+  const { data } = await supabase
+    .from("usuarios")
+    .select("nome, sobrenome")
+    .eq("id", id)
+    .single();
+
+  if (data) alvo.textContent = [data.nome, data.sobrenome].filter(Boolean).join(" ");
+}
+
+iniciarModoEdicao().then(mostrarAutor);

@@ -752,6 +752,15 @@ select.publicacao-select {
   transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/*AUTOR: texto, não campo — vem da conta de quem cadastra e não se digita.
+  Sem borda nem fundo, para não parecer um input desabilitado.*/
+.publicacao-autor {
+  margin: 0;
+  padding: 9px 0;
+  font-size: 14px;
+  color: #1a1a1a;
+}
+
 .publicacao-input:focus {
   border-color: #dd5b12;
   box-shadow: 0 0 0 3px rgba(221, 91, 18, 0.1);

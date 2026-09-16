@@ -2954,6 +2954,86 @@ um inventado e o caso pendente): cada setor com o ícone certo, "Setor
 Inventado" e "Administrador" caindo no monitor padrão, e o botão trocando de
 texto só no estado pendente. Zero erro de JS.
 
+### Base de Soluções: autor pela conta, foto no card e alcance por unidade (2026-09-16)
+
+Três ajustes pedidos durante a manutenção da Base.
+
+**Autor duplicado.** A tabela tinha `autor_id` (uuid, obrigatório, gravado
+sozinho no insert) **e** `autor` (texto que se redigitava a cada solução).
+A tela usava só o texto — por isso o avatar era sempre genérico: sem o id
+não havia como achar a foto, e as iniciais saíam do que fosse digitado.
+Agora vale o `autor_id`: a consulta faz junção
+(`usuarios!artigos_autor_id_fkey`) e o nome vem do perfil, acompanhando
+quem edita os próprios dados. O campo de texto saiu do formulário (virou
+leitura, só para conferir com que nome a solução vai sair) e foi zerado no
+banco — só uma pessoa havia cadastrado até aqui, e o `autor_id` dela já
+estava certo.
+
+**Foto no card**: reaproveita `pintarFoto` de `componentes/avatar.js`, o
+mesmo do Portal, que já trata o caso da foto sumida do Storage caindo para
+as iniciais. Na edição, o autor mostrado é quem **cadastrou**, não quem está
+editando.
+
+**Alcance por unidade.** Antes o acesso era só por setor
+(`meu_setor_id() = ANY(setores)`). Agora conta a unidade também, com a regra
+**E**: precisa bater nos dois. A coluna nova é `unidades` (array), e não a
+`unidade_id` (singular) que já existia sem nunca ter sido usada — um artigo
+vale para várias unidades, como já acontecia com setores.
+
+A primeira versão usava "lista vazia = todas as unidades". **Revertido no
+mesmo dia** a pedido do usuário: a convenção escondia a regra — olhando a
+linha no banco não dava para saber se o artigo valia para todo mundo ou se
+alguém esqueceu de preencher. Ver a seção seguinte.
+
+Criada `minha_unidade_id()`, espelhando a `meu_setor_id()` que a policy já
+usava.
+
+**O que o teste da policy pegou**: quem não tem unidade no cadastro produzia
+`NULL` (de `null = any(...)`), não `false`. Numa policy o efeito prático até
+seria o mesmo — NULL não libera —, mas depender disso numa regra de acesso é
+frágil demais. Envolvido em `coalesce(..., false)` para dizer "não vê" com
+todas as letras.
+
+Testado: 9 casos da expressão de alcance no banco (setor/unidade batendo ou
+não, listas vazias, pessoa sem unidade); no navegador, card com foto real
+virando `<img>` e autor sem foto caindo nas iniciais, formulário nascendo com
+"Todas as unidades", e o insert gravando `unidades: []` com todas marcadas,
+`["un2"]` com só Guarulhos, sempre com `autor_id` e sem o campo de texto.
+
+### Unidades explícitas nos artigos + unidade nova entra sozinha (2026-09-16)
+
+Correção da seção anterior, no mesmo dia. O usuário perguntou como uma
+unidade criada depois enxergaria as soluções já cadastradas e, ao ver a
+resposta, apontou que **a regra estava errada**: "quando tiver todas as
+unidades tem que estar selecionado todas as unidades, não uma regra para
+vazio = todas".
+
+Concordo com o argumento. A convenção do vazio funcionava, mas era uma
+regra invisível: a mesma linha `unidades = '{}'` podia significar "vale para
+todos" ou "ninguém preencheu", e só o código sabia a diferença.
+
+Agora a lista guarda **os ids de verdade**, inclusive quando todas estão
+marcadas. As 5 soluções existentes foram preenchidas com as 12 unidades, e a
+policy perdeu o caso especial do `cardinality = 0`.
+
+Isso reintroduzia exatamente o problema que o usuário havia levantado: uma
+unidade cadastrada depois não está em lista nenhuma e nasceria sem enxergar
+nada — e ninguém reabriria artigo por artigo para incluí-la. Resolvido com o
+trigger `unidades_incluir_nos_artigos` (AFTER INSERT em `unidades`), que
+adiciona a unidade nova a **todos** os artigos existentes, inclusive os
+restritos. Loja nova nasce enxergando o acervo inteiro; tirar de um artigo
+específico continua sendo decisão da tela de edição, que é onde a exceção
+deve ser feita.
+
+Testado: 7 casos em tabelas temporárias (artigo "para todas" e artigo
+restrito antes e depois da unidade nova, presença do id em cada um, e o
+guard contra duplicata). Depois, **em produção**: criada uma unidade de
+teste, as 5 soluções passaram de 12 para 13 unidades com a nova incluída em
+todas, e a unidade foi removida junto com as referências (12 unidades, 12
+por artigo, zero sobras). No navegador, salvar com todas marcadas grava os
+ids em vez de `[]`, e a edição de um artigo restrito a uma unidade mostra só
+ela marcada. Zero erro de JS.
+
 ### Próximas abas (aguardando o usuário mandar o que cada uma mostra)
 
 - O usuário vai enviar as demais abas do relatório Power BI aos poucos;

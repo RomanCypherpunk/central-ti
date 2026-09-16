@@ -7,6 +7,7 @@
 //   - o tipo Script/SQL não existe aqui, então código, parâmetros e risco saíram.
 
 import { supabase } from "../config/supabase-config.js";
+import { pintarFoto } from "../componentes/avatar.js";
 
 const contagemEl = document.getElementById("busca-contagem");
 const buscaInput = document.getElementById("busca-input");
@@ -65,6 +66,17 @@ function formatarData(dataIso) {
   if (!dataIso) return "";
 
   return new Date(dataIso).toLocaleDateString("pt-BR");
+}
+
+// O nome vem da conta de quem cadastrou (autor_id), não de um texto digitado:
+// acompanha quem edita o próprio nome em "Dados pessoais" e nunca fica
+// desencontrado do avatar ao lado.
+function nomeDoAutor(artigo) {
+  const pessoa = artigo.usuarios;
+
+  if (!pessoa) return "Autor não informado";
+
+  return [pessoa.nome, pessoa.sobrenome].filter(Boolean).join(" ") || "Autor não informado";
 }
 
 function iniciaisAutor(nome) {
@@ -134,11 +146,20 @@ function criarCard(artigo) {
 
     ${renderizarLinhaTags(itensNegocio, emLista ? itensNegocio.length : 2)}
     <div class="solucao-card__rodape">
-      <span class="solucao-card__avatar">${escapar(iniciaisAutor(artigo.autor))}</span>
-      <span class="solucao-card__autor">${escapar(artigo.autor || "Autor não informado")}</span>
+      <span class="solucao-card__avatar" data-avatar-autor></span>
+      <span class="solucao-card__autor">${escapar(nomeDoAutor(artigo))}</span>
       <span class="solucao-card__tempo">· Criada em ${formatarData(artigo.criado_em)}</span>
     </div>
   `;
+
+  // Depois do innerHTML: pintarFoto monta uma <img> no elemento, que só
+  // existe agora.
+  pintarFoto(
+    card.querySelector("[data-avatar-autor]"),
+    artigo.usuarios?.foto_path,
+    iniciaisAutor(nomeDoAutor(artigo)),
+    { classeFoto: "solucao-card__avatar-foto" },
+  );
 
   card.addEventListener("click", () => abrirPainel(artigo));
 
@@ -322,7 +343,7 @@ function abrirPainel(artigo) {
       </div>
       <div>
         <span class="painel__campo-label">Autor</span>
-        <p class="painel__campo-valor">${escapar(artigo.autor || "Não informado")}</p>
+        <p class="painel__campo-valor">${escapar(nomeDoAutor(artigo))}</p>
       </div>
       <div>
         <span class="painel__campo-label">Criado em</span>
@@ -515,7 +536,7 @@ async function baixarPdfSolucao(artigo) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   doc.setTextColor(...corTextoSuave);
-  doc.text(`${artigo.autor || "Autor não informado"}  ·  ${formatarData(artigo.criado_em)}`, margem, y);
+  doc.text(`${nomeDoAutor(artigo)}  ·  ${formatarData(artigo.criado_em)}`, margem, y);
   avancar(4);
 
   doc.setDrawColor(230, 230, 230);
@@ -781,7 +802,7 @@ function renderizarLista() {
   let filtradas = artigosTodos.filter((artigo) => {
     if (ativos.tipo && artigo.tipo !== ativos.tipo) return false;
     if (ativos.setor && !artigo.setoresNomes.includes(ativos.setor)) return false;
-    if (ativos.autor && artigo.autor !== ativos.autor) return false;
+    if (ativos.autor && nomeDoAutor(artigo) !== ativos.autor) return false;
 
     if (ativos.periodo) {
       const dias = (Date.now() - new Date(artigo.criado_em).getTime()) / (1000 * 60 * 60 * 24);
@@ -837,8 +858,11 @@ async function carregarArtigos() {
   // `setores` é uuid[]: não dá junção direta, então os nomes vêm à parte.
   const [{ data, error }, { data: setores }] = await Promise.all([
     supabase
+      // O autor vem por junção em autor_id, e não da coluna de texto `autor`:
+      // é o que permite mostrar a foto de quem cadastrou (a foto mora no
+      // perfil) e o nome sempre atualizado, mesmo que a pessoa se renomeie.
       .from("artigos")
-      .select("*")
+      .select("*, usuarios!artigos_autor_id_fkey(id, nome, sobrenome, foto_path)")
       .eq("ativo", true)
       .order("criado_em", { ascending: false }),
     supabase.from("setores").select("id,nome")
@@ -859,7 +883,7 @@ async function carregarArtigos() {
   }));
 
   atualizarContagem();
-  preencherSelect(filtroAutor, artigosTodos.map((a) => a.autor));
+  preencherSelect(filtroAutor, artigosTodos.map(nomeDoAutor));
   preencherSelect(filtroSetor, artigosTodos.flatMap((a) => a.setoresNomes));
   renderizarLista();
 

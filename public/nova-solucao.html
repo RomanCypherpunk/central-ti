@@ -185,8 +185,27 @@
         </div>
 
         <div class="publicacao-campo">
+          <label class="publicacao-label" id="unidades-label">Unidades</label>
+          <!--ALCANCE POR UNIDADE, ALEM DO SETOR: a pessoa precisa bater nos
+              dois para ver a solucao. Nasce com todas marcadas (o caso
+              comum e valer em todo lugar); desmarcar restringe.-->
+          <div class="setores-dropdown" id="unidades-dropdown">
+            <button class="publicacao-select setores-dropdown__botao" type="button" id="unidades-botao" aria-haspopup="true" aria-expanded="false" aria-labelledby="unidades-label unidades-botao">
+              <span class="setores-dropdown__texto" id="unidades-texto">Todas as unidades</span>
+            </button>
+            <div class="setores-dropdown__painel" id="unidades-painel" hidden>
+              <button class="setores-dropdown__todos" type="button" id="unidades-todos">Marcar todos</button>
+              <div class="setores-dropdown__lista" id="unidades-lista"></div>
+            </div>
+          </div>
+        </div>
+
+        <!--O AUTOR VEM DA CONTA DE QUEM ESTA CADASTRANDO (autor_id), nao de
+            um campo digitado: o nome e a foto saem do perfil e acompanham
+            quem edita os proprios dados.-->
+        <div class="publicacao-campo">
           <label class="publicacao-label">Autor</label>
-          <input class="publicacao-input" type="text" id="autor-input" placeholder="Nome de quem resolveu">
+          <p class="publicacao-autor" id="autor-nome">—</p>
         </div>
 
         <div class="publicacao-divisor"></div>
