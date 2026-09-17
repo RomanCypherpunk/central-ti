@@ -115,11 +115,17 @@
     <!-- ================= PASSO 1: TRES PORTAS, IGUAIS AS DA HOME ================= -->
     <section class="destaque abrir__escolha-tipo" data-passo-tipo>
 
-      <h1 class="saudacao">Olá, <span data-saudacao-nome>você</span>! Que tipo de chamado você quer abrir?</h1>
+      <h1 class="saudacao">Olá, <span data-saudacao-nome>você</span>! O que você precisa?</h1>
 
       <div class="portas portas--tres">
 
-        <article class="porta">
+        <!--SO QUEM GERENCIA GENTE (admin/RH/Lider de Logistica/Lider de
+            Vendas/Gestor da Unidade) preenche Cadastro ou Desligamento —
+            data-porta-colaborador some as duas pra quem nao e desses
+            perfis (ver abrir-chamado.js). Esconder e so conforto: a RLS
+            de chamados (pode_abrir_chamado_de_colaborador) e quem barra
+            de verdade, mesmo com a URL ou a API direto.-->
+        <article class="porta" data-porta-colaborador hidden>
           <span class="porta__icone porta__icone--laranja" data-icone-tipo="cadastro">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M19 8v6M16 11h6"/>
@@ -134,7 +140,7 @@
           </button>
         </article>
 
-        <article class="porta">
+        <article class="porta" data-porta-colaborador hidden>
           <span class="porta__icone porta__icone--laranja" data-icone-tipo="desligamento">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 11h6"/>

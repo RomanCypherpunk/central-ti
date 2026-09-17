@@ -696,6 +696,22 @@ html[data-sidebar="colapsada"] .sidebar__logo {
   cursor: pointer;
 }
 
+/*CONTRIBUINTE FORA DO PROPRIO ALCANCE: a caixa fica visivel e legivel (nao
+  soma da lista), so nao clicavel — o texto acinzentado e o cursor mudo sao
+  o que avisam que aquele setor nao esta disponivel para esta pessoa.*/
+.setor-opcao--travada {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.setor-opcao--travada:hover {
+  background-color: transparent;
+}
+
+.setor-opcao--travada input {
+  cursor: not-allowed;
+}
+
 .publicacao-campo-linha {
   display: flex;
   gap: 8px;

@@ -46,6 +46,16 @@ body {
   grid-template-columns: repeat(3, 1fr);
 }
 
+/*SO SUPORTE TI VISIVEL (as portas de colaborador somem para quem nao
+  gerencia gente — ver abrir-chamado.js): sem isto a porta unica ficaria
+  esticada no grid de 3 colunas, colada a esquerda. justify-content
+  centraliza a coluna, e a largura trava para nao esticar tanto quanto
+  as outras duas juntas.*/
+.portas--tres.portas--unica {
+  grid-template-columns: minmax(0, 24rem);
+  justify-content: center;
+}
+
 .portas--tres .porta {
   padding: 1.75rem;
 }
@@ -799,7 +809,8 @@ body {
    -------------------------------------------------------------------------- */
 
 @media (max-width: 960px) {
-  .portas--tres {
+  .portas--tres,
+  .portas--tres.portas--unica {
     grid-template-columns: 1fr;
     max-width: 34rem;
   }

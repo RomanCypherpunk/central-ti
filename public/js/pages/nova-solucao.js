@@ -613,6 +613,51 @@ async function carregarSetores() {
 
 const setoresProntos = carregarSetores();
 
+//CONTRIBUINTE SO VE O PROPRIO ALCANCE DE SETOR (ou os dois setores de
+//negocio, se for Líder de Logística/Vendas) — mesma regra de
+//setores_permitidos_para_artigo() no banco, que e quem realmente barra.
+//Sem isso o contribuinte marcaria um setor fora do alcance dele, o salvar
+//falharia com um erro generico de RLS, e ele nao ia entender por que.
+//
+//Analista/admin continuam com a lista inteira, igual hoje.
+async function restringirSetoresPorPerfil() {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("perfil, setores(nome)")
+    .eq("id", user.id)
+    .single();
+
+  if (!perfil || ["admin", "analista"].includes(perfil.perfil)) return;
+
+  await setoresProntos;
+
+  const nomeDoMeuSetor = perfil.setores?.nome;
+  const NOMES_DE_LIDER = ["Líder de Logística", "Líder de Vendas"];
+  const NOMES_PERMITIDOS = NOMES_DE_LIDER.includes(nomeDoMeuSetor)
+    ? ["Logística", "Vendas", ...NOMES_DE_LIDER]
+    : [nomeDoMeuSetor];
+
+  checkboxesDeSetor().forEach((checkbox) => {
+    const nomeDoSetor = checkbox.parentElement.textContent.trim();
+    const permitido = NOMES_PERMITIDOS.includes(nomeDoSetor);
+
+    checkbox.checked = permitido;
+    // Trava em vez de esconder: contribuinte ve exatamente em que setores
+    // a solução vai valer, sem poder trocar — a caixa continua marcada e
+    // legível, só não editável.
+    checkbox.disabled = !permitido;
+    checkbox.closest(".setor-opcao")?.classList.toggle("setor-opcao--travada", !permitido);
+  });
+
+  atualizarResumoSetores();
+}
+
+restringirSetoresPorPerfil();
+
 setoresBotao.addEventListener("click", () => abrirSetores(setoresPainel.hidden));
 
 setoresTodosBtn.addEventListener("click", () => {

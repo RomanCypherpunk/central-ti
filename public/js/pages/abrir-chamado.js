@@ -1069,6 +1069,24 @@ async function carregar() {
     && perfil.data.status_aprovacao === "aprovado"
     && Boolean(perfil.data.ativo);
 
+  //PORTAS DE CADASTRO/DESLIGAMENTO: so quem gerencia gente (mesma lista de
+  //pode_abrir_chamado_de_colaborador() no banco, que e quem realmente
+  //barra — isto aqui e so pra nao oferecer um botao que a RLS ia recusar).
+  const nomeDoSetorLogado = nomeDoSetor.get(perfil.data.setor_id) ?? "";
+  const gerenciaGente = souAdmin || [
+    "Recursos Humanos", "Líder de Logística", "Líder de Vendas", "Gestor da Unidade",
+  ].includes(nomeDoSetorLogado);
+
+  document.querySelectorAll("[data-porta-colaborador]").forEach((porta) => {
+    porta.hidden = !gerenciaGente;
+  });
+
+  // Sobrou so o Suporte TI: o grid de 3 colunas deixaria a porta unica
+  // esticada e colada a esquerda. .portas--unica centraliza e trava a
+  // largura dela — ver o CSS em abrir-chamado.css.
+  document.querySelector(".portas--tres")
+    ?.classList.toggle("portas--unica", !gerenciaGente);
+
   //QUEM ESTA ABRINDO: do cadastro, sem poder mudar.
   solicitante = {
     nome: [perfil.data.nome, perfil.data.sobrenome].filter(Boolean).join(" "),

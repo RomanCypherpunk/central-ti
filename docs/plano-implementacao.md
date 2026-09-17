@@ -3105,6 +3105,104 @@ erro, com os caminhos sanitizados corretamente
 e diretamente contra o Storage de produção, os três nomes sanitizados
 subiram com sucesso (200), confirmando que a correção resolve o caso real.
 
+### Contribuinte restrito ao próprio setor, Cadastro/Desligamento só para quem gerencia gente, contribuinte nunca exclui (2026-09-17)
+
+Quatro pedidos do usuário para o Portal e a Base; o de captcha (verificação
+humana nos formulários de abertura de chamado) ficou **de fora por
+decisão dele** — sem provedor escolhido ainda. Os outros três foram
+implementados em `20260917090000_regras_contribuinte_e_colaborador.sql`.
+
+**1) Contribuinte só marca o próprio setor num artigo.** Nova função
+`setores_permitidos_para_artigo()`: devolve `[meu_setor_id()]` para a
+maioria, mas para quem é **Líder de Logística** ou **Líder de Vendas** (que
+já existiam como setores próprios, distintos de "Logística"/"Vendas") devolve
+os 4 setores de negócio juntos — são os dois times que essas lideranças
+respondem. As policies de INSERT/UPDATE de `artigos` passaram a exigir
+`setores <@ setores_permitidos_para_artigo()` para quem não é
+`is_equipe_ti()` (analista/admin continuam sem restrição). Unidades
+continuam livres, sem mudança — só o setor é travado.
+
+Achado no teste: o operador `<@` (contido em) do Postgres trata array vazio
+como subconjunto de **qualquer** coisa — um artigo salvo com
+`setores = {}` passaria pela checagem sem marcar setor nenhum e ficaria
+invisível para todo mundo (a leitura exige
+`meu_setor_id() = any(setores)`). Adicionado `cardinality(setores) > 0`
+explícito nas duas policies.
+
+**2) Cadastro/Desligamento só para quem gerencia gente.** Nova função
+`pode_abrir_chamado_de_colaborador()`: admin, ou setor Recursos Humanos /
+Líder de Logística / Líder de Vendas / Gestor da Unidade. A policy de
+INSERT em `chamados` passou a negar a categoria Cadastro/Desligamento para
+quem não está nessa lista — escondido **e** bloqueado de verdade, como
+pedido, e não só cosmético. No front, as duas portas em
+`abrir-chamado.html` nasceram com `hidden` (evita o flash antes do JS
+decidir) e `abrir-chamado.js` as revela ou não a partir do mesmo critério,
+reaproveitando a consulta de perfil que `carregar()` já fazia.
+
+**4) Contribuinte nunca exclui, só edita o que ele mesmo criou.** Policy de
+DELETE em `artigos` virou exclusiva de `is_equipe_ti()` — nem o próprio
+autor contribuinte apaga o que criou. A de UPDATE ganhou
+`auth.uid() = autor_id` (para quem não é equipe de TI) mais a mesma
+checagem de alcance de setor do INSERT, para não dar brecha de "criar
+certo, depois editar para fora do alcance".
+
+Também ajustada a tela de Nova Solução: o dropdown de setores listava todos
+para qualquer perfil, o que deixaria um contribuinte marcar um setor fora
+do alcance e só descobrir no salvar, com um erro genérico de RLS sem
+explicação. Agora, para quem não é admin/analista, as caixas fora do
+alcance vêm desmarcadas e travadas (`disabled`, com estilo acinzentado
+`.setor-opcao--travada`) — a pessoa vê exatamente onde a solução vai valer,
+sem poder escapar do próprio setor pela interface.
+
+**Validação de ponta a ponta, não só teórica**: dois usuários de teste reais
+foram criados via Admin API (um contribuinte do Fiscal, um contribuinte
+Líder de Logística), autenticados de verdade, e os 7 cenários testados via
+REST API com a RLS real do Postgres em produção — não simulação. Achado no
+processo: ajustar `perfil`/`setor_id` de um usuário de teste via
+`service_role` **ainda passa pelos triggers de aplicação**
+(`protege_perfil_usuario`, `bloquear_autoaprovacao`), que checam
+`is_admin()`/`is_equipe_ti()` via `auth.uid()` — e isso é `NULL` numa
+chamada de service key sem sessão de usuário, então os triggers rejeitavam
+o ajuste. Resolvido rodando esse setup específico com
+`session_replication_role = replica` (suprime triggers de usuário sem
+tocar RLS). Os 7 resultados: Fiscal cria só no próprio setor (201); tenta
+marcar Vendas também (403); tenta excluir o próprio artigo (sobrevive);
+tenta abrir chamado de Cadastro (403); Líder de Logística abre chamado de
+Cadastro (201); marca Logística+Vendas juntos (201); tenta marcar Fiscal
+também (403). Limpeza confirmada: zero usuários, artigos ou chamados de
+teste remanescentes.
+
+No navegador (mock): 3 perfis testados na tela de abrir chamado (Vendas
+comum sem ver as portas de colaborador, RH e admin vendo as duas); e 3
+perfis na tela de nova solução (Fiscal só com o próprio marcado e travado,
+Líder de Logística com os 4 setores de negócio livres e o resto travado,
+admin com tudo destravado). Zero erro de JS em toda a bateria.
+
+### Porta única centralizada em "Abrir chamado" (2026-09-17)
+
+Consequência visual da regra de acesso do dia anterior: quem não gerencia
+gente (a maioria) já não via as portas de Cadastro/Desligamento, mas a
+porta de Suporte TI sozinha ficava esticada na primeira das 3 colunas do
+grid — larga e colada à esquerda, em vez de centralizada.
+
+`abrir-chamado.js` agora alterna uma classe `.portas--unica` no container
+sempre que a checagem `gerenciaGente` esconde as duas portas de
+colaborador (mesmo ponto de código que já fazia esse cálculo). O CSS
+correspondente troca `grid-template-columns: repeat(3, 1fr)` por uma única
+coluna de largura contida (`minmax(0, 24rem)`) com `justify-content:
+center` — a porta não estica para o tamanho das três juntas, e fica no
+meio da faixa em vez de à esquerda.
+
+No breakpoint mobile (`max-width: 960px`), que já forçava 1 coluna,
+adicionado `.portas--tres.portas--unica` na mesma regra: a versão anterior
+dependia da ordem de declaração no arquivo (a media query vinha depois e
+ganhava por empate de especificidade) para dar certo por acidente — agora
+está explícito.
+
+Testado no navegador: solicitante comum (só Suporte TI, centralizado,
+largura contida), admin (3 colunas normais, sem mudança), e mobile 390px
+(1 coluna cheia nos dois casos). Zero erro de JS.
+
 ### Próximas abas (aguardando o usuário mandar o que cada uma mostra)
 
 - O usuário vai enviar as demais abas do relatório Power BI aos poucos;
