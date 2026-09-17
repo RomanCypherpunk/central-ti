@@ -20,6 +20,41 @@ const quadro = document.querySelector("[data-quadro]");
 const resumo = document.querySelector("[data-resumo]");
 const erro = document.querySelector("[data-erro]");
 
+//ICONE DE PREDIO: usado em todo lugar que mostra um TERCEIRO (fornecedor
+//sem conta) em vez de uma pessoa — chip do card, chip do detalhe, opcao no
+//painel de escolha. Um so lugar pra editar o desenho.
+const ICONE_TERCEIRO_SVG = `<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none"
+    stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="4" y="9.5" width="7" height="10"/><rect x="13" y="4.5" width="7" height="15"/>
+  <path d="M6.5 12.5h2M6.5 15.5h2M15.5 8h2M15.5 11h2M15.5 14h2"/>
+</svg>`;
+
+//AVATAR DO TERCEIRO: com foto, mostra a foto (bucket proprio "terceiros",
+//diferente do "avatares" de pessoa — por isso nao reaproveita pintarFoto de
+//avatar.js, que ja vem fixo no bucket de pessoa); sem foto, o icone de
+//predio — nunca iniciais, porque o terceirizado nao e uma pessoa com nome
+//e sobrenome.
+function montarAvatarTerceiro(fornecedor, classe) {
+  const elemento = document.createElement("span");
+  elemento.className = classe;
+
+  if (fornecedor.foto_path) {
+    const { data } = supabase.storage.from("terceiros").getPublicUrl(fornecedor.foto_path);
+    const img = document.createElement("img");
+    img.src = data.publicUrl;
+    img.alt = "";
+    img.decoding = "async";
+    // Foto removida do Storage depois de carregada na tela: volta pro icone
+    // padrao em vez de mostrar imagem quebrada — mesmo cuidado de pintarFoto.
+    img.addEventListener("error", () => { elemento.innerHTML = ICONE_TERCEIRO_SVG; }, { once: true });
+    elemento.replaceChildren(img);
+  } else {
+    elemento.innerHTML = ICONE_TERCEIRO_SVG;
+  }
+
+  return elemento;
+}
+
 //TEMA: SO DESTA TELA, POR ISSO MORA AQUI E NAO NO main.js COMPARTILHADO.
 //A chave tambem e propria ("tema-portal") para nao ligar o escuro nas
 //outras paginas, que continuam so no claro.
@@ -243,7 +278,7 @@ async function quemEstaAtendendo() {
 //RODAPE DO CARD: QUEM ESTA ATENDENDO. Foto maior e o primeiro nome ao lado,
 //para dar para saber de quem e o ticket sem abrir. Usado ao montar o card e
 //ao atualiza-lo depois de uma edicao no detalhe, para os dois sairem iguais.
-function desenharMembrosDoCard(container, chamadoMembros) {
+function desenharMembrosDoCard(container, chamadoMembros, chamadoTerceiros = []) {
   container.replaceChildren();
 
   chamadoMembros.forEach((membro) => {
@@ -263,6 +298,27 @@ function desenharMembrosDoCard(container, chamadoMembros) {
     nome.textContent = primeiroNome(pessoa);
 
     chip.append(avatar, nome);
+    container.appendChild(chip);
+  });
+
+  // Mesmo chip do detalhe: icone de empresa em vez de foto, pra dar pra ver
+  // de relance no card do quadro que um fornecedor esta acionado, sem abrir
+  // o chamado.
+  chamadoTerceiros.forEach((vinculo) => {
+    const fornecedor = vinculo.terceiros;
+
+    if (!fornecedor?.nome) return;
+
+    const chip = document.createElement("span");
+    chip.className = "card__membro-chip card__membro-chip--terceiro";
+
+    const icone = montarAvatarTerceiro(fornecedor, "card__membro card__membro--terceiro");
+
+    const nome = document.createElement("span");
+    nome.className = "card__membro-nome";
+    nome.textContent = fornecedor.nome;
+
+    chip.append(icone, nome);
     container.appendChild(chip);
   });
 }
@@ -393,7 +449,7 @@ function montarCard(chamado) {
   //MEMBROS
   const membros = document.createElement("div");
   membros.className = "card__membros";
-  desenharMembrosDoCard(membros, chamado.chamado_membros);
+  desenharMembrosDoCard(membros, chamado.chamado_membros, chamado.chamado_terceiros);
   card.appendChild(membros);
 
   // Ja nasce escondido se nao passa no filtro: vale para a carga, para o
@@ -1419,7 +1475,7 @@ function ligarBusca(chamados, filas, detalhe) {
 //as funcoes do quadro; o Painel (que nao tem quadro) passa um redesenho da
 //tabela dele. Assim o mesmo modal serve as duas telas sem duplicar as ~950
 //linhas de conversa, anexos, membros e aprovacao.
-function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfilAtendente = null) {
+function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfilAtendente = null, terceiros = []) {
   const {
     // Sem quadro, procurar card sempre devolve nada: cada uso ja trata isso.
     acharCard = (id) => quadro?.querySelector(`[data-chamado="${id}"]`) ?? null,
@@ -1633,7 +1689,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     // Ja trocou de ticket: atualiza so o rodape do card deste.
     const card = acharCard(chamado.id);
 
-    if (card) desenharMembrosDoCard(card.querySelector(".card__membros"), chamado.chamado_membros);
+    if (card) desenharMembrosDoCard(card.querySelector(".card__membros"), chamado.chamado_membros, chamado.chamado_terceiros);
     aoMudarCard(chamado);
   }
 
@@ -1653,6 +1709,46 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
         id: pessoa.id, nome: pessoa.nome, sobrenome: pessoa.sobrenome,
         foto_path: pessoa.foto_path, cor_destaque: pessoa.cor_destaque,
       },
+    });
+    avisar("Salvo");
+    desenharMembros();
+    atualizarCard();
+  }
+
+  //TERCEIRO ACIONADO: mesma mecanica do membro humano, so que grava em
+  //chamado_terceiros (o fornecedor nunca tem conta no sistema).
+  async function removerTerceiro(terceiroId) {
+    const { error } = await supabase
+      .from("chamado_terceiros")
+      .delete()
+      .eq("chamado_id", aberto.id)
+      .eq("terceiro_id", terceiroId);
+
+    if (error) {
+      avisar("Não foi possível remover o terceiro.", true);
+      return;
+    }
+
+    aberto.chamado_terceiros = aberto.chamado_terceiros
+      .filter((outro) => outro.terceiro_id !== terceiroId);
+    avisar("Salvo");
+    desenharMembros();
+    atualizarCard();
+  }
+
+  async function adicionarTerceiro(fornecedor) {
+    const { error } = await supabase
+      .from("chamado_terceiros")
+      .insert({ chamado_id: aberto.id, terceiro_id: fornecedor.id });
+
+    if (error) {
+      avisar("Não foi possível acionar o terceiro.", true);
+      return;
+    }
+
+    aberto.chamado_terceiros.push({
+      terceiro_id: fornecedor.id,
+      terceiros: { id: fornecedor.id, nome: fornecedor.nome },
     });
     avisar("Salvo");
     desenharMembros();
@@ -1772,6 +1868,40 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     return painel;
   }
 
+  //PAINEL DO TERCEIRO: mesma estrutura do painel de adicionar membro, so
+  //que lista fornecedores (sem foto — usa o mesmo icone de empresa do chip).
+  function montarPainelTerceiro(disponiveis) {
+    const painel = document.createElement("div");
+    painel.className = "detalhe__escolher";
+
+    const titulo = document.createElement("p");
+    titulo.className = "detalhe__escolher-titulo";
+    titulo.textContent = "Terceiro atendendo";
+
+    const opcoes = document.createElement("div");
+    opcoes.className = "detalhe__escolher-opcoes";
+
+    disponiveis.forEach((fornecedor) => {
+      const opcao = document.createElement("button");
+      opcao.type = "button";
+      opcao.className = "detalhe__membro";
+
+      const icone = montarAvatarTerceiro(fornecedor, "detalhe__membro-avatar detalhe__membro-avatar--terceiro");
+
+      opcao.append(icone, document.createTextNode(fornecedor.nome));
+      opcao.addEventListener("click", () => {
+        painelMembros = null;
+        adicionarTerceiro(fornecedor);
+      });
+
+      opcoes.appendChild(opcao);
+    });
+
+    painel.append(titulo, opcoes);
+
+    return painel;
+  }
+
   function montarBotaoMembros({ tipo, rotulo, icone, desativado = false }) {
     const ativo = painelAberto(tipo);
     const botao = document.createElement("button");
@@ -1817,6 +1947,32 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
       campoMembros.appendChild(chip);
     });
 
+    // Chip do terceiro: mesmo desenho do membro humano (nome + x), so que
+    // com um icone generico de empresa no lugar da foto — nao tem foto
+    // porque nao e uma pessoa com conta.
+    aberto.chamado_terceiros.forEach((vinculo) => {
+      const fornecedor = vinculo.terceiros;
+
+      if (!fornecedor?.nome) return;
+
+      const chip = document.createElement("span");
+      chip.className = "detalhe__membro detalhe__membro--fixo detalhe__membro--terceiro";
+      chip.title = fornecedor.nome;
+
+      const icone = montarAvatarTerceiro(fornecedor, "detalhe__membro-avatar detalhe__membro-avatar--terceiro");
+
+      const remover = document.createElement("button");
+      remover.type = "button";
+      remover.className = "detalhe__membro-remover";
+      remover.textContent = "×";
+      remover.title = `Remover ${fornecedor.nome} do chamado`;
+      remover.setAttribute("aria-label", remover.title);
+      remover.addEventListener("click", () => removerTerceiro(fornecedor.id));
+
+      chip.append(icone, document.createTextNode(fornecedor.nome), remover);
+      campoMembros.appendChild(chip);
+    });
+
     const disponiveis = equipe.filter((pessoa) =>
       !aberto.chamado_membros.some((membro) => membro.usuario_id === pessoa.id));
 
@@ -1833,6 +1989,18 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
         </svg>`,
     }));
 
+    const terceirosDisponiveis = terceiros.filter((fornecedor) =>
+      !aberto.chamado_terceiros.some((vinculo) => vinculo.terceiro_id === fornecedor.id));
+
+    if (painelAberto("terceiro") && !terceirosDisponiveis.length) painelMembros = null;
+
+    campoMembros.appendChild(montarBotaoMembros({
+      tipo: "terceiro",
+      rotulo: terceirosDisponiveis.length ? "Acionar terceiro" : "Todos os terceiros já estão no chamado",
+      desativado: !terceirosDisponiveis.length,
+      icone: ICONE_TERCEIRO_SVG,
+    }));
+
     const configurar = montarBotaoMembros({
       tipo: "cor",
       rotulo: "Cor dos membros",
@@ -1847,6 +2015,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     campoMembros.appendChild(configurar);
 
     if (painelAberto("adicionar")) campoMembros.appendChild(montarPainelAdicionar(disponiveis));
+    if (painelAberto("terceiro")) campoMembros.appendChild(montarPainelTerceiro(terceirosDisponiveis));
     if (painelAberto("cor")) campoMembros.appendChild(montarPainelCores());
   }
 
@@ -2663,7 +2832,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
         etiquetas.appendChild(etiqueta);
       });
 
-    desenharMembrosDoCard(card.querySelector(".card__membros"), aberto.chamado_membros);
+    desenharMembrosDoCard(card.querySelector(".card__membros"), aberto.chamado_membros, aberto.chamado_terceiros);
 
     // Mudou etiqueta ou membro: o card pode ter entrado ou saido do filtro.
     card.classList.toggle("card--filtrado", !chamadoPassaNosFiltros(aberto));
@@ -4218,7 +4387,7 @@ function atualizarResumo(chamados, totalFilas) {
 //caminho so para desenhar, e o RLS continua decidindo o que cada um ve.
 //Mudanca em usuarios (cor, foto, nome) atualiza a pessoa onde ela aparece.
 //Precisa da migration 20260914160000_realtime_portal.sql aplicada.
-function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados }) {
+function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, terceiros }) {
   const pendentes = new Map(); // chamado_id -> timeout da busca agendada
   let esperaRessincronizar = null;
   let jaConectou = false;
@@ -4437,14 +4606,53 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados }
     });
   }
 
+  //TERCEIRO MUDOU (nome, foto): mesma ideia de atualizarPessoa, mas so os
+  //dois campos que o terceiro tem. Sem isto, trocar a foto de um fornecedor
+  //no Painel > Terceirizados nao aparecia em nenhum chamado ja carregado —
+  //so depois de recarregar a página, porque o objeto `terceiros` dentro de
+  //chamado_terceiros já tinha sido copiado pra memória antes da troca.
+  function atualizarTerceiro(fornecedor) {
+    if (!fornecedor?.id) return;
+
+    const campos = Object.fromEntries(
+      ["nome", "foto_path"]
+        .filter((campo) => campo in fornecedor)
+        .map((campo) => [campo, fornecedor[campo]]),
+    );
+
+    terceiros.forEach((item) => {
+      if (item.id === fornecedor.id) Object.assign(item, campos);
+    });
+
+    chamados.forEach((chamado) => {
+      let aparece = false;
+
+      (chamado.chamado_terceiros ?? []).forEach((vinculo) => {
+        if (vinculo.terceiro_id !== fornecedor.id || !vinculo.terceiros) return;
+
+        Object.assign(vinculo.terceiros, campos);
+        aparece = true;
+      });
+
+      if (!aparece) return;
+
+      reconciliarCard(chamado);
+      detalhe.atualizarSeAberto(chamado);
+    });
+  }
+
   const canal = supabase.channel("portal-chamados");
 
-  ["chamados", "comentarios", "chamado_membros", "anexos"].forEach((tabela) => {
+  ["chamados", "comentarios", "chamado_membros", "chamado_terceiros", "anexos"].forEach((tabela) => {
     canal.on("postgres_changes", { event: "*", schema: "public", table: tabela }, (payload) => {
       const id = chamadoDoEvento(tabela, payload);
 
       if (id) agendar(id); else ressincronizar();
     });
+  });
+
+  canal.on("postgres_changes", { event: "UPDATE", schema: "public", table: "terceiros" }, (payload) => {
+    atualizarTerceiro(payload.new);
   });
 
   canal.on("postgres_changes", { event: "UPDATE", schema: "public", table: "usuarios" }, (payload) => {
@@ -4529,7 +4737,7 @@ async function montarQuadro() {
 
   const atendente = usuarioAtendendo.id;
 
-  const [filas, chamados, equipe, cores] = await Promise.all([
+  const [filas, chamados, equipe, cores, terceiros] = await Promise.all([
     supabase.from("filas").select("id, nome, ordem").eq("ativo", true).order("ordem"),
     // SO OS ABERTOS: o quadro nunca mostra chamado fechado (ver o filtro em
     // cardsDaFila), e a lista completa cresce para sempre — com os ~14 mil da
@@ -4553,6 +4761,10 @@ async function montarQuadro() {
     // nao existir no banco (migration nao aplicada), so esta falha — dentro
     // da consulta dos chamados, derrubaria o quadro inteiro.
     supabase.from("usuarios").select("id, cor_destaque"),
+    // FORNECEDORES EXTERNOS (Vivo, Sematec...) que podem ser marcados como
+    // "atendendo" um chamado, sem ter conta no sistema — ver Membros >
+    // Terceiro no detalhe.
+    supabase.from("terceiros").select("id, nome, foto_path").eq("ativo", true).order("nome"),
   ]);
 
   if (filas.error || chamados.error) {
@@ -4603,6 +4815,7 @@ async function montarQuadro() {
   ligarBarra();
   const detalhe = ligarDetalhe(
     chamados.data, filas.data, equipe.data ?? [], atendente, {}, usuarioAtendendo.perfil,
+    terceiros.data ?? [],
   );
   // Redesenha quem mostra chamado fechado, depois que eles chegam. A função
   // é declarada aqui mas só roda depois do carregamento, quando `finalizados`
@@ -4633,6 +4846,7 @@ async function montarQuadro() {
     corDe,
     detalhe,
     finalizados,
+    terceiros: terceiros.data ?? [],
   });
 }
 

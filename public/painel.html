@@ -166,6 +166,14 @@
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
             <span>Categorias</span>
           </button>
+          <!--FORNECEDORES EXTERNOS (Vivo, Sematec...) QUE ATENDEM JUNTO COM
+              A EQUIPE: nao logam no sistema, so entram como marcacao no
+              chamado (ver Membros > Terceiro no Portal) pra medir SLA por
+              fornecedor.-->
+          <button class="painel-nav__item" type="button" data-aba="terceiros">
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="4" y="9.5" width="7" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13" y="4.5" width="7" height="15" rx="1" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M6.5 12.5h2M6.5 15.5h2M15.5 8h2M15.5 11h2M15.5 14h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>Terceirizados</span>
+          </button>
           <button class="painel-nav__item" type="button" data-aba="textos">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M5 19.5V6.2A1.7 1.7 0 0 1 6.7 4.5h10.6A1.7 1.7 0 0 1 19 6.2v9.6a1.7 1.7 0 0 1-1.7 1.7H8.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.5 8.5h7M8.5 12h4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
             <span>Textos rápidos</span>
@@ -674,6 +682,50 @@
           </div>
         </div>
 
+        <!--TERCEIROS: MESMA ESTRUTURA DE ATENDENTES, so que agrupando por
+            fornecedor (chamado_terceiros) em vez de por pessoa da equipe.
+            Regra importante, decidida com o usuario: um chamado que tem
+            QUALQUER terceiro vinculado sai do SLA dos atendentes internos
+            (ver agruparPorAtendente em painel.js) — o chamado passa a
+            contar so pro(s) terceiro(s), nao pra quem da equipe tambem
+            esta nele. Por isso esta sub-aba e o unico lugar que ainda
+            "enxerga" o SLA desses chamados.-->
+        <div class="analise-sub" data-analise-sub="terceiros" hidden>
+          <div class="analise-cards analise-cards--4" data-analise-terceiros-cards>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Terceiro com mais chamados</span>
+              <span class="analise-card__valor" data-analise-terceiro-mais-chamados>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Terceiro com mais urgência</span>
+              <span class="analise-card__valor" data-analise-terceiro-mais-urgente>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Terceiro com maior tempo de solução</span>
+              <span class="analise-card__valor" data-analise-terceiro-maior-sla>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Terceiro com melhor primeira resposta</span>
+              <span class="analise-card__valor" data-analise-terceiro-melhor-resposta>—</span>
+            </div>
+          </div>
+
+          <div class="analise-graficos">
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Total de tickets por terceiro</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--coluna">
+                <canvas data-analise-grafico-terceiros-total></canvas>
+              </div>
+            </div>
+            <div class="analise-grafico">
+              <h2 class="analise-grafico__titulo">Média de solução por terceiro (h)</h2>
+              <div class="analise-grafico__caixa analise-grafico__caixa--coluna">
+                <canvas data-analise-grafico-terceiros-sla></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!--ACOMPANHAMENTO: DIFERENTE das outras sub-abas — agrupa por MES,
             nao por dimensao (unidade/categoria/etc), e sempre olha os
             ULTIMOS 12 MESES fixos, independente do filtro de periodo no
@@ -728,6 +780,7 @@
           <button class="analise-subaba" type="button" data-analise-subaba="setores">Setores</button>
           <button class="analise-subaba" type="button" data-analise-subaba="solicitantes">Solicitantes</button>
           <button class="analise-subaba" type="button" data-analise-subaba="atendentes">Atendentes</button>
+          <button class="analise-subaba" type="button" data-analise-subaba="terceiros">Terceiros</button>
           <button class="analise-subaba" type="button" data-analise-subaba="acompanhamento">Acompanhamento</button>
         </nav>
       </section>
@@ -1100,6 +1153,45 @@
         <p class="painel-vazio" data-categorias-vazio hidden>Nenhuma categoria encontrada.</p>
       </section>
 
+      <section class="painel-aba" data-painel-aba="terceiros" hidden>
+        <header class="painel-aba__topo">
+          <div>
+            <h1 class="painel-aba__titulo">Terceirizados</h1>
+            <p class="painel-aba__resumo" data-terceiros-resumo></p>
+          </div>
+
+          <button class="painel-botao-novo" type="button" data-terceiros-novo>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M12 5.5v13M5.5 12h13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Novo
+          </button>
+        </header>
+
+        <div class="painel-busca">
+          <svg class="painel-busca__lupa" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+            <circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="m15.5 15.5 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <input class="painel-busca__campo" type="search" data-terceiros-busca
+                 placeholder="Buscar terceirizado" aria-label="Buscar terceirizados">
+        </div>
+
+        <div class="painel-tabela__caixa">
+          <table class="painel-tabela">
+            <thead>
+              <tr>
+                <th scope="col">Nome</th>
+                <th scope="col" class="painel-tabela__coluna-acao"></th>
+              </tr>
+            </thead>
+            <tbody data-terceiros-corpo></tbody>
+          </table>
+        </div>
+
+        <p class="painel-vazio" data-terceiros-vazio hidden>Nenhum terceirizado encontrado.</p>
+      </section>
+
       <section class="painel-aba" data-painel-aba="textos" hidden>
         <header class="painel-aba__topo">
           <div>
@@ -1154,6 +1246,28 @@
           </header>
 
           <div class="item-simples__campos">
+            <!--FOTO: SO PARA QUEM PEDE (hoje so Terceirizados — ctx.comFoto
+                em ligarListaSimples). Unidades/Setores/Categorias nao tem
+                foto, entao o bloco fica hidden pra elas. Mesmas classes do
+                bloco de foto de pessoa — so o icone padrao muda (predio em
+                vez de iniciais), porque o terceirizado nunca tem conta pra
+                mostrar iniciais de nome de usuario.-->
+            <div class="pessoa__foto" data-item-simples-foto-bloco hidden>
+              <span class="pessoa__avatar" data-item-simples-foto-avatar>
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="4" y="9.5" width="7" height="10"/><rect x="13" y="4.5" width="7" height="15"/>
+                  <path d="M6.5 12.5h2M6.5 15.5h2M15.5 8h2M15.5 11h2M15.5 14h2"/>
+                </svg>
+              </span>
+              <div class="pessoa__foto-acoes">
+                <button class="pessoa__foto-botao" type="button" data-item-simples-foto-trocar>Trocar foto</button>
+                <button class="pessoa__foto-botao pessoa__foto-botao--remover" type="button"
+                        data-item-simples-foto-remover hidden>Remover</button>
+                <input class="pessoa__foto-input" type="file" accept="image/*" hidden data-item-simples-foto-arquivo>
+              </div>
+            </div>
+
             <label class="pessoa__campo">
               <span class="pessoa__rotulo" data-item-simples-rotulo>Nome</span>
               <input class="pessoa__entrada" type="text" data-item-simples-campo="nome" required autofocus>

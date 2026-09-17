@@ -3203,11 +3203,119 @@ Testado no navegador: solicitante comum (só Suporte TI, centralizado,
 largura contida), admin (3 colunas normais, sem mudança), e mobile 390px
 (1 coluna cheia nos dois casos). Zero erro de JS.
 
+### Terceiros: fornecedores acionados no chamado, sem conta no sistema (2026-09-17)
+
+Pedido do usuário: quando o time aciona um fornecedor externo (Vivo,
+Sematec, RealConnect, LocaWeb, DBCore — ex.: a internet caiu no meio de um
+chamado de rede), o sistema precisa registrar quem estava atendendo, para
+medir SLA por fornecedor — sem criar conta de login pra cada um, já que
+eles nunca acessam o Portal.
+
+**Duas tabelas novas**, e não reaproveitar `chamado_membros`: `terceiros`
+(mesmo desenho de `unidades`/`setores`: id, nome, ativo) e
+`chamado_terceiros` (mesmo desenho de `chamado_membros`, apontando pra
+`terceiros` em vez de `usuarios`). A alternativa óbvia — usar
+`chamado_membros.usuario_id` apontando pra uma linha fake em `usuarios` —
+teria efeito colateral em tudo que confia que "membro = pessoa com login":
+SLA de atendente, RLS, o "quem responde vira membro" do chat. Duas tabelas
+separadas isolam o conceito novo sem arriscar o que já funciona.
+
+**Painel**: nova aba "Terceirizados" em Configurações, montada quase
+inteira reaproveitando `ligarListaSimples` + `ligarItemSimplesDialog` — os
+mesmos que já montam Unidades/Setores/Categorias. Mudança mínima de código
+para um CRUD completo (buscar, criar, editar, arquivar).
+
+**Portal**: no detalhe do chamado, um terceiro botão junto do "+" (membro)
+e da engrenagem (cor) — "Terceiro" abre um painel igual ao de adicionar
+membro, listando os fornecedores ativos. Aparecem como chips ao lado dos
+membros humanos, com um ícone de prédio no lugar da foto (nunca iniciais —
+terceirizado não é pessoa com nome/sobrenome). Um chamado pode ter vários
+terceiros ao mesmo tempo (Vivo + Sematec juntos), mesma lógica N:N dos
+membros humanos. O card do quadro também passou a mostrar os chips de
+terceiro, não só o detalhe — pedido à parte do usuário, pra dar pra ver de
+relance sem abrir o chamado.
+
+**Regra de SLA** (a parte que fecha o pedido original — "controlar o SLA de
+cada um"): nova sub-aba "Terceiros" na Análise, espelhando Atendentes
+ponta a ponta (mesmos 4 cards, mesmos 2 gráficos de coluna). A regra
+combinada com o usuário: um chamado com **qualquer** terceiro vinculado sai
+do SLA de **todos** os atendentes internos nele — o chamado passa a contar
+só para o(s) terceiro(s). Ex.: Enzo + Vivo no mesmo chamado não entra no
+grupo do Enzo, só no da Vivo; 2 internos + 1 terceiro tira os dois
+internos, não só um. Isso é só um filtro a mais em
+`agruparPorAtendente()` (`chamados.filter((c) => !c.chamado_terceiros?.length)`)
+e a regra inversa em `agruparPorTerceiro()` — nada gravado no banco, então
+aplicar retroativamente a chamados já fechados é automático (é só cálculo
+no navegador). O botão "Exportar tudo" em PDF já cobre a sub-aba nova sem
+nenhuma mudança: o loop já era genérico sobre os botões de sub-aba.
+
+**Foto no terceirizado**: bucket próprio `terceiros` no Storage (separado
+de `avatares`, que é de pessoa), com policies restritas a `is_equipe_ti()`
+— o terceirizado nunca gerencia a própria foto. O dialog genérico de
+"item simples" ganhou um bloco de foto **opcional**, condicionado a
+`ctx.comFoto` (só Terceirizados liga essa flag hoje); Unidades/Setores/
+Categorias continuam sem o bloco, confirmado em teste. Sem foto, o avatar
+mostra sempre o ícone de prédio — nunca iniciais, diferente do padrão de
+pessoa.
+
+Um SVG de prédio estava sendo duplicado 4 vezes no meio da implementação;
+centralizado numa constante (`ICONE_TERCEIRO_SVG`) e numa função
+(`montarAvatarTerceiro`) únicas em `portal.js`.
+
+Testado: 8 cenários no navegador (adicionar/remover terceiro no detalhe,
+multi-terceiro no mesmo chamado, chip no card do quadro, tema escuro, CRUD
+completo em Terceirizados incluindo criar "Claro", upload de foto com
+preview e botão de remover revelado, e confirmação de que Unidades não
+ganhou o bloco de foto por engano) e o cenário de SLA com 3 chamados
+fechados (só interno, interno+terceiro, só terceiro) confirmando que
+Atendentes mostra 1 chamado pro Enzo e Terceiros mostra Vivo e Sematec
+corretamente, com o chamado misto saindo do SLA do Enzo. Zero erro de JS
+em toda a bateria.
+
 ### Próximas abas (aguardando o usuário mandar o que cada uma mostra)
 
 - O usuário vai enviar as demais abas do relatório Power BI aos poucos;
   cada uma vira uma seção nova dentro da mesma aba "Análise" ou uma aba
   própria, a definir conforme o conteúdo.
+
+### 2026-09-17 — Correção: foto de terceirizado não aparecia em chamado já carregado
+
+Usuário trocou a foto de "NL Sistemas" em Painel > Terceirizados; o card do
+chamado no Portal, já aberto em outra aba/sessão, continuou mostrando o
+ícone padrão de prédio em vez da foto nova.
+
+Investigado sem mexer na tela do usuário: `foto_path` estava salvo
+corretamente na tabela `terceiros`, o arquivo existia no bucket `terceiros`
+do Storage, e as queries (`CAMPOS_CHAMADO`, e as buscas diretas em
+`portal.js`/`painel.js`) já pediam `foto_path`. Causa real: estado em
+memória desatualizado — o objeto `terceiros` dentro de
+`chamado_terceiros` de cada chamado é copiado para a memória do navegador
+na carga inicial, e nada propagava uma mudança na tabela `terceiros` para
+essa cópia depois — diferente do que já existe para pessoa
+(`atualizarPessoa`, ligado a um `UPDATE` em tempo real na tabela
+`usuarios`).
+
+Corrigido em `portal.js`: nova função `atualizarTerceiro()` (mesmo padrão
+de `atualizarPessoa()`, só com os campos `nome`/`foto_path`) e uma nova
+assinatura em tempo real (`UPDATE` na tabela `terceiros`) que a aciona.
+Ela atualiza o array `terceiros` em memória e o objeto `terceiros` dentro
+de `chamado_terceiros` de cada chamado afetado, e manda redesenhar
+(`reconciliarCard` + `detalhe.atualizarSeAberto`) só os chamados que
+realmente têm aquele terceiro.
+
+No caminho, apareceu um bug de escopo introduzido pela própria correção: a
+função foi escrita dentro de `ligarTempoReal(...)`, mas o array
+`terceiros` só existia como parâmetro de `ligarDetalhe(...)` — uma função
+irmã, não um closure compartilhado. Corrigido adicionando `terceiros` aos
+parâmetros de `ligarTempoReal` e passando `terceiros.data ?? []` na
+chamada, do mesmo jeito que já era feito para `ligarDetalhe`. Testado com
+um teste de lógica isolado (Node, reproduzindo o corpo exato da função
+contra as formas de dado reais de `chamado_terceiros`) confirmando que só
+os chamados com aquele terceiro são re-renderizados e que o array
+`terceiros` global também é atualizado; conferida também a cadeia de
+escopo inteira no arquivo (todo uso de `terceiros` do carregamento até o
+uso dentro do closure) para garantir que não sobrou nenhuma referência
+solta.
 
 ## Fase 6 — Automação e integrações
 

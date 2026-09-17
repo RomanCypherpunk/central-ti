@@ -1007,6 +1007,13 @@ body.portal-pagina {
   text-overflow: ellipsis;
 }
 
+/*TERCEIRO NO CARD: mesmo circulo do avatar, icone de empresa em vez de
+  foto — igual ao chip do detalhe, so no tamanho do card.*/
+.card__membro--terceiro {
+  background-color: var(--superficie-2);
+  color: var(--texto-3);
+}
+
 /*A FOTO E A MESMA DE "Dados pessoais", SEJA NO CARD, NO CHIP DE MEMBRO
   OU NO BALAO DO CHAT — SO O TAMANHO MUDA POR CONTEXTO*/
 .card__membro img,
@@ -1461,6 +1468,14 @@ body.portal-pagina {
   font-weight: 600;
   color: var(--avatar-texto);
   overflow: hidden;
+}
+
+/*TERCEIRO: MESMO CIRCULO DO AVATAR, SO QUE COM ICONE DE EMPRESA EM VEZ DE
+  FOTO/INICIAIS — nao tem conta, entao nao ha foto nem cor de destaque
+  possivel. Cinza neutro pra nao competir com as cores de pessoa.*/
+.detalhe__membro-avatar--terceiro {
+  background-color: var(--superficie-2);
+  color: var(--texto-3);
 }
 
 .detalhe__adicionar {

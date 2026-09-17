@@ -1699,14 +1699,42 @@ function ligarItemSimplesDialog() {
   const botaoSalvar = document.querySelector("[data-item-simples-salvar]");
   const campoNome = formulario.querySelector('[data-item-simples-campo="nome"]');
 
+  //BLOCO DE FOTO: so aparece pra quem tem ctx.comFoto (hoje so Terceirizados).
+  const blocoFoto = document.querySelector("[data-item-simples-foto-bloco]");
+  const avatarFoto = document.querySelector("[data-item-simples-foto-avatar]");
+  const fotoBotaoTrocar = document.querySelector("[data-item-simples-foto-trocar]");
+  const fotoBotaoRemover = document.querySelector("[data-item-simples-foto-remover]");
+  const fotoArquivo = document.querySelector("[data-item-simples-foto-arquivo]");
+  const ICONE_PADRAO_FOTO = avatarFoto.innerHTML; // o SVG de prédio, guardado pra restaurar sem foto.
+
   let editando = null;
-  let contexto = null; // { tabela, rotuloSingular, aoSalvar }
+  let contexto = null; // { tabela, rotuloSingular, aoSalvar, comFoto, bucketFoto }
 
   function avisar(texto, ehErro = false) {
     aviso.textContent = texto;
     aviso.classList.toggle("pessoa__aviso--erro", ehErro);
 
     if (!ehErro && texto) setTimeout(() => { aviso.textContent = ""; }, 2500);
+  }
+
+  //MOSTRA A FOTO SALVA, OU O ICONE PADRAO SE NAO TIVER: mesma logica do
+  //avatar de pessoa (pintarFoto), so que sem letras de iniciais — aqui o
+  //"sem foto" e sempre o SVG de predio, nunca texto.
+  function atualizarFotoNaTela() {
+    if (!editando?.foto_path) {
+      avatarFoto.innerHTML = ICONE_PADRAO_FOTO;
+      fotoBotaoRemover.hidden = true;
+      return;
+    }
+
+    const { data } = supabase.storage.from(contexto.bucketFoto).getPublicUrl(editando.foto_path);
+    avatarFoto.innerHTML = "";
+
+    const img = document.createElement("img");
+    img.src = `${data.publicUrl}?v=${Date.now()}`;
+    img.alt = "";
+    avatarFoto.appendChild(img);
+    fotoBotaoRemover.hidden = false;
   }
 
   function abrir(item, ctx) {
@@ -1717,6 +1745,10 @@ function ligarItemSimplesDialog() {
     campoNome.value = item.nome;
     botaoSalvar.textContent = "Salvar";
     avisar("");
+
+    blocoFoto.hidden = !ctx.comFoto;
+    if (ctx.comFoto) atualizarFotoNaTela();
+
     janela.showModal();
   }
 
@@ -1728,9 +1760,110 @@ function ligarItemSimplesDialog() {
     formulario.reset();
     botaoSalvar.textContent = "Adicionar";
     avisar("");
+
+    // Sem id ainda (a pessoa está criando): a foto só pode ser enviada
+    // depois que o item existir — mesma regra do dialog de pessoa. O bloco
+    // aparece, mas o botão de trocar fica desabilitado até salvar.
+    blocoFoto.hidden = !ctx.comFoto;
+    if (ctx.comFoto) {
+      avatarFoto.innerHTML = ICONE_PADRAO_FOTO;
+      fotoBotaoRemover.hidden = true;
+    }
+
     janela.showModal();
     campoNome.focus();
   }
+
+  fotoBotaoTrocar.addEventListener("click", () => {
+    if (!editando) {
+      avisar("Salve o nome primeiro; a foto entra depois de criar.", true);
+      return;
+    }
+    fotoArquivo.click();
+  });
+
+  fotoArquivo.addEventListener("change", async () => {
+    const arquivo = fotoArquivo.files[0];
+
+    if (!arquivo || !editando) return;
+
+    fotoBotaoTrocar.disabled = true;
+    avisar("Enviando foto…");
+
+    const extensao = arquivo.name.split(".").pop().toLowerCase();
+    const caminho = `${editando.id}.${extensao}`;
+
+    const { error: erroUpload } = await supabase.storage
+      .from(contexto.bucketFoto)
+      .upload(caminho, arquivo, { upsert: true });
+
+    if (erroUpload) {
+      console.error(`Erro ao enviar foto em ${contexto.bucketFoto}:`, erroUpload);
+      avisar("Não foi possível enviar a foto.", true);
+      fotoBotaoTrocar.disabled = false;
+      fotoArquivo.value = "";
+      return;
+    }
+
+    const { data: gravada, error: erroSalvar } = await supabase
+      .from(contexto.tabela)
+      .update({ foto_path: caminho })
+      .eq("id", editando.id)
+      .select("id, nome, foto_path")
+      .single();
+
+    fotoBotaoTrocar.disabled = false;
+    fotoArquivo.value = "";
+
+    if (erroSalvar || !gravada) {
+      console.error(`Erro ao salvar foto em ${contexto.tabela}:`, erroSalvar);
+      avisar("A foto subiu, mas não foi possível salvá-la.", true);
+      return;
+    }
+
+    Object.assign(editando, gravada);
+    atualizarFotoNaTela();
+    contexto.aoSalvar(editando, false);
+    avisar("Foto atualizada");
+  });
+
+  fotoBotaoRemover.addEventListener("click", async () => {
+    if (!editando?.foto_path) return;
+
+    fotoBotaoRemover.disabled = true;
+    avisar("Removendo foto…");
+
+    const { error: erroArquivo } = await supabase.storage
+      .from(contexto.bucketFoto)
+      .remove([editando.foto_path]);
+
+    if (erroArquivo) {
+      console.error(`Erro ao remover foto em ${contexto.bucketFoto}:`, erroArquivo);
+      avisar("Não foi possível remover a foto.", true);
+      fotoBotaoRemover.disabled = false;
+      return;
+    }
+
+    const { data: gravada, error } = await supabase
+      .from(contexto.tabela)
+      .update({ foto_path: null })
+      .eq("id", editando.id)
+      .select("id, nome, foto_path")
+      .single();
+
+    fotoBotaoRemover.disabled = false;
+
+    if (error) {
+      console.error(`Erro ao limpar foto_path em ${contexto.tabela}:`, error);
+      avisar("A foto foi removida, mas não foi possível atualizar o cadastro.", true);
+      return;
+    }
+
+    Object.assign(editando, gravada ?? { foto_path: null });
+    atualizarFotoNaTela();
+    contexto.aoSalvar(editando, false);
+    avisar("Foto removida");
+  });
 
   formulario.addEventListener("submit", async (evento) => {
     evento.preventDefault();
@@ -1793,7 +1926,10 @@ function ligarItemSimplesDialog() {
    uma funcao generica monta as tres, so troca tabela/seletor/rotulos.
    ------------------------------------------------------------------------ */
 
-function ligarListaSimples({ prefixo, tabela, itens, rotuloSingular, rotuloPlural, generoMasculino = false, dialog }) {
+function ligarListaSimples({
+  prefixo, tabela, itens, rotuloSingular, rotuloPlural, generoMasculino = false, dialog,
+  comFoto = false, bucketFoto = null,
+}) {
   const corpo = document.querySelector(`[data-${prefixo}-corpo]`);
   const campoBusca = document.querySelector(`[data-${prefixo}-busca]`);
   const resumo = document.querySelector(`[data-${prefixo}-resumo]`);
@@ -1875,7 +2011,7 @@ function ligarListaSimples({ prefixo, tabela, itens, rotuloSingular, rotuloPlura
     desenhar();
   }
 
-  const ctx = { tabela, rotuloSingular, generoMasculino, aoSalvar: aoDialogSalvar };
+  const ctx = { tabela, rotuloSingular, generoMasculino, comFoto, bucketFoto, aoSalvar: aoDialogSalvar };
 
   botaoNovo.addEventListener("click", () => dialog.criarNovo(ctx));
 
@@ -2347,6 +2483,7 @@ function ligarAnalise() {
   const setoresCardsEl = secao.querySelector("[data-analise-setores-cards]");
   const solicitantesCardsEl = secao.querySelector("[data-analise-solicitantes-cards]");
   const atendentesCardsEl = secao.querySelector("[data-analise-atendentes-cards]");
+  const terceirosCardsEl = secao.querySelector("[data-analise-terceiros-cards]");
   const acompanhamentoCardsEl = secao.querySelector("[data-analise-acompanhamento-cards]");
   const subabasNavEl = secao.querySelector("[data-analise-subabas]");
   const canvasUnidades = secao.querySelector("[data-analise-grafico-unidades]");
@@ -2361,6 +2498,8 @@ function ligarAnalise() {
   const canvasSolicitantesSla = secao.querySelector("[data-analise-grafico-solicitantes-sla]");
   const canvasAtendentesTotal = secao.querySelector("[data-analise-grafico-atendentes-total]");
   const canvasAtendentesSla = secao.querySelector("[data-analise-grafico-atendentes-sla]");
+  const canvasTerceirosTotal = secao.querySelector("[data-analise-grafico-terceiros-total]");
+  const canvasTerceirosSla = secao.querySelector("[data-analise-grafico-terceiros-sla]");
   const canvasMesTotal = secao.querySelector("[data-analise-grafico-mes-total]");
   const canvasMesSla = secao.querySelector("[data-analise-grafico-mes-sla]");
 
@@ -2376,6 +2515,8 @@ function ligarAnalise() {
   let graficoSolicitantesSla = null;
   let graficoAtendentesTotal = null;
   let graficoAtendentesSla = null;
+  let graficoTerceirosTotal = null;
+  let graficoTerceirosSla = null;
   let graficoMesTotal = null;
   let graficoMesSla = null;
   let jaAbriu = false;
@@ -2671,6 +2812,10 @@ function ligarAnalise() {
       desenharCardsDeAtendentes(chamados);
       desenharGraficoAtendentesTotal(chamados);
       desenharGraficoAtendentesSla(chamados);
+    } else if (chave === "terceiros") {
+      desenharCardsDeTerceiros(chamados);
+      desenharGraficoTerceirosTotal(chamados);
+      desenharGraficoTerceirosSla(chamados);
     } else if (chave === "acompanhamento") {
       // Consulta PROPRIA (12 meses fixos), carregada so na primeira vez —
       // desenharAcompanhamento cuida de disparar carregarAcompanhamento()
@@ -3075,6 +3220,7 @@ function ligarAnalise() {
     setoresCardsEl.hidden = false;
     solicitantesCardsEl.hidden = false;
     atendentesCardsEl.hidden = false;
+    terceirosCardsEl.hidden = false;
     subabasNavEl.hidden = false;
 
     const desde = paraTextoLocal(periodo.de);
@@ -3092,6 +3238,7 @@ function ligarAnalise() {
         unidades(nome), categorias(nome),
         usuarios!chamados_solicitante_id_fkey(nome, sobrenome, setor_id, setores(nome)),
         chamado_membros(usuario_id, usuarios(nome, sobrenome)),
+        chamado_terceiros(terceiro_id, terceiros(nome)),
         comentarios(autor_id, criado_em, visibilidade, tipo)
       `)
       .gte("abertura_em", `${desde}T00:00:00`)
@@ -3105,6 +3252,7 @@ function ligarAnalise() {
       setoresCardsEl.hidden = true;
       solicitantesCardsEl.hidden = true;
       atendentesCardsEl.hidden = true;
+      terceirosCardsEl.hidden = true;
       subabasNavEl.hidden = true;
       erroEl.hidden = false;
       erroEl.textContent = "Não foi possível carregar os dados do período. Tente novamente.";
@@ -3121,6 +3269,7 @@ function ligarAnalise() {
       setoresCardsEl.hidden = true;
       solicitantesCardsEl.hidden = true;
       atendentesCardsEl.hidden = true;
+      terceirosCardsEl.hidden = true;
       subabasNavEl.hidden = true;
       vazioEl.hidden = false;
       graficoUnidades?.destroy();
@@ -3135,6 +3284,8 @@ function ligarAnalise() {
       graficoSolicitantesSla?.destroy();
       graficoAtendentesTotal?.destroy();
       graficoAtendentesSla?.destroy();
+      graficoTerceirosTotal?.destroy();
+      graficoTerceirosSla?.destroy();
       graficoUnidades = null;
       graficoCategorias = null;
       graficoUnidadesEmpilhado = null;
@@ -3147,6 +3298,8 @@ function ligarAnalise() {
       graficoSolicitantesSla = null;
       graficoAtendentesTotal = null;
       graficoAtendentesSla = null;
+      graficoTerceirosTotal = null;
+      graficoTerceirosSla = null;
       return;
     }
 
@@ -4031,15 +4184,46 @@ function ligarAnalise() {
   //no banco, que pode ter mais de uma palavra: "João Gabriel"), nao um
   //split(" ")[0] ingenuo em cima do nome completo (cortaria "João
   //Gabriel Arantes" em so "João", perdendo metade do primeiro nome).
+  //
+  //REGRA DO TERCEIRO (decisao do usuario): um chamado que tem QUALQUER
+  //terceiro vinculado (chamado_terceiros) sai do SLA dos atendentes
+  //internos — passa a contar so na sub-aba Terceiros, nunca aqui, mesmo
+  //que tambem tenha gente da equipe no mesmo chamado. Ex.: Enzo + Vivo no
+  //mesmo chamado -> nao entra no grupo do Enzo, so no da Vivo. E sem
+  //excecao por quantidade: 2 internos + 1 terceiro tambem sai dos dois
+  //internos, nao so de um.
   function agruparPorAtendente(chamados) {
     const grupos = new Map();
 
+    chamados
+      .filter((chamado) => !chamado.chamado_terceiros?.length)
+      .forEach((chamado) => {
+        chamado.chamado_membros.forEach((membro) => {
+          if (!membro.usuarios) return;
+          const nome = nomeCompleto(membro.usuarios) ?? "Alguém";
+          if (!grupos.has(nome)) grupos.set(nome, { pessoa: membro.usuarios, chamados: [] });
+          grupos.get(nome).chamados.push(chamado);
+        });
+      });
+
+    return grupos;
+  }
+
+  //TERCEIROS: espelha agruparPorAtendente, so que por fornecedor
+  //(chamado_terceiros) em vez de por pessoa da equipe (chamado_membros).
+  //Aqui NAO ha filtro de exclusao — e o oposto do de atendente: so entra
+  //quem TEM terceiro, que e exatamente quem o grupo de atendente descarta.
+  function agruparPorTerceiro(chamados) {
+    const grupos = new Map();
+
     chamados.forEach((chamado) => {
-      chamado.chamado_membros.forEach((membro) => {
-        if (!membro.usuarios) return;
-        const nome = nomeCompleto(membro.usuarios) ?? "Alguém";
-        if (!grupos.has(nome)) grupos.set(nome, { pessoa: membro.usuarios, chamados: [] });
-        grupos.get(nome).chamados.push(chamado);
+      (chamado.chamado_terceiros ?? []).forEach((vinculo) => {
+        const fornecedor = vinculo.terceiros;
+
+        if (!fornecedor?.nome) return;
+
+        if (!grupos.has(fornecedor.nome)) grupos.set(fornecedor.nome, { pessoa: fornecedor, chamados: [] });
+        grupos.get(fornecedor.nome).chamados.push(chamado);
       });
     });
 
@@ -4179,6 +4363,151 @@ function ligarAnalise() {
       type: "bar",
       data: {
         //SO O PRIMEIRO NOME NO EIXO — mesmo motivo do grafico de total.
+        labels: linhas.map((linha) => linha.rotulo),
+        datasets: [{
+          data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
+          backgroundColor: "#dd5b12",
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: 48,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: texto, padding: 8, maxRotation: 0, minRotation: 0 }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  /* ------------------------------------------------------------------
+     TERCEIROS: espelha Atendentes de ponta a ponta (cards, os dois
+     graficos de coluna), so trocando agruparPorAtendente por
+     agruparPorTerceiro — que ja filtra os chamados certos (so quem TEM
+     terceiro vinculado, nunca os que so tem gente da equipe).
+     ------------------------------------------------------------------ */
+
+  function desenharCardsDeTerceiros(chamados) {
+    const grupos = agruparPorTerceiro(chamados);
+
+    let maisChamados = null;
+    let maisUrgente = null;
+    let maiorSla = null;
+    let melhorResposta = null;
+
+    grupos.forEach(({ chamados: chamadosDoTerceiro }, nome) => {
+      const total = chamadosDoTerceiro.length;
+
+      if (!maisChamados || total > maisChamados.valor) {
+        maisChamados = { nome, valor: total };
+      }
+
+      const urgentes = chamadosDoTerceiro.filter((chamado) => chamado.eh_urgente).length;
+      const percentualUrgentes = total ? (urgentes / total) * 100 : 0;
+
+      if (!maisUrgente || percentualUrgentes > maisUrgente.valor) {
+        maisUrgente = { nome, valor: percentualUrgentes };
+      }
+
+      const duracoes = chamadosDoTerceiro
+        .filter((chamado) => chamado.fechamento_em)
+        .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)));
+
+      if (duracoes.length) {
+        const media = duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length;
+        if (!maiorSla || media > maiorSla.valor) {
+          maiorSla = { nome, valor: media };
+        }
+      }
+
+      const respostas = chamadosDoTerceiro
+        .map(horasAtePrimeiraResposta)
+        .filter((horas) => horas != null);
+
+      if (respostas.length) {
+        const media = respostas.reduce((soma, horas) => soma + horas, 0) / respostas.length;
+        if (!melhorResposta || media < melhorResposta.valor) {
+          melhorResposta = { nome, valor: media };
+        }
+      }
+    });
+
+    secao.querySelector("[data-analise-terceiro-mais-chamados]").textContent =
+      maisChamados ? `${maisChamados.nome} (${maisChamados.valor.toLocaleString("pt-BR")})` : "—";
+    secao.querySelector("[data-analise-terceiro-mais-urgente]").textContent =
+      maisUrgente ? `${maisUrgente.nome} (${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%)` : "—";
+    secao.querySelector("[data-analise-terceiro-maior-sla]").textContent =
+      maiorSla ? `${maiorSla.nome} (${formatarDuracao(maiorSla.valor)})` : "—";
+    secao.querySelector("[data-analise-terceiro-melhor-resposta]").textContent =
+      melhorResposta ? `${melhorResposta.nome} (${formatarDuracao(melhorResposta.valor)})` : "—";
+  }
+
+  function desenharGraficoTerceirosTotal(chamados) {
+    const grupos = agruparPorTerceiro(chamados);
+
+    const linhas = [...grupos.entries()]
+      .map(([nome, { pessoa, chamados: doGrupo }]) => ({ nome, rotulo: primeiroNome(pessoa), total: doGrupo.length }))
+      .sort((a, b) => b.total - a.total);
+
+    const texto = corDoTexto("--texto-2");
+
+    graficoTerceirosTotal?.destroy();
+    graficoTerceirosTotal = new Chart(canvasTerceirosTotal, {
+      type: "bar",
+      data: {
+        labels: linhas.map((linha) => linha.rotulo),
+        datasets: [{
+          data: linhas.map((linha) => linha.total),
+          backgroundColor: "#dd5b12",
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: 48,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: texto, padding: 8, maxRotation: 0, minRotation: 0 }, grid: { display: false } },
+          y: {
+            beginAtZero: true,
+            ticks: { color: texto, precision: 0, padding: 6 },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  }
+
+  function desenharGraficoTerceirosSla(chamados) {
+    const grupos = agruparPorTerceiro(chamados);
+
+    const linhas = [...grupos.entries()]
+      .map(([nome, { pessoa, chamados: doGrupo }]) => {
+        const duracoes = doGrupo
+          .filter((chamado) => chamado.fechamento_em)
+          .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)));
+
+        const media = duracoes.length
+          ? duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length
+          : null;
+
+        return { nome, rotulo: primeiroNome(pessoa), media };
+      })
+      .filter((linha) => linha.media != null)
+      .sort((a, b) => b.media - a.media);
+
+    const texto = corDoTexto("--texto-2");
+
+    graficoTerceirosSla?.destroy();
+    graficoTerceirosSla = new Chart(canvasTerceirosSla, {
+      type: "bar",
+      data: {
         labels: linhas.map((linha) => linha.rotulo),
         datasets: [{
           data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
@@ -4557,7 +4886,7 @@ async function montarPainel() {
   //(o Portal faz igual), entao o que foi removido nao volta a aparecer aqui —
   //EXCETO filasTodas, que e a excecao de proposito: a aba Listas precisa
   //mostrar tambem as arquivadas, pra dar pra reativar.
-  const [filas, filasTodas, chamados, equipe, pessoas, setores, unidades, categorias, textos] =
+  const [filas, filasTodas, chamados, equipe, pessoas, setores, unidades, categorias, textos, terceiros] =
     await Promise.all([
       supabase.from("filas").select("id, nome, ordem, ativo").eq("ativo", true).order("ordem"),
       supabase.from("filas").select("id, nome, ordem, ativo").order("nome"),
@@ -4575,6 +4904,7 @@ async function montarPainel() {
       supabase.from("unidades").select("id, nome").eq("ativo", true).order("nome"),
       supabase.from("categorias").select("id, nome").eq("ativo", true).order("nome"),
       supabase.from("textos_rapidos").select("id, titulo, corpo").eq("ativo", true).order("titulo"),
+      supabase.from("terceiros").select("id, nome, foto_path").eq("ativo", true).order("nome"),
     ]);
 
   if (filas.error || chamados.error) {
@@ -4598,6 +4928,10 @@ async function montarPainel() {
       aoMudarFechamento: () => tickets?.desenhar(),
       aoContarChamados: () => tickets?.atualizarResumo(),
     },
+    // So admin acessa o Painel (painel-guard.js): a mesma regra do botao de
+    // aprovar/rejeitar cadastro na ficha de Aprovação de Acesso.
+    "admin",
+    terceiros.data ?? [],
   );
 
   tickets = ligarTickets(chamados.data, filas.data ?? [], equipe.data ?? [], detalhe);
@@ -4667,6 +5001,18 @@ async function montarPainel() {
     itens: categorias.data ?? [],
     rotuloSingular: "Categoria",
     rotuloPlural: "Categorias",
+    dialog: dialogItemSimples,
+  });
+
+  ligarListaSimples({
+    prefixo: "terceiros",
+    tabela: "terceiros",
+    itens: terceiros.data ?? [],
+    rotuloSingular: "Terceirizado",
+    rotuloPlural: "Terceirizados",
+    generoMasculino: true,
+    comFoto: true,
+    bucketFoto: "terceiros",
     dialog: dialogItemSimples,
   });
 
