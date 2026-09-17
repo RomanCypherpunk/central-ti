@@ -1358,6 +1358,27 @@
                 <select class="aprovacao__select" id="aprovacao-setor" data-aprovacao-setor></select>
               </div>
 
+              <!--PERFIL DE ACESSO: o padrão vem do setor escolhido (setor
+                  Administrador sugere Admin, os outros sugerem Solicitante),
+                  mas quem decide é quem aprova — trocar o setor acima
+                  re-sugere aqui enquanto ninguém mexer neste campo.
+
+                  Igual ao do portal.html de propósito: a ficha de aprovação é
+                  o mesmo componente (ligarDetalhe, no portal.js) nas duas
+                  telas. Sem este campo aqui, aquele código tentava ligar um
+                  elemento inexistente e a carga do Painel morria antes de
+                  buscar os dados.-->
+              <div class="aprovacao__campo">
+                <label class="aprovacao__rotulo" for="aprovacao-perfil">Perfil de acesso</label>
+                <select class="aprovacao__select" id="aprovacao-perfil" data-aprovacao-perfil>
+                  <option value="solicitante">Solicitante</option>
+                  <option value="contribuinte">Contribuinte</option>
+                  <option value="analista">Analista</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <span class="aprovacao__dica" data-aprovacao-perfil-dica></span>
+              </div>
+
               <div class="aprovacao__acoes">
                 <button class="aprovacao__rejeitar" type="button" data-aprovacao-rejeitar>
                   Rejeitar

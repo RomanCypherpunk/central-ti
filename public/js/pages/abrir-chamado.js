@@ -20,7 +20,6 @@
 // descrição legível, que é o que a equipe lê na ficha do Portal.
 
 import { supabase } from "../config/supabase-config.js";
-import { usuarioAtual, meuPerfil, permissoes } from "../sessao.js";
 
 const passoTipo = document.querySelector("[data-passo-tipo]");
 const formulario = document.querySelector("[data-formulario]");
@@ -404,10 +403,6 @@ let esperaBusca = null;
 const MINIMO_PARA_BUSCAR = 6;
 
 function carregarArtigos() {
-  // Sem esperar: quando a resposta chegar, ela so muda o filtro da proxima
-  // busca — e a pessoa ainda esta escrevendo.
-  meuPerfil().then((perfil) => { souAdmin = permissoes(perfil).admin; });
-
   if (artigos) return Promise.resolve(artigos);
   if (lendoArtigos) return lendoArtigos;
 
@@ -1029,7 +1024,7 @@ function aplicarAcessoRemotoSalvo() {
 }
 
 async function carregar() {
-  const user = await usuarioAtual();
+  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return;
 
@@ -1043,7 +1038,7 @@ async function carregar() {
     supabase.from("setores").select("id, nome, ativo").order("nome"),
     supabase.from("categorias").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("filas").select("id, nome").eq("ativo", true).order("ordem"),
-    supabase.from("usuarios").select("nome, sobrenome, email, unidade_id, setor_id").eq("id", user.id).single(),
+    supabase.from("usuarios").select("nome, sobrenome, email, unidade_id, setor_id, perfil, status_aprovacao, ativo").eq("id", user.id).single(),
     // ÚLTIMO ACESSO REMOTO INFORMADO por esta pessoa: quase sempre é o mesmo
     // computador, então o campo já vem preenchido em vez de exigir que ela
     // redigite o IP a cada chamado. Pega o mais recente que NÃO seja nulo —
@@ -1067,6 +1062,12 @@ async function carregar() {
 
   const nomeDaUnidade = new Map((unidades.data ?? []).map((unidade) => [unidade.id, unidade.nome]));
   const nomeDoSetor = new Map((setores.data ?? []).map((setor) => [setor.id, setor.nome]));
+
+  //ADMINISTRADOR VE A BASE INTEIRA NA TRIAGEM; os demais perfis, so o setor
+  //deles. Vem do mesmo cadastro que ja e lido aqui.
+  souAdmin = perfil.data.perfil === "admin"
+    && perfil.data.status_aprovacao === "aprovado"
+    && Boolean(perfil.data.ativo);
 
   //QUEM ESTA ABRINDO: do cadastro, sem poder mudar.
   solicitante = {
