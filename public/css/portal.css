@@ -2026,6 +2026,9 @@ body.portal-pagina {
 
 .conversa__enviar {
   flex-shrink: 0;
+  /*EMPURRA O "Responder" PARA A DIREITA — Anexar/Textos rapidos/Solucoes
+    ficam colados a esquerda entre si.*/
+  margin-left: auto;
   padding: 0.4375rem 0.875rem;
   border: 0;
   border-radius: 6px;
@@ -2264,6 +2267,49 @@ body.portal-pagina {
   white-space: pre-wrap;
 }
 
+/*CARD DE SOLUCAO: um link de artigo mandado no chat, dentro do balao —
+  fundo levemente mais escuro que o balao (que e sempre claro), pra
+  destacar sem competir com a cor de quem mandou.*/
+.comentario__solucao {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5625rem;
+  border-radius: 8px;
+  background-color: rgba(26, 26, 26, 0.06);
+}
+
+.comentario__solucao-icone {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--laranja);
+}
+
+.comentario__solucao-titulo {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--balao-texto);
+}
+
+.comentario__solucao-botao {
+  flex-shrink: 0;
+  padding: 0.3125rem 0.6875rem;
+  border-radius: 6px;
+  background-color: var(--laranja);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--superficie);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.comentario__solucao-botao:hover {
+  filter: brightness(1.08);
+}
+
 .conversa__vazia {
   margin: 0;
   padding: 0.75rem 0;
@@ -2322,8 +2368,6 @@ body.portal-pagina {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  /*margin-right: auto EMPURRA O "Responder" PARA A DIREITA*/
-  margin-right: auto;
   padding: 0.25rem 0.4375rem;
   border: 0;
   border-radius: 5px;
@@ -2334,6 +2378,7 @@ body.portal-pagina {
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+
 
 .conversa__rapidos:hover,
 .conversa__rapidos[aria-expanded="true"] {

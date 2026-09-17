@@ -2065,12 +2065,17 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
       quando.dateTime = comentario.criado_em;
       quando.textContent = formatarData(comentario.criado_em);
 
-      const texto = document.createElement("p");
-      texto.className = "comentario__texto";
-      texto.textContent = comentario.texto;
-
       topo.append(autor, quando);
-      balao.append(topo, texto);
+      balao.append(topo);
+
+      if (comentario.tipo === "solucao") {
+        balao.appendChild(montarCardDeSolucao(comentario));
+      } else {
+        const texto = document.createElement("p");
+        texto.className = "comentario__texto";
+        texto.textContent = comentario.texto;
+        balao.appendChild(texto);
+      }
 
       // Imagens que foram junto com esta mensagem aparecem dentro do balao.
       const imagens = (aberto.anexos ?? [])
@@ -2204,6 +2209,45 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     });
 
     return galeria;
+  }
+
+  //CARD DE SOLUCAO NO CHAT: em vez de um link cru, mostra o titulo do
+  //artigo com um botao "Acessar" que abre a Base de Solucoes na solucao
+  //certa. Se o artigo foi excluido depois (artigo_id fica null), o card
+  //avisa em vez de linkar para lugar nenhum.
+  function montarCardDeSolucao(comentario) {
+    const artigo = comentario.artigos;
+    const disponivel = comentario.artigo_id && artigo?.ativo;
+
+    const card = document.createElement("div");
+    card.className = "comentario__solucao";
+
+    const icone = document.createElement("span");
+    icone.className = "comentario__solucao-icone";
+    icone.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path d="M12 3.5 4.5 7.5v9L12 20.5l7.5-4v-9L12 3.5Z" fill="none"
+            stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+      <path d="M12 12v8.5M4.5 7.5 12 12l7.5-4.5" fill="none"
+            stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+    </svg>`;
+
+    const titulo = document.createElement("span");
+    titulo.className = "comentario__solucao-titulo";
+    titulo.textContent = disponivel ? artigo.titulo : `${comentario.texto} (solução removida)`;
+
+    card.append(icone, titulo);
+
+    if (disponivel) {
+      const acessar = document.createElement("a");
+      acessar.className = "comentario__solucao-botao";
+      acessar.href = `base.html?id=${comentario.artigo_id}`;
+      acessar.target = "_blank";
+      acessar.rel = "noopener";
+      acessar.textContent = "Acessar";
+      card.appendChild(acessar);
+    }
+
+    return card;
   }
 
   //ANEXOS: O BUCKET E PRIVADO, ENTAO O LINK E ASSINADO NA HORA DO CLIQUE —
@@ -2804,6 +2848,183 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
   }
 
   const textosRapidos = ligarTextosRapidos();
+
+  //PAINEL DE SOLUCOES: manda o link de um artigo da base direto no chat, em
+  //vez do atendente colar a URL crua. Mesma mecanica de abrir/fechar dos
+  //Textos Rapidos; a busca e o ranking sao os mesmos da Base de Solucoes
+  //(base.js), copiados aqui porque as duas telas nao compartilham modulo.
+  function ligarSolucoes() {
+    const painel = document.querySelector("[data-solucoes]");
+    const botaoAbrir = document.querySelector("[data-solucoes-abrir]");
+    const lista = document.querySelector("[data-solucoes-lista]");
+    const busca = document.querySelector("[data-solucoes-busca]");
+
+    const TAMANHO_MINIMO_TERMO = 3;
+
+    let artigos = [];
+    let carregados = false;
+
+    function normalizar(texto) {
+      return (texto || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+    }
+
+    function pontuar(artigo, termos, termoCompleto) {
+      const nome = normalizar(artigo.titulo);
+      const descricao = normalizar(artigo.conteudo);
+
+      let pontuacao = 0;
+
+      termos.forEach((termo) => {
+        if (nome.includes(termo)) pontuacao += 3;
+        if (descricao.includes(termo)) pontuacao += 2;
+      });
+
+      if (pontuacao === 0) return 0;
+
+      if (nome === termoCompleto) pontuacao += 1000;
+      else if (nome.startsWith(termoCompleto)) pontuacao += 500;
+      else if (nome.includes(termoCompleto)) pontuacao += 100;
+
+      return pontuacao;
+    }
+
+    async function carregar() {
+      const { data, error } = await supabase
+        .from("artigos")
+        .select("id, titulo, conteudo")
+        .eq("ativo", true)
+        .order("titulo");
+
+      if (error) {
+        avisar("Não foi possível carregar as soluções.", true);
+        return;
+      }
+
+      artigos = data;
+      carregados = true;
+      desenhar();
+    }
+
+    function desenhar() {
+      const termo = busca.value.trim();
+      const termoNormalizado = normalizar(termo);
+      const termos = termoNormalizado.split(/\s+/).filter((t) => t.length >= TAMANHO_MINIMO_TERMO);
+
+      const achados = !termo
+        ? artigos.slice().sort((a, b) => a.titulo.localeCompare(b.titulo, "pt-BR"))
+        : (termos.length === 0 ? [] : artigos
+            .map((artigo) => ({ artigo, pontuacao: pontuar(artigo, termos, termoNormalizado) }))
+            .filter((item) => item.pontuacao > 0)
+            .sort((a, b) => b.pontuacao - a.pontuacao)
+            .map((item) => item.artigo));
+
+      lista.replaceChildren();
+
+      if (!achados.length) {
+        const vazio = document.createElement("p");
+        vazio.className = "rapidos__vazio";
+        vazio.textContent = carregados
+          ? (termo ? "Nenhuma solução encontrada" : "Nenhuma solução cadastrada ainda")
+          : "Carregando…";
+        lista.appendChild(vazio);
+        return;
+      }
+
+      achados.forEach((artigo) => lista.appendChild(montarItem(artigo)));
+    }
+
+    function montarItem(artigo) {
+      const item = document.createElement("div");
+      item.className = "rapidos__item";
+      item.tabIndex = 0;
+      item.role = "button";
+
+      const titulo = document.createElement("span");
+      titulo.className = "rapidos__item-titulo";
+      titulo.textContent = artigo.titulo;
+
+      item.append(titulo);
+
+      item.addEventListener("click", () => enviar(artigo));
+      item.addEventListener("keydown", (evento) => {
+        if (evento.key !== "Enter" && evento.key !== " ") return;
+        evento.preventDefault();
+        enviar(artigo);
+      });
+
+      return item;
+    }
+
+    async function enviar(artigo) {
+      const chamado = aberto;
+
+      const { data: comentario, error } = await supabase
+        .from("comentarios")
+        .insert({
+          chamado_id: chamado.id,
+          autor_id: atendente,
+          texto: artigo.titulo,
+          visibilidade: "publico",
+          tipo: "solucao",
+          artigo_id: artigo.id,
+        })
+        .select("id, autor_id, texto, visibilidade, tipo, artigo_id, criado_em, usuarios(nome, sobrenome, foto_path)")
+        .single();
+
+      if (error) {
+        avisar("Não foi possível enviar a solução.", true);
+        return;
+      }
+
+      chamado.comentarios.push(comentario);
+      await vincularComoMembro(chamado);
+
+      if (aberto === chamado) {
+        desenharConversa();
+        atualizarStatusDoCard();
+      }
+
+      fechar();
+      avisar("Solução enviada");
+    }
+
+    function abrir() {
+      painel.hidden = false;
+      botaoAbrir.setAttribute("aria-expanded", "true");
+      if (!carregados) carregar(); else desenhar();
+      busca.focus();
+    }
+
+    function fechar() {
+      painel.hidden = true;
+      botaoAbrir.setAttribute("aria-expanded", "false");
+      busca.value = "";
+    }
+
+    botaoAbrir.addEventListener("click", () => {
+      if (painel.hidden) abrir(); else fechar();
+    });
+
+    document.querySelector("[data-solucoes-fechar]")
+      .addEventListener("click", fechar);
+    busca.addEventListener("input", desenhar);
+
+    painel.addEventListener("keydown", (evento) => {
+      if (evento.key !== "Escape") return;
+      evento.stopPropagation();
+      fechar();
+    });
+
+    document.addEventListener("click", (evento) => {
+      if (painel.hidden) return;
+      if (evento.target.closest(".rapidos, [data-solucoes-abrir]")) return;
+      fechar();
+    });
+
+    return { fechar };
+  }
+
+  const solucoes = ligarSolucoes();
 
   //O CARD NO QUADRO REFLETE O QUE MUDOU NO DETALHE
   function atualizarCard() {

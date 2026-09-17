@@ -3317,6 +3317,55 @@ escopo inteira no arquivo (todo uso de `terceiros` do carregamento até o
 uso dentro do closure) para garantir que não sobrou nenhuma referência
 solta.
 
+Confirmado com o usuário: depois que a correção acima entrou no ar, o card
+do Inbox ainda mostrava ícone cinza para os fornecedores porque a aba do
+Portal estava aberta desde antes do deploy — a memória do navegador nunca
+mais tinha sido recarregada desde então, então nem o `foto_path`
+inicial vinha atualizado, nem a assinatura de tempo real nova existia
+naquela sessão. Fechando e abrindo a aba de novo (carga do zero), as fotos
+passaram a aparecer certas tanto no painel "Terceiro atendendo" quanto no
+card do quadro.
+
+### 2026-09-17 — Card de solução no chat do chamado
+
+Novo botão "Soluções" ao lado de "Textos rápidos", na caixa de resposta do
+Portal. Abre um painel igual ao de Textos Rápidos (mesma mecânica de
+abrir/fechar/Esc/clicar fora), mas busca direto na tabela `artigos` — com
+o mesmo algoritmo de ranking e normalização (remover acento, pontuar
+título/conteúdo, bônus por título batendo exato/começando/contendo) já
+usado na Base de Soluções (`base.js`), copiado aqui porque as duas telas
+não compartilham módulo.
+
+Ao clicar numa solução da lista, insere um comentário
+`tipo: "solucao"` (novo valor aceito pela tabela, antes só
+`humano`/`sistema`) com `artigo_id` apontando pro artigo. O chat, tanto do
+lado da equipe (`portal.js`) quanto do lado do solicitante
+(`solicitacoes.js`), desenha esse comentário como um card — título do
+artigo + botão "Acessar" que abre `base.html?id=<artigo_id>` numa aba
+nova — em vez do balão de texto normal. O acesso ao artigo em si continua
+sob a mesma RLS de sempre: se o solicitante não tem escopo pra aquele
+artigo (setor/unidade fora do alcance dele), o link abre a Base mas ela
+não mostra o artigo — mesma regra de sempre, não um bug novo.
+
+Migration `20260917120000_comentario_solucao.sql`: troca a constraint
+`comentarios_tipo_check` para aceitar `'solucao'` e adiciona a coluna
+`comentarios.artigo_id` (uuid, `references artigos(id) on delete set
+null` — artigo excluído depois não vira link quebrado, o card avisa
+"(solução removida)" e some o botão). Sem mudança de RLS: as policies de
+`comentarios` não restringem por coluna.
+
+Testado: harness isolado no navegador com o CSS real (`portal.css`)
+carregado, cobrindo os três estados — card com artigo disponível (título +
+botão Acessar), card com artigo removido (aviso, sem botão), e o painel de
+busca com um caso real de ranking (buscar "senha" acha "Como resetar
+senha do ERP" na frente de "VPN não conecta", que só bate no conteúdo) —
+em tema claro e escuro. Não foi montado o fluxo completo end-to-end no
+Portal (exigiria mock de auth-guard/portal-guard/tempo real inteiro); a
+lógica de inserção do comentário segue exatamente o mesmo padrão já
+testado de `responder()` (mesma ordem: insere comentário, vincula membro,
+redesenha conversa e status do card só se o chamado ainda está aberto na
+tela).
+
 ## Fase 6 — Automação e integrações
 
 **Status: não iniciada.**

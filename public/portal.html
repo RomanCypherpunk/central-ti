@@ -435,12 +435,46 @@
                     </svg>
                     <span>Textos rápidos</span>
                   </button>
-  
+
+                  <!--SOLUCOES: MANDA O LINK DE UM ARTIGO DA BASE NO CHAT-->
+                  <button class="conversa__rapidos" type="button" data-solucoes-abrir
+                          aria-haspopup="true" aria-expanded="false">
+                    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                      <path d="M12 3.5 4.5 7.5v9L12 20.5l7.5-4v-9L12 3.5Z"
+                            fill="none" stroke="currentColor" stroke-width="1.7"
+                            stroke-linejoin="round"/>
+                      <path d="M12 12v8.5M4.5 7.5 12 12l7.5-4.5" fill="none"
+                            stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                    </svg>
+                    <span>Soluções</span>
+                  </button>
+
                   <button class="conversa__enviar" type="button" data-conversa-enviar>
                     Responder
                   </button>
                 </div>
-  
+
+                <!--PAINEL DE SOLUCOES: BUSCA NA BASE E ENVIA UM CARD NO CHAT.
+                    MESMA MECANICA VISUAL DOS TEXTOS RAPIDOS. MONTADO PELO portal.js-->
+                <div class="rapidos" data-solucoes hidden>
+                  <header class="rapidos__topo">
+                    <h4 class="rapidos__titulo">Enviar solução</h4>
+                    <button class="rapidos__fechar" type="button" data-solucoes-fechar
+                            aria-label="Fechar soluções">
+                      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                        <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8"
+                              stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                  </header>
+
+                  <input class="rapidos__campo rapidos__busca" type="search"
+                         data-solucoes-busca placeholder="Pesquisar soluções da base"
+                         autocomplete="off" aria-label="Pesquisar soluções da base">
+
+                  <div class="rapidos__lista" data-solucoes-lista></div>
+                </div>
+
                 <!--PAINEL DE TEXTOS RAPIDOS: LISTA, BUSCA E O FORMULARIO DE
                     CRIAR/EDITAR. MONTADO PELO portal.js-->
                 <div class="rapidos" data-rapidos hidden>

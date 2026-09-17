@@ -46,8 +46,8 @@ let aberto = null;
 const CAMPOS_CHAMADO = `
   id, numero, titulo, descricao, abertura_em, fechamento_em, solicitante_id,
   categorias(nome),
-  comentarios(id, autor_id, texto, visibilidade, tipo, criado_em,
-              usuarios(nome, sobrenome, foto_path))
+  comentarios(id, autor_id, texto, visibilidade, tipo, criado_em, artigo_id,
+              artigos(titulo, ativo), usuarios(nome, sobrenome, foto_path))
 `;
 
 function mostrarErro(texto) {
@@ -416,11 +416,16 @@ function montarMensagem(comentario) {
     ? "Mensagem automática"
     : (minha ? "Você" : (comentario.usuarios?.nome ?? "Equipe de TI"));
 
-  const texto = document.createElement("p");
-  texto.className = "mensagem__texto";
-  texto.textContent = comentario.texto;
+  balao.append(autor);
 
-  balao.append(autor, texto);
+  if (comentario.tipo === "solucao") {
+    balao.appendChild(montarCardDeSolucao(comentario));
+  } else {
+    const texto = document.createElement("p");
+    texto.className = "mensagem__texto";
+    texto.textContent = comentario.texto;
+    balao.appendChild(texto);
+  }
 
   const quando = document.createElement("time");
   quando.className = "mensagem__quando";
@@ -441,6 +446,43 @@ function montarMensagem(comentario) {
   else bloco.append(avatar, balao, quando);
 
   return bloco;
+}
+
+//CARD DE SOLUCAO NO CHAT: mesma logica do Portal (chamado-comum não é
+//compartilhado entre as duas telas, então duplicado aqui).
+function montarCardDeSolucao(comentario) {
+  const artigo = comentario.artigos;
+  const disponivel = comentario.artigo_id && artigo?.ativo;
+
+  const card = document.createElement("div");
+  card.className = "comentario__solucao";
+
+  const icone = document.createElement("span");
+  icone.className = "comentario__solucao-icone";
+  icone.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+    <path d="M12 3.5 4.5 7.5v9L12 20.5l7.5-4v-9L12 3.5Z" fill="none"
+          stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+    <path d="M12 12v8.5M4.5 7.5 12 12l7.5-4.5" fill="none"
+          stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+  </svg>`;
+
+  const titulo = document.createElement("span");
+  titulo.className = "comentario__solucao-titulo";
+  titulo.textContent = disponivel ? artigo.titulo : `${comentario.texto} (solução removida)`;
+
+  card.append(icone, titulo);
+
+  if (disponivel) {
+    const acessar = document.createElement("a");
+    acessar.className = "comentario__solucao-botao";
+    acessar.href = `base.html?id=${comentario.artigo_id}`;
+    acessar.target = "_blank";
+    acessar.rel = "noopener";
+    acessar.textContent = "Acessar";
+    card.appendChild(acessar);
+  }
+
+  return card;
 }
 
 function desenharConversa() {
