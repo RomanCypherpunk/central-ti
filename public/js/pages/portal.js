@@ -2891,7 +2891,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     async function carregar() {
       const { data, error } = await supabase
         .from("artigos")
-        .select("id, titulo, conteudo")
+        .select("id, titulo, conteudo, setores, unidades")
         .eq("ativo", true)
         .order("titulo");
 
@@ -2905,14 +2905,32 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
       desenhar();
     }
 
+    //SO OFERECE O QUE O SOLICITANTE VAI CONSEGUIR ABRIR. A mesma regra da
+    //policy de leitura de artigos (artigos_leitura): quem escreve na base
+    //(contribuinte pra cima) ve tudo; um solicitante comum so ve o que bate
+    //setor E unidade dele. Sem isto, a equipe manda um artigo fora do
+    //alcance do solicitante e o link vira "solução removida" pra ele — nao
+    //porque o artigo sumiu, mas porque o RLS nunca deixou ele ver.
+    function artigosVisiveisPeloSolicitante() {
+      const solicitante = aberto?.usuarios;
+      const escritor = ["contribuinte", "analista", "admin"].includes(solicitante?.perfil);
+
+      if (!solicitante || escritor) return artigos;
+
+      return artigos.filter((artigo) =>
+        (artigo.setores ?? []).includes(solicitante.setor_id)
+        && (artigo.unidades ?? []).includes(solicitante.unidade_id));
+    }
+
     function desenhar() {
       const termo = busca.value.trim();
       const termoNormalizado = normalizar(termo);
       const termos = termoNormalizado.split(/\s+/).filter((t) => t.length >= TAMANHO_MINIMO_TERMO);
+      const disponiveis = artigosVisiveisPeloSolicitante();
 
       const achados = !termo
-        ? artigos.slice().sort((a, b) => a.titulo.localeCompare(b.titulo, "pt-BR"))
-        : (termos.length === 0 ? [] : artigos
+        ? disponiveis.slice().sort((a, b) => a.titulo.localeCompare(b.titulo, "pt-BR"))
+        : (termos.length === 0 ? [] : disponiveis
             .map((artigo) => ({ artigo, pontuacao: pontuar(artigo, termos, termoNormalizado) }))
             .filter((item) => item.pontuacao > 0)
             .sort((a, b) => b.pontuacao - a.pontuacao)
@@ -2923,9 +2941,13 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
       if (!achados.length) {
         const vazio = document.createElement("p");
         vazio.className = "rapidos__vazio";
-        vazio.textContent = carregados
-          ? (termo ? "Nenhuma solução encontrada" : "Nenhuma solução cadastrada ainda")
-          : "Carregando…";
+        vazio.textContent = !carregados
+          ? "Carregando…"
+          : termo
+            ? "Nenhuma solução encontrada"
+            : (artigos.length && !disponiveis.length
+                ? "Nenhuma solução do setor deste solicitante"
+                : "Nenhuma solução cadastrada ainda");
         lista.appendChild(vazio);
         return;
       }

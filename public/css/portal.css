@@ -2434,6 +2434,8 @@ body.portal-pagina {
 }
 
 .rapidos__novo {
+  display: block;
+  box-sizing: border-box;
   width: 100%;
   margin-bottom: 0.5rem;
   padding: 0.4375rem;
@@ -2444,6 +2446,8 @@ body.portal-pagina {
   font-size: 0.6875rem;
   font-weight: 600;
   color: var(--laranja);
+  text-align: center;
+  text-decoration: none;
   cursor: pointer;
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }

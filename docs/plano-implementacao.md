@@ -3366,6 +3366,64 @@ testado de `responder()` (mesma ordem: insere comentário, vincula membro,
 redesenha conversa e status do card só se o chamado ainda está aberto na
 tela).
 
+### 2026-09-17 — Botão Soluções alinhado à esquerda + busca filtrada pelo setor do solicitante
+
+Dois ajustes no que saiu acima:
+
+1. **Alinhamento**: o botão "Soluções" nascia empurrado para o meio da
+   barra em vez de ficar colado ao lado de "Textos rápidos". Causa: as
+   duas classes compartilham `.conversa__rapidos`, que tinha
+   `margin-right: auto` para empurrar o "Responder" pra direita — com dois
+   botões usando a mesma classe, o empurrão duplicava. Corrigido movendo
+   o `margin-left: auto` para `.conversa__enviar` (o próprio "Responder"),
+   que é quem realmente precisa ficar isolado; Anexar/Textos
+   rápidos/Soluções ficam colados entre si à esquerda.
+
+2. **Vazamento de solução fora do alcance do solicitante**: a equipe
+   conseguia mandar qualquer artigo pelo painel, mesmo um fora do
+   setor/unidade do solicitante daquele chamado — a RLS de `artigos`
+   então escondia o artigo dele, e o card virava "(solução removida)"
+   mesmo o artigo existindo e estando ativo, o que é enganoso (parece que
+   alguém apagou a solução, quando na verdade é regra de acesso). A
+   query do painel agora traz `setores`/`unidades` de cada artigo, e uma
+   função nova (`artigosVisiveisPeloSolicitante`, dentro de
+   `ligarSolucoes`) filtra a lista antes de desenhar — reproduzindo a
+   mesma regra da policy `artigos_leitura`: quem escreve na base
+   (contribuinte pra cima) vê tudo, um solicitante comum só vê o que bate
+   setor **e** unidade dele. Usa `aberto.usuarios.setor_id`/`unidade_id`
+   (o solicitante do chamado atualmente aberto no detalhe, não o
+   atendente), então o filtro já reflete o chamado certo mesmo trocando
+   de ticket sem fechar o painel. `CAMPOS_CHAMADO` (chamado-comum.js)
+   ganhou `unidade_id` no join de `usuarios!chamados_solicitante_id_fkey`
+   pra isso funcionar. Mensagem vazia distingue "nenhuma solução
+   cadastrada ainda" de "nenhuma solução do setor deste solicitante".
+
+Testado com um teste de lógica isolado (Node, copiando o corpo exato de
+`artigosVisiveisPeloSolicitante`) cobrindo: solicitante dentro do
+setor+unidade certos, fora da unidade (mesmo setor), perfil que escreve na
+base vendo tudo mesmo fora do escopo, ausência de dados de usuário
+(fallback seguro) e um setor sem nenhum artigo compatível. Alinhamento do
+botão conferido visualmente num harness com o CSS real de `portal.css`.
+
+### 2026-09-17 — "+ Adicionar nova solução" no painel de Soluções
+
+Mesmo botão tracejado que "Textos rápidos" tem ("+ Adicionar novo texto
+rápido"), agora também no painel de Soluções, logo abaixo do título. Aqui
+não abre formulário embutido — é um link (`<a>`) para
+`nova-solucao.html`, que já abre em modo de cadastro quando não recebe
+`?id=` na URL (o mesmo parâmetro que a Base usa pra abrir em modo edição).
+Abre em nova aba (`target="_blank"`) pra não perder o chamado que a
+equipe estava atendendo, já que cadastrar uma solução do zero leva mais
+tempo que send a resposta rápida.
+
+`.rapidos__novo` (a classe do botão) ganhou `display: block`,
+`box-sizing: border-box`, `text-align: center` e `text-decoration: none`
+— precisos porque agora a classe é usada tanto num `<button>` (Textos
+Rápidos) quanto num `<a>` (Soluções), e um link não herda o layout de
+bloco/centralizado que um botão tem por padrão. Testado visualmente num
+harness com o CSS real, tema claro e escuro — idêntico ao botão de Textos
+Rápidos nos dois.
+
 ## Fase 6 — Automação e integrações
 
 **Status: não iniciada.**
