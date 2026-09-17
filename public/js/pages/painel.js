@@ -12,7 +12,6 @@
 // como biblioteca.
 
 import { supabase } from "../config/supabase-config.js";
-import { usuarioAtual } from "../sessao.js";
 import { ligarDetalhe, confirmarNoSite } from "./portal.js";
 import { pintarFoto } from "../componentes/avatar.js";
 import {
@@ -4548,7 +4547,7 @@ async function montarPainel() {
     if (aba === "analise") analise.aoAbrir();
   });
 
-  const user = await usuarioAtual();
+  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return;
 

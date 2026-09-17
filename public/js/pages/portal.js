@@ -1,7 +1,6 @@
 // Portal de Chamados: quadro kanban da equipe de TI — Fase 4.
 
 import { supabase } from "../config/supabase-config.js";
-import { usuarioAtual } from "../sessao.js";
 // Peças que o Painel também usa: moram em componentes/ para as duas telas
 // mostrarem status, nome e avatar pela mesma regra.
 import {
@@ -226,7 +225,7 @@ function confirmarNoSite({ titulo, mensagem, confirmar = "Confirmar", perigo = f
 //so passava admin, o que na pratica deixava o Portal restrito a admin
 //mesmo com o banco permitindo analista.
 async function quemEstaAtendendo() {
-  const user = await usuarioAtual();
+  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return null;
 
@@ -687,23 +686,8 @@ function pararAutoScroll() {
   autoScroll = null;
 }
 
-//AREA DO QUADRO GUARDADA DURANTE O ARRASTO. getBoundingClientRect obriga o
-//navegador a recalcular o layout, e o dragover dispara dezenas de vezes por
-//segundo — era leitura de layout no meio do gesto, justo quando a tela
-//precisa estar livre. A área não muda enquanto se arrasta; muda se a janela
-//mudar de tamanho, e aí o cache é descartado.
-let areaDoQuadro = null;
-
-function esquecerAreaDoQuadro() {
-  areaDoQuadro = null;
-}
-
-window.addEventListener("resize", esquecerAreaDoQuadro);
-
 function avaliarAutoScroll(x) {
-  areaDoQuadro ??= quadro.getBoundingClientRect();
-
-  const area = areaDoQuadro;
+  const area = quadro.getBoundingClientRect();
   // Ja comeca com boa parte da velocidade assim que entra na zona da borda,
   // em vez de arrastar devagar ate chegar bem na beirada.
   const forca = (distancia) => 0.35 + 0.65 * (distancia / MARGEM_AUTOSCROLL);
@@ -733,8 +717,6 @@ function avaliarAutoScroll(x) {
 //ARRASTAR E SOLTAR: MOVE O CARD NA HORA E DESFAZ SE O BANCO RECUSAR
 function ligarArrastar() {
   let cardArrastado = null;
-  // Qual coluna esta sob o card agora: evita refazer o realce a cada evento.
-  let colunaSobOCard = null;
 
   quadro.addEventListener("dragstart", (evento) => {
     const card = evento.target.closest(".card");
@@ -751,8 +733,6 @@ function ligarArrastar() {
     quadro.querySelectorAll(".fila--alvo")
       .forEach((coluna) => coluna.classList.remove("fila--alvo"));
     cardArrastado = null;
-    colunaSobOCard = null;
-    esquecerAreaDoQuadro();
     pararAutoScroll();
   });
 
@@ -766,14 +746,11 @@ function ligarArrastar() {
 
     const coluna = evento.target.closest(".fila");
 
-    if (!coluna || coluna === colunaSobOCard) return;
+    if (!coluna) return;
 
-    // Só quando o card passa de uma coluna para outra. Antes o realce era
-    // refeito em todo evento de dragover — varrer o quadro e mexer em classe
-    // dezenas de vezes por segundo, para deixar tudo igual ao que já estava.
-    colunaSobOCard?.classList.remove("fila--alvo");
+    quadro.querySelectorAll(".fila--alvo")
+      .forEach((outra) => outra.classList.remove("fila--alvo"));
     coluna.classList.add("fila--alvo");
-    colunaSobOCard = coluna;
   });
 
   quadro.addEventListener("drop", async (evento) => {
@@ -1168,56 +1145,19 @@ function ligarBarra() {
   const barra = document.querySelector("[data-barra]");
   const alca = document.querySelector("[data-alca]");
 
-  //MEDIDAS GUARDADAS. Rolar o quadro na horizontal nao muda a largura de
-  //nada: o que muda e so o scrollLeft. Antes cada evento de rolagem lia
-  //scrollWidth, clientWidth e a largura do trilho — tres medidas que obrigam
-  //o navegador a recalcular o layout na hora, no meio da rolagem. Era o
-  //engasgo do quadro. Agora as medidas sao tiradas uma vez e refeitas so
-  //quando algo de fato muda de tamanho.
-  let medidas = null;
-
-  function medir() {
-    const trilho = barra.querySelector(".portal__barra-trilho").clientWidth;
+  function desenhar() {
     const transbordo = quadro.scrollWidth - quadro.clientWidth;
-    const largura = transbordo > 1
-      ? Math.max(trilho * (quadro.clientWidth / quadro.scrollWidth), 40)
-      : 0;
-
-    medidas = { transbordo, curso: trilho - largura, largura };
 
     barra.classList.toggle("portal__barra--visivel", transbordo > 1);
 
-    if (transbordo > 1) alca.style.width = `${largura}px`;
-  }
+    if (transbordo <= 1) return;
 
-  //Uma atualizacao por quadro de tela, no maximo: a rolagem dispara dezenas
-  //de eventos por segundo, e mais de um desenho no mesmo quadro nao aparece.
-  let agendado = false;
+    const proporcao = quadro.clientWidth / quadro.scrollWidth;
+    const trilho = barra.querySelector(".portal__barra-trilho").clientWidth;
+    const largura = Math.max(trilho * proporcao, 40);
 
-  //As medidas envelhecem quando entra ou sai card/coluna. Refazer a cada
-  //quarto de segundo é barato (4 leituras por segundo, contra dezenas) e
-  //dispensa vigiar o quadro inteiro por mudanças.
-  const VALIDADE_DAS_MEDIDAS = 250;
-  let medidoEm = 0;
-
-  function posicionar() {
-    agendado = false;
-
-    if (!medidas || performance.now() - medidoEm > VALIDADE_DAS_MEDIDAS) {
-      medir();
-      medidoEm = performance.now();
-    }
-
-    if (medidas.transbordo <= 1) return;
-
-    alca.style.left = `${(quadro.scrollLeft / medidas.transbordo) * medidas.curso}px`;
-  }
-
-  function desenhar() {
-    if (agendado) return;
-
-    agendado = true;
-    requestAnimationFrame(posicionar);
+    alca.style.width = `${largura}px`;
+    alca.style.left = `${(quadro.scrollLeft / transbordo) * (trilho - largura)}px`;
   }
 
   //ARRASTAR A ALCA ROLA O QUADRO
@@ -1259,22 +1199,9 @@ function ligarBarra() {
     quadro.scrollLeft = alvo * (quadro.scrollWidth - quadro.clientWidth);
   });
 
-  // passive: o navegador nao precisa esperar para saber se vamos cancelar a
-  // rolagem — com isto ele rola sem aguardar o nosso código.
-  quadro.addEventListener("scroll", desenhar, { passive: true });
-
-  // Janela redimensionada ou zoom do quadro alterado: as medidas mudam na
-  // hora, sem esperar o próximo quarto de segundo.
-  function remedir() {
-    medir();
-    medidoEm = performance.now();
-    posicionar();
-  }
-
-  new ResizeObserver(remedir).observe(quadro);
-  window.addEventListener("resize", remedir);
-
-  remedir();
+  quadro.addEventListener("scroll", desenhar);
+  window.addEventListener("resize", desenhar);
+  desenhar();
 }
 
 //BUSCA: TICKET, SOLICITANTE, UNIDADE, CATEGORIA OU DESCRICAO
@@ -1923,26 +1850,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     if (painelAberto("cor")) campoMembros.appendChild(montarPainelCores());
   }
 
-  //A CONVERSA SO E REMONTADA QUANDO ELA MUDA. O tempo real redesenha o
-  //detalhe a cada evento do chamado — etiqueta nova, membro entrando, card
-  //mudando de fila —, e em quase todos a conversa é exatamente a mesma.
-  //Remontar dezenas de balões (com avatar, imagens e URL assinada de cada
-  //uma) por causa de uma etiqueta era o engasgo ao deixar um ticket
-  //movimentado aberto. A assinatura é o que a conversa mostra: se não mudou,
-  //não há nada para desenhar.
-  let assinaturaDaConversa = null;
-
   function desenharConversa() {
-    const assinatura = JSON.stringify([
-      aberto.id,
-      aberto.comentarios.map((comentario) => [comentario.id, comentario.texto, comentario.criado_em]),
-      (aberto.anexos ?? []).map((anexo) => [anexo.id, anexo.comentario_id]),
-    ]);
-
-    if (assinatura === assinaturaDaConversa && campoConversa.childElementCount) return;
-
-    assinaturaDaConversa = assinatura;
-
     campoConversa.replaceChildren();
 
     const conversa = [...aberto.comentarios]
@@ -4118,7 +4026,7 @@ function ligarFundo() {
   }
 
   async function carregarFundoSalvo() {
-    const user = await usuarioAtual();
+    const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return null;
 

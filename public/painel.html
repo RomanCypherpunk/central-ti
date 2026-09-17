@@ -8,14 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
-  <!--A BIBLIOTECA DO SUPABASE COMECA A BAIXAR JUNTO COM O CSS. Sem isto ela
-       so era descoberta no fim da cadeia html -> main.js -> sessao.js ->
-       supabase-config.js, e a tela esperava essa fila inteira.-->
-  <link rel="modulepreload" href="js/vendor/supabase-js.js">
   <link rel="stylesheet" href="css/index.css">
   <link rel="stylesheet" href="css/portal.css">
   <link rel="stylesheet" href="css/painel.css">
-  <link rel="stylesheet" href="css/esqueleto.css">
   <!--GRAFICOS DA ABA ANALISE. So essa pagina usa — mesmo padrao do jsPDF
       na Base (CDN direto, sem passo de build), versao travada.-->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
@@ -43,7 +38,7 @@
 <!--As DUAS classes de proposito: portal-pagina traz os tokens de cor e o tema
     escuro do portal.css (o modal de detalhe e o mesmo, precisa deles), e
     painel-pagina liga o layout proprio desta tela.-->
-<body class="portal-pagina painel-pagina" data-carregando data-guarda>
+<body class="portal-pagina painel-pagina" style="visibility: hidden">
 
   <!--BARRA DO TOPO: IGUAL A DO PORTAL, sem busca/filtros/zoom (que sao do
       quadro). As classes topo__perfil/usuario/menu e data-nome/data-setor/

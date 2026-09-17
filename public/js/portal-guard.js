@@ -16,18 +16,29 @@
 // Roda depois de auth-guard.js (senão sessão nula quebra a consulta) e antes
 // do portal.js, para redirecionar antes dele buscar dados.
 //
-// ESPERA: o body nasce com data-carregando, e o auth-guard deixa esse
-// esqueleto no lugar quando a tela tem guarda de perfil (data-guarda no
-// body). Quem tira o esqueleto é esta guarda, depois de confirmar — assim o
-// Portal não pisca para quem não pode vê-lo.
-//
-// O perfil vem de sessao.js, que já o leu (ou está lendo) para o main.js: a
-// conferência aqui não custa mais uma ida ao banco.
-import { exigir } from "./sessao.js";
+// VISIBILIDADE: auth-guard.js já revelou o body ao confirmar a sessão.
+// Reesconde e só revela de novo depois de confirmar o perfil, senão o Portal
+// pisca para quem não pode vê-lo.
+import { supabase } from "./config/supabase-config.js";
 
-if (await exigir((permissoes) => permissoes.equipeTi, "index.html")) {
-  // Aprovado: o esqueleto sai e o conteudo aparece. Reprovado, a pessoa e
-  // levada embora com o esqueleto ainda na tela — nunca chega a ver o
-  // conteudo de uma tela que nao e dela.
-  delete document.body.dataset.carregando;
+document.body.style.visibility = "hidden";
+
+const { data: { user } } = await supabase.auth.getUser();
+
+if (user) {
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("perfil, ativo, status_aprovacao")
+    .eq("id", user.id)
+    .single();
+
+  const podeAtender = ["analista", "admin"].includes(perfil?.perfil)
+    && perfil?.status_aprovacao === "aprovado"
+    && perfil?.ativo;
+
+  if (podeAtender) {
+    document.body.style.visibility = "visible";
+  } else {
+    window.location.href = "index.html";
+  }
 }

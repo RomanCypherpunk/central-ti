@@ -8,7 +8,6 @@
 //     nível de risco ficaram de fora.
 
 import { supabase } from "../config/supabase-config.js";
-import { usuarioAtual } from "../sessao.js";
 
 const BUCKET = "artigos";
 const MAX_IMAGENS_POR_PASSO = 3;
@@ -813,7 +812,7 @@ salvarBtn.addEventListener("click", async () => {
   salvarBtn.textContent = idEdicao ? "Salvando edição..." : "Salvando...";
 
   try {
-    const user = await usuarioAtual();
+    const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) throw new Error("Sessão expirada.");
 
@@ -923,7 +922,7 @@ async function mostrarAutor() {
 
   if (!alvo) return;
 
-  const user = await usuarioAtual();
+  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return;
 

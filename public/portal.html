@@ -8,13 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
-  <!--A BIBLIOTECA DO SUPABASE COMECA A BAIXAR JUNTO COM O CSS. Sem isto ela
-       so era descoberta no fim da cadeia html -> main.js -> sessao.js ->
-       supabase-config.js, e a tela esperava essa fila inteira.-->
-  <link rel="modulepreload" href="js/vendor/supabase-js.js">
   <link rel="stylesheet" href="css/index.css">
   <link rel="stylesheet" href="css/portal.css">
-  <link rel="stylesheet" href="css/esqueleto.css">
   <script>
     // Antes da primeira pintura, senao a tela pisca no tema errado ao recarregar.
     document.documentElement.dataset.tema =
@@ -25,7 +20,7 @@
     if (zoomSalvo) document.documentElement.style.setProperty("--zoom-portal", zoomSalvo);
   </script>
 </head>
-<body class="portal-pagina" data-carregando data-guarda>
+<body class="portal-pagina" style="visibility: hidden">
 
   <!--BARRA UNICA DO PORTAL. A esquerda, a logo e o nome da tela; a direita,
       busca, filtros, menu do quadro (onde ficam zoom e tema) e o perfil. Fica fora do <main> de

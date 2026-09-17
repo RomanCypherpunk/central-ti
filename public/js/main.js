@@ -2,7 +2,6 @@
 
 import { supabase } from "./config/supabase-config.js";
 import { pintarFoto, versaoDaMinhaFoto } from "./componentes/avatar.js";
-import { usuarioAtual, meuPerfil, permissoes } from "./sessao.js";
 
 //ENTRADA DA PAGINA: CARTOES E PAINEIS SOBEM COM FADE, EM SEQUENCIA.
 //So na primeira visita de cada pagina nesta sessao: repetida a cada troca de
@@ -259,9 +258,11 @@ window.addEventListener("perfil:atualizado", (evento) => {
 });
 
 async function preencherUsuario() {
-  // A sessao e o cadastro vem de sessao.js: lidos uma vez por pagina e
-  // compartilhados com os guards, sem repetir ida a rede.
-  const user = await usuarioAtual();
+  // getSession le a sessao ja guardada, sem ida ao servidor: o topo nao
+  // precisa esperar a rede para saber de quem e. Quem protege os dados e o
+  // RLS, nao esta leitura.
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
 
   if (!user) {
     esquecerTopo();
@@ -275,28 +276,33 @@ async function preencherUsuario() {
 
   // Le da tabela, e nao do user_metadata: o metadata e uma foto do momento do
   // cadastro e nao acompanha quem edita o nome em "Dados pessoais".
-  const perfilLido = await meuPerfil();
+  const { data: perfil, error } = await supabase
+    .from("usuarios")
+    .select("nome, sobrenome, perfil, status_aprovacao, ativo, foto_path, setores(nome)")
+    .eq("id", user.id)
+    .single();
 
   // Falha de rede com o topo ja guardado: fica o guardado, que e melhor que
   // trocar o nome pelo e-mail e apagar os itens do menu.
-  if (!perfilLido && guardadoValido) return;
+  if (error && guardadoValido) return;
 
-  const nome = perfilLido?.nome ?? user.email;
-  const sobrenome = perfilLido?.sobrenome ?? "";
-  // As tres permissoes saem de sessao.js, no mesmo desenho das funcoes do
-  // banco (is_aprovado, is_equipe_ti, pode_escrever_artigo).
-  const { aprovado, equipeTi, escreveArtigo } = permissoes(perfilLido);
+  const nome = perfil?.nome ?? user.email;
+  const sobrenome = perfil?.sobrenome ?? "";
+  const aprovado = perfil?.status_aprovacao === "aprovado" && Boolean(perfil?.ativo);
 
   const dados = {
     id: user.id,
     nome,
     letras: iniciais(nome, sobrenome),
-    setor: perfilLido?.setores?.nome ?? "",
-    fotoPath: perfilLido?.foto_path ?? null,
-    perfil: perfilLido?.perfil ?? null,
+    setor: perfil?.setores?.nome ?? "",
+    fotoPath: perfil?.foto_path ?? null,
+    perfil: perfil?.perfil ?? null,
     aprovado,
-    equipeTi,
-    escreveArtigo,
+    // Duas permissões diferentes, e não dois nomes para a mesma: quem ATENDE
+    // chamado (Portal) não é a mesma lista de quem ESCREVE na Base. Espelham
+    // is_equipe_ti() e pode_escrever_artigo() no banco.
+    equipeTi: ["admin", "analista"].includes(perfil?.perfil) && aprovado,
+    escreveArtigo: ["admin", "analista", "contribuinte"].includes(perfil?.perfil) && aprovado,
   };
 
   guardarTopo(dados);

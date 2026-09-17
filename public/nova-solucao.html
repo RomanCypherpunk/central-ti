@@ -7,10 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
-  <!--A BIBLIOTECA DO SUPABASE COMECA A BAIXAR JUNTO COM O CSS. Sem isto ela
-       so era descoberta no fim da cadeia html -> main.js -> sessao.js ->
-       supabase-config.js, e a tela esperava essa fila inteira.-->
-  <link rel="modulepreload" href="js/vendor/supabase-js.js">
   <link rel="icon" href="assets/img/favicon.ico">
   <script>
     // Antes da primeira pintura, senao o menu abre e fecha na frente do usuario.
@@ -18,9 +14,8 @@
       localStorage.getItem("sidebarColapsada") === "true" ? "colapsada" : "expandida";
   </script>
   <link rel="stylesheet" href="css/nova-solucao.css">
-  <link rel="stylesheet" href="css/esqueleto.css">
 </head>
-<body class="solucao-pagina" data-carregando data-guarda>
+<body style="visibility: hidden">
   <nav class="sidebar">
     <div class="sidebar__topo">
       <a class="sidebar__logo-link" href="index.html"><img class="sidebar__logo" src="assets/img/logo-claro.svg" alt="Gasometro"></a>

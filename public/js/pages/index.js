@@ -2,7 +2,6 @@
 // reais do Supabase — antes eram três linhas e quatro linhas fixas no HTML.
 
 import { supabase } from "../config/supabase-config.js";
-import { usuarioAtual } from "../sessao.js";
 
 const LIMITE = 4;
 
@@ -34,7 +33,7 @@ async function carregarSolucoes() {
 
   if (!lista) return;
 
-  const user = await usuarioAtual();
+  const { data: { user } } = await supabase.auth.getUser();
 
   const [{ data: setores }, { data: perfil }] = await Promise.all([
     supabase.from("setores").select("id, nome"),
@@ -203,7 +202,7 @@ async function carregarChamados() {
 
   if (!corpo) return;
 
-  const user = await usuarioAtual();
+  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return;
 
