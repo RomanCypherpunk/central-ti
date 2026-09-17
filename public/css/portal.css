@@ -3501,6 +3501,44 @@ body.portal-pagina {
   color: var(--texto-3);
 }
 
+/*ITEM COM INTERRUPTOR (Notificações): o texto ocupa o espaço disponível,
+  o interruptor fica colado na direita — mesma linha, sem quebrar layout
+  dos outros itens do menu que não tem esse span extra.*/
+.quadro-menu__item--interruptor span[data-acao-notificacoes-texto] {
+  flex: 1;
+}
+
+.quadro-menu__interruptor {
+  position: relative;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1rem;
+  border-radius: 999px;
+  background-color: var(--borda);
+  transition: background-color 0.15s ease;
+}
+
+.quadro-menu__interruptor::before {
+  content: "";
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background-color: var(--superficie);
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.quadro-menu__item--interruptor[aria-checked="true"] .quadro-menu__interruptor {
+  background-color: var(--laranja);
+}
+
+.quadro-menu__item--interruptor[aria-checked="true"] .quadro-menu__interruptor::before {
+  transform: translateX(0.75rem);
+}
+
 .quadro-menu__item:hover {
   background-color: var(--superficie-2);
 }

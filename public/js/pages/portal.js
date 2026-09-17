@@ -266,13 +266,13 @@ async function quemEstaAtendendo() {
 
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("perfil")
+    .select("perfil, notificacoes_ativas")
     .eq("id", user.id)
     .single();
 
   if (!["analista", "admin"].includes(perfil?.perfil)) return null;
 
-  return { id: user.id, perfil: perfil.perfil };
+  return { id: user.id, perfil: perfil.perfil, notificacoesAtivas: perfil.notificacoes_ativas };
 }
 
 //RODAPE DO CARD: QUEM ESTA ATENDENDO. Foto maior e o primeiro nome ao lado,
@@ -3936,6 +3936,71 @@ function ligarQuadroMenu(exportar) {
   });
 }
 
+//NOTIFICACOES DO NAVEGADOR: chamado novo no Inbox, resposta do
+//solicitante num chamado onde a pessoa e atendente, e ser adicionado como
+//atendente. Um interruptor so, liga tudo junto — a preferencia mora em
+//usuarios.notificacoes_ativas (opt-in explicito; a permissao do proprio
+//navegador ja e opt-in, mas sem isto o navegador perguntaria nao
+//esperar toda vez que a pagina carrega, mesmo pra quem ja recusou).
+//Retorna { notificar } para ligarTempoReal disparar as notificacoes sem
+//duplicar a checagem de permissao/preferencia em cada gatilho.
+function ligarNotificacoes(atendente, ativasNoCadastro) {
+  const item = document.querySelector("[data-acao-notificacoes]");
+
+  let ativas = Boolean(ativasNoCadastro) && typeof Notification !== "undefined"
+    && Notification.permission === "granted";
+
+  function desenhar() {
+    item.setAttribute("aria-checked", String(ativas));
+  }
+
+  desenhar();
+
+  // Preferencia dizia "ligado" mas a permissao do navegador nao existe (ou
+  // foi revogada depois) — sem isto o interruptor mentiria "ligado" sem
+  // nenhuma notificacao nunca aparecer.
+  if (ativasNoCadastro && typeof Notification !== "undefined" && Notification.permission !== "granted") {
+    supabase.from("usuarios").update({ notificacoes_ativas: false }).eq("id", atendente);
+  }
+
+  item.addEventListener("click", async () => {
+    if (ativas) {
+      ativas = false;
+      desenhar();
+      await supabase.from("usuarios").update({ notificacoes_ativas: false }).eq("id", atendente);
+      return;
+    }
+
+    if (typeof Notification === "undefined") {
+      alert("Este navegador não suporta notificações.");
+      return;
+    }
+
+    const permissao = Notification.permission === "granted"
+      ? "granted"
+      : await Notification.requestPermission();
+
+    if (permissao !== "granted") {
+      alert("Notificações bloqueadas no navegador. Permita o site nas configurações do navegador para ativar.");
+      return;
+    }
+
+    ativas = true;
+    desenhar();
+    await supabase.from("usuarios").update({ notificacoes_ativas: true }).eq("id", atendente);
+  });
+
+  //DISPARA SO SE A PESSOA LIGOU E O NAVEGADOR PERMITE — checagem unica
+  //aqui, os gatilhos em ligarTempoReal so montam titulo/corpo.
+  function notificar(titulo, corpo) {
+    if (!ativas) return;
+
+    new Notification(titulo, { body: corpo, icon: "assets/img/logo-1x1.png" });
+  }
+
+  return { notificar };
+}
+
 //EXPORTAR: PLANILHA CSV COM OS CHAMADOS CRIADOS NUM PERIODO (em aberto e
 //finalizados). Usa os chamados que ja estao em memoria — os mesmos do
 //quadro, atualizados pelo tempo real —, sem ir de novo ao banco.
@@ -4632,7 +4697,14 @@ function atualizarResumo(chamados, totalFilas) {
 //caminho so para desenhar, e o RLS continua decidindo o que cada um ve.
 //Mudanca em usuarios (cor, foto, nome) atualiza a pessoa onde ela aparece.
 //Precisa da migration 20260914160000_realtime_portal.sql aplicada.
-function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, terceiros }) {
+function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, terceiros, atendente, notificar }) {
+  //FILA DE ENTRADA: a de menor `ordem`, nao a que se chama literalmente
+  //"Inbox" — assim continua certo se a equipe renomear a fila algum dia.
+  const filaDeEntrada = filas.reduce(
+    (menor, fila) => (fila.ordem < menor.ordem ? fila : menor),
+    filas[0],
+  );
+
   const pendentes = new Map(); // chamado_id -> timeout da busca agendada
   let esperaRessincronizar = null;
   let jaConectou = false;
@@ -4715,10 +4787,62 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
   //O CHAMADO QUE VEIO DO BANCO ENTRA NO ARRAY. Chamado ja conhecido e
   //atualizado no mesmo objeto (Object.assign), e nao trocado: o detalhe
   //aberto e a busca seguram a referencia dele.
+  //TRES AVISOS: chamado novo na fila de entrada, resposta do solicitante
+  //num chamado onde a pessoa e atendente, e ter sido adicionado como
+  //atendente. Roda ANTES do Object.assign — precisa do estado de ANTES
+  //(existente) pra comparar com o que chegou (dados) e nao repetir aviso
+  //de coisa que ja tinha acontecido antes desta carga.
+  //Sem notificacao pra chamado que a propria pessoa acabou de criar/
+  //responder/atribuir (ve isso na hora, na propria tela) — so eventos de
+  //outra pessoa. E sem avisar com a aba em foco: quem esta olhando o
+  //quadro ja ve o card mudar.
+  function avisarSeForNovidade(existente, dados) {
+    if (document.hasFocus()) return;
+
+    const rotulo = tituloDoChamado(dados);
+
+    // 1) CHAMADO NOVO NA FILA DE ENTRADA.
+    if (!existente) {
+      if (dados.fila_id === filaDeEntrada?.id) {
+        notificar(rotulo, "Novo chamado");
+      }
+      return;
+    }
+
+    // 2) RESPOSTA DO SOLICITANTE, EM CHAMADO ONDE SOU ATENDENTE.
+    const souAtendente = (dados.chamado_membros ?? [])
+      .some((membro) => membro.usuario_id === atendente);
+
+    if (souAtendente) {
+      const comentariosNovos = (dados.comentarios ?? [])
+        .filter((comentario) => !(existente.comentarios ?? []).some((c) => c.id === comentario.id));
+
+      const respostaDoSolicitante = comentariosNovos.find((comentario) =>
+        comentario.tipo === "humano" && comentario.autor_id === dados.solicitante_id);
+
+      if (respostaDoSolicitante) {
+        const nome = primeiroNome(respostaDoSolicitante.usuarios ?? dados.usuarios);
+        notificar(rotulo, `${nome} respondeu seu chamado`);
+        return;
+      }
+    }
+
+    // 3) FUI ADICIONADO COMO ATENDENTE (nao tava, agora ta).
+    const jaEraMembro = (existente.chamado_membros ?? [])
+      .some((membro) => membro.usuario_id === atendente);
+
+    if (!jaEraMembro && souAtendente) {
+      notificar(rotulo, "Você foi adicionado como atendente");
+    }
+  }
+
   function guardarChamado(dados) {
     aplicarCores(dados);
 
     const existente = chamados.find((chamado) => chamado.id === dados.id);
+
+    avisarSeForNovidade(existente, dados);
+
     const chamado = existente ? Object.assign(existente, dados) : dados;
 
     if (!existente) chamados.unshift(chamado);
@@ -5077,6 +5201,7 @@ async function montarQuadro() {
   ligarBusca(chamados.data, filas.data, detalhe);
   const exportar = ligarExportar(chamados.data, filas.data, carregarFechados);
   ligarQuadroMenu(exportar);
+  const notificacoes = ligarNotificacoes(atendente, usuarioAtendendo.notificacoesAtivas);
   ligarFiltros(chamados.data, equipe.data ?? [], filas.data);
   finalizados = ligarFinalizados(chamados.data, filas.data, detalhe, carregarFechados);
   ligarFundo();
@@ -5092,6 +5217,8 @@ async function montarQuadro() {
     detalhe,
     finalizados,
     terceiros: terceiros.data ?? [],
+    atendente,
+    notificar: notificacoes.notificar,
   });
 }
 

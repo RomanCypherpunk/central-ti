@@ -3596,6 +3596,72 @@ Testado visualmente com o CSS real, tema claro e escuro — confirmado o
 título mais leve, as 4 cores de status na faixa da base, e a etiqueta de
 prioridade de volta ao visual original (uppercase, sem borda).
 
+### 2026-09-17 — Notificações do navegador no Portal
+
+Interruptor único no menu de 3 pontinhos do quadro ("Notificações do
+navegador"), opt-in por usuário. Três gatilhos, todos usando a Web
+Notification API nativa (sem Service Worker/push — só dispara enquanto o
+Portal está aberto em alguma aba, decisão explícita do usuário pra evitar
+a complexidade de manter um servidor de push):
+
+1. **Chamado novo na fila de entrada** — "Novo chamado"
+2. **Solicitante respondeu um chamado onde a pessoa é atendente** —
+   "{Nome} respondeu seu chamado"
+3. **Foi adicionado como atendente de um chamado** — "Você foi adicionado
+   como atendente" (sem nome de quem adicionou — decisão do usuário pra
+   não precisar de uma consulta extra a cada evento)
+
+Nenhuma notificação dispara com `document.hasFocus()` (aba do Portal em
+primeiro plano) — quem está olhando o quadro já vê o card mudar sozinho.
+
+**Banco**: migration `20260917130000_notificacoes_navegador.sql` — coluna
+`usuarios.notificacoes_ativas boolean default false`. RLS já cobria (a
+policy "usuarios: edita os próprios dados" permite `id = auth.uid()`
+mudar qualquer coluna própria); conferido que os triggers de proteção
+(`bloquear_autoaprovacao`, `protege_perfil_usuario`) só disparam em mudança
+de `setor_id`/`perfil`/`status_aprovacao`/`ativo` — uma coluna nova e
+alheia a essas não é bloqueada.
+
+**Fila de entrada identificada por `ordem` (menor valor), não pelo nome
+"Inbox" literal** — decisão do usuário pra não quebrar se a fila for
+renomeada no futuro.
+
+**Implementação** (`portal.js`):
+- `ligarNotificacoes(atendente, ativasNoCadastro)`: cuida do toggle
+  (visual + `Notification.requestPermission()` só quando a pessoa liga),
+  persiste a preferência, e se auto-corrige — se o banco diz "ligado" mas
+  a permissão do navegador foi revogada depois (ex: bloqueado nas
+  configurações do Chrome), desliga sozinho no banco pra não mentir um
+  estado "ligado" que nunca notificaria nada. Retorna `{ notificar }`
+  para os gatilhos chamarem sem duplicar a checagem de
+  permissão/preferência em cada um.
+- `ligarTempoReal` ganhou dois parâmetros novos (`atendente`, `notificar`)
+  e uma função `avisarSeForNovidade(existente, dados)`, chamada de dentro
+  de `guardarChamado` **antes** do `Object.assign` que funde os dados
+  novos no objeto em memória — precisa comparar o estado de antes
+  (`existente`) com o que chegou (`dados`) pra saber o que é realmente
+  novo (comentário que não existia, membro que não estava na lista) em
+  vez de notificar de novo algo que já tinha acontecido antes desta
+  carga.
+- Item de menu novo em `portal.html`, com um `<span class="quadro-menu__
+  interruptor">` (switch visual, `role="switch"`/`aria-checked`) — CSS
+  novo em `portal.css` reaproveitando `var(--laranja)` pro estado ligado
+  e uma transição de 0.15s na bolinha, consistente com o resto do app.
+
+Testado com um teste de lógica isolado (Node, copiando o corpo exato de
+`avisarSeForNovidade`) cobrindo os 8 cenários: chamado novo na fila de
+entrada (notifica), chamado novo em outra fila (não notifica), resposta
+do solicitante sendo atendente (notifica com o nome), novo comentário mas
+não sou atendente daquele chamado (não notifica), novo comentário mas de
+um colega da equipe — não do solicitante (não notifica), adicionado como
+atendente agora (notifica), aba com foco (nunca notifica, mesmo com
+evento real), e mudança irrelevante num chamado onde já era atendente
+(não notifica). Testado visualmente o toggle (ligado/desligado, tema
+claro e escuro) num harness com o CSS real — o fluxo de permissão do
+navegador em si (`Notification.requestPermission()`) não dá pra simular
+em teste automatizado, precisa ser conferido manualmente no navegador
+real.
+
 ## Fase 6 — Automação e integrações
 
 **Status: não iniciada.**

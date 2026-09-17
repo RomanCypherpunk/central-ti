@@ -172,6 +172,22 @@
             Tickets finalizados
           </button>
 
+          <!--NOTIFICACOES DO NAVEGADOR: chamado novo no Inbox, resposta do
+              solicitante em chamado onde sou atendente, e quando me
+              adicionam como atendente. Interruptor unico, liga tudo junto.
+              O texto/estado e trocado pelo portal.js.-->
+          <button class="quadro-menu__item quadro-menu__item--interruptor" type="button"
+                  data-acao-notificacoes role="switch" aria-checked="false">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M12 3.5a5 5 0 0 0-5 5v3.2c0 .6-.2 1.2-.6 1.7l-1.1 1.4c-.6.8 0 1.9 1 1.9h11.4c1 0 1.6-1.1 1-1.9l-1.1-1.4c-.4-.5-.6-1.1-.6-1.7V8.5a5 5 0 0 0-5-5Z"
+                    fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+              <path d="M10 19.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round"/>
+            </svg>
+            <span data-acao-notificacoes-texto>Notificações do navegador</span>
+            <span class="quadro-menu__interruptor" aria-hidden="true"></span>
+          </button>
+
           <!--PAINEL: SO ADMIN. Nasce escondido e o main.js revela, igual ao
               atalho do Portal no menu do perfil. A pagina tambem barra na
               entrada (painel-guard.js), entao esconder aqui e so conforto.-->
