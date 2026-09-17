@@ -8,28 +8,16 @@
 // Roda depois de auth-guard.js (senão sessão nula quebra a consulta) e antes
 // do script da própria página, para redirecionar antes dela buscar dados.
 //
-// VISIBILIDADE: auth-guard.js já revelou o body assim que confirmou a
-// sessão — antes deste guard decidir. Reesconde e só revela de novo depois
-// de confirmar aprovado, senão a tela pisca por um instante para quem está
-// pendente.
-import { supabase } from "./config/supabase-config.js";
+// ESPERA: o body nasce com data-carregando e a tela tem data-guarda, então o
+// auth-guard deixa o esqueleto no lugar. Quem o tira é esta guarda, depois
+// de confirmar a aprovação — a tela não pisca para quem está pendente.
+//
+// O perfil vem de sessao.js, lido uma vez só e compartilhado com o main.js.
+import { exigir } from "./sessao.js";
 
-document.body.style.visibility = "hidden";
-
-const { data: { user } } = await supabase.auth.getUser();
-
-if (user) {
-  const { data: perfil } = await supabase
-    .from("usuarios")
-    .select("status_aprovacao, ativo")
-    .eq("id", user.id)
-    .single();
-
-  const aprovado = perfil?.status_aprovacao === "aprovado" && perfil?.ativo;
-
-  if (!aprovado) {
-    window.location.href = "index.html";
-  } else {
-    document.body.style.visibility = "visible";
-  }
+if (await exigir((permissoes) => permissoes.aprovado, "index.html")) {
+  // Aprovado: o esqueleto sai e o conteudo aparece. Reprovado, a pessoa e
+  // levada embora com o esqueleto ainda na tela — nunca chega a ver o
+  // conteudo de uma tela que nao e dela.
+  delete document.body.dataset.carregando;
 }

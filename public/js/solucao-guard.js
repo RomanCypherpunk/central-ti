@@ -13,28 +13,16 @@
 //
 // Roda depois de auth-guard.js e antes do nova-solucao.js.
 //
-// VISIBILIDADE: auth-guard.js já revelou o body ao confirmar a sessão.
-// Reesconde e só revela de novo depois de confirmar o perfil.
-import { supabase } from "./config/supabase-config.js";
+// ESPERA: o body nasce com data-carregando e a tela tem data-guarda, então o
+// auth-guard deixa o esqueleto no lugar. Quem o tira é esta guarda, depois
+// de confirmar o perfil.
+//
+// O perfil vem de sessao.js, lido uma vez só e compartilhado com o main.js.
+import { exigir } from "./sessao.js";
 
-document.body.style.visibility = "hidden";
-
-const { data: { user } } = await supabase.auth.getUser();
-
-if (user) {
-  const { data: perfil } = await supabase
-    .from("usuarios")
-    .select("perfil, ativo, status_aprovacao")
-    .eq("id", user.id)
-    .single();
-
-  const podeEscrever = ["contribuinte", "analista", "admin"].includes(perfil?.perfil)
-    && perfil?.status_aprovacao === "aprovado"
-    && perfil?.ativo;
-
-  if (podeEscrever) {
-    document.body.style.visibility = "visible";
-  } else {
-    window.location.href = "base.html";
-  }
+if (await exigir((permissoes) => permissoes.escreveArtigo, "base.html")) {
+  // Aprovado: o esqueleto sai e o conteudo aparece. Reprovado, a pessoa e
+  // levada embora com o esqueleto ainda na tela — nunca chega a ver o
+  // conteudo de uma tela que nao e dela.
+  delete document.body.dataset.carregando;
 }

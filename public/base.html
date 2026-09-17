@@ -7,6 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
+  <!--A BIBLIOTECA DO SUPABASE COMECA A BAIXAR JUNTO COM O CSS. Sem isto ela
+       so era descoberta no fim da cadeia html -> main.js -> sessao.js ->
+       supabase-config.js, e a tela esperava essa fila inteira.-->
+  <link rel="modulepreload" href="js/vendor/supabase-js.js">
   <link rel="icon" href="assets/img/favicon.ico">
   <!--GERA O PDF DA SOLUCAO, DO LADO DO CLIENTE, SEM SERVIDOR-->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -16,8 +20,9 @@
       localStorage.getItem("sidebarColapsada") === "true" ? "colapsada" : "expandida";
   </script>
   <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/esqueleto.css">
 </head>
-<body style="visibility: hidden">
+<body class="base-pagina" data-carregando data-guarda>
   <nav class="sidebar">
     <div class="sidebar__topo">
       <a class="sidebar__logo-link" href="index.html"><img class="sidebar__logo" src="assets/img/logo-claro.svg" alt="Gasometro"></a>

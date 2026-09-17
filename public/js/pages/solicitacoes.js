@@ -8,6 +8,7 @@
 //   Portal "Fechado"            -> aqui "Fechado"
 
 import { supabase } from "../config/supabase-config.js";
+import { usuarioAtual } from "../sessao.js";
 import { pintarFoto } from "../componentes/avatar.js";
 
 const lista = document.querySelector("[data-lista]");
@@ -616,7 +617,7 @@ function abrirChamadoDaUrl() {
 }
 
 async function carregar() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioAtual();
 
   if (!user) return;
 

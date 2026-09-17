@@ -20,6 +20,7 @@
 // descrição legível, que é o que a equipe lê na ficha do Portal.
 
 import { supabase } from "../config/supabase-config.js";
+import { usuarioAtual, meuPerfil, permissoes } from "../sessao.js";
 
 const passoTipo = document.querySelector("[data-passo-tipo]");
 const formulario = document.querySelector("[data-formulario]");
@@ -389,6 +390,13 @@ document.querySelectorAll("[data-trocar-tipo]").forEach((botao) => {
 
 let artigos = null;
 let lendoArtigos = null;
+//Por que a busca nao achou nada: fica visivel na tela quando da zero. Sem
+//isso, "nao encontrei nada" tanto podia ser pedido sem solucao quanto base
+//vazia, erro de permissao ou coluna faltando — e nao havia como saber qual.
+let erroDaBase = "";
+//Administrador ve a base inteira na triagem; os demais perfis, so o setor
+//deles. Vem do mesmo cadastro que o topo e os guards ja leram.
+let souAdmin = false;
 let textoDaTriagem = "";
 let esperaBusca = null;
 
@@ -396,6 +404,10 @@ let esperaBusca = null;
 const MINIMO_PARA_BUSCAR = 6;
 
 function carregarArtigos() {
+  // Sem esperar: quando a resposta chegar, ela so muda o filtro da proxima
+  // busca — e a pessoa ainda esta escrevendo.
+  meuPerfil().then((perfil) => { souAdmin = permissoes(perfil).admin; });
+
   if (artigos) return Promise.resolve(artigos);
   if (lendoArtigos) return lendoArtigos;
 
@@ -408,8 +420,11 @@ function carregarArtigos() {
 
       if (error) {
         console.warn("Triagem: não foi possível ler a base de soluções.", error);
+        erroDaBase = error.message ?? "erro ao ler a base";
         return [];
       }
+
+      erroDaBase = "";
 
       artigos = data ?? [];
 
@@ -468,19 +483,31 @@ const GRUPOS_DE_SINONIMOS = [
   ["backup", "restaurar", "recuperar", "perdi", "apagou", "sumido"],
   ["erro", "falha", "bug", "problema", "mensagem", "alerta", "codigo"],
   ["entrega", "romaneio", "carga", "expedicao", "logistica", "transporte"],
-  ["orcamento", "pedido", "pre-venda", "prevenda"],
+  ["orcamento", "pedido", "pre-venda", "prevenda", "proposta"],
+  ["cancelar", "cancelamento", "cancelado", "excluir", "estornar", "estorno"],
+  ["retornar", "retorno", "devolucao", "devolver", "troca", "trocar", "reverter"],
 ];
 
+//O mapa é montado depois de `radical` existir (mais abaixo), então fica numa
+//função chamada uma vez, na primeira busca.
 const IRMAS_DA_PALAVRA = new Map();
 
-GRUPOS_DE_SINONIMOS.forEach((grupo) => {
-  grupo.forEach((palavra) => {
-    const irmas = IRMAS_DA_PALAVRA.get(palavra) ?? new Set();
+function montarSinonimos() {
+  if (IRMAS_DA_PALAVRA.size) return;
 
-    grupo.forEach((outra) => { if (outra !== palavra) irmas.add(outra); });
-    IRMAS_DA_PALAVRA.set(palavra, irmas);
+  GRUPOS_DE_SINONIMOS.forEach((grupo) => {
+    grupo.forEach((palavra) => {
+      // Guardado pela palavra e pelo radical dela: quem escrever "devolvendo"
+      // também cai no grupo de "devolver".
+      [palavra, radical(palavra)].forEach((chave) => {
+        const irmas = IRMAS_DA_PALAVRA.get(chave) ?? new Set();
+
+        grupo.forEach((outra) => { if (outra !== palavra) irmas.add(outra); });
+        IRMAS_DA_PALAVRA.set(chave, irmas);
+      });
+    });
   });
-});
+}
 
 function palavrasDe(texto) {
   return normalizar(texto)
@@ -510,15 +537,57 @@ function distancia(a, b) {
   return linha[b.length];
 }
 
+//RADICAL DA PALAVRA: corta a terminação e deixa o miolo, que é onde mora o
+//sentido. Quem pede escreve o verbo ("cancelar um pedido"); quem cadastrou a
+//solução escreveu o substantivo ("Cancelamento de pedido"). Sem isto as duas
+//palavras não se encontravam de jeito nenhum — nem por prefixo, nem por
+//distância de letras — e a solução certa ficava invisível.
+//
+//A ordem da lista importa: terminação maior primeiro, senão "cancelamento"
+//perderia só o "o" e viraria "cancelament". O corte só vale se sobrarem 4
+//letras, para "mento" não comer "momento".
+const TERMINACOES = [
+  "issimos", "issimas", "issimo", "issima",
+  "amentos", "imentos", "amento", "imento",
+  "acoes", "icoes", "coes", "acao", "icao", "cao",
+  "adores", "adoras", "ador", "adora",
+  "izacao", "izar", "izado",
+  "antes", "ante", "ancia", "ancias",
+  "eiros", "eiras", "eiro", "eira",
+  "aveis", "iveis", "avel", "ivel",
+  "mente",
+  "ados", "adas", "idos", "idas", "ado", "ada", "ido", "ida",
+  "ando", "endo", "indo",
+  "aram", "eram", "iram", "aria", "eria", "iria",
+  "amos", "emos", "imos",
+  "ar", "er", "ir", "as", "es", "os", "a", "e", "o", "s",
+];
+
+function radical(palavra) {
+  for (const fim of TERMINACOES) {
+    if (palavra.length - fim.length >= 4 && palavra.endsWith(fim)) {
+      return palavra.slice(0, -fim.length);
+    }
+  }
+
+  return palavra;
+}
+
 //O QUANTO DUAS PALAVRAS SAO A MESMA COISA: 1 igual, menos que isso conforme
-//a semelhança. O prefixo cobre plural e conjugação ("impressoras",
-//"travando"); a distância cobre o erro de digitação.
+//a semelhança. O radical cobre a família da palavra (cancelar, cancelamento,
+//cancelado); o prefixo cobre plural e conjugação ("impressoras", "travando");
+//a distância cobre o erro de digitação.
 function semelhanca(escrita, doArtigo) {
   if (escrita === doArtigo) return 1;
 
   const menor = Math.min(escrita.length, doArtigo.length);
 
   if (menor >= 4 && (escrita.startsWith(doArtigo) || doArtigo.startsWith(escrita))) return 0.9;
+
+  const raizEscrita = radical(escrita);
+  const raizDoArtigo = radical(doArtigo);
+
+  if (raizEscrita.length >= 4 && raizEscrita === raizDoArtigo) return 0.85;
 
   const tolerancia = menor >= 8 ? 2 : menor >= 5 ? 1 : 0;
 
@@ -544,7 +613,13 @@ function prepararArtigo(artigo) {
 
   artigo.__palavras = {
     titulo: palavrasDe(artigo.titulo),
-    conteudo: palavrasDe(artigo.conteudo),
+    conteudo: palavrasDe([
+      artigo.conteudo,
+      // O passo a passo e onde mora o vocabulario de quem faz: "F5", "aba
+      // fiscal", "reiniciar o servico". Fora do indice, uma busca que
+      // usasse essas palavras nao achava a solucao que as ensina.
+      ...(artigo.passos ?? []).map((passo) => passo?.texto ?? ""),
+    ].filter(Boolean).join(" ")),
     sintomas: palavrasDe((artigo.sintomas ?? []).join(" ")),
     modulo: palavrasDe(artigo.modulo),
     codigo: palavrasDe(artigo.codigo_erro),
@@ -559,8 +634,9 @@ function prepararArtigo(artigo) {
 //pessoa usou vale mais do que acertar a prima dela.
 function notaDaPalavra(palavra, preparado) {
   const tentativas = [{ termo: palavra, ajuste: 1 }];
+  const irmas = IRMAS_DA_PALAVRA.get(palavra) ?? IRMAS_DA_PALAVRA.get(radical(palavra)) ?? [];
 
-  (IRMAS_DA_PALAVRA.get(palavra) ?? []).forEach((irma) => {
+  irmas.forEach((irma) => {
     tentativas.push({ termo: irma, ajuste: 0.7 });
   });
 
@@ -599,7 +675,17 @@ function pontuar(artigo, palavras, textoInteiro) {
   // responde a 1 de 5 provavelmente só repete uma palavra comum.
   const cobertura = acertos / palavras.length;
 
-  if (cobertura < 0.4) return 0;
+  // Quanto mais a pessoa escreve, mais palavras soltas entram no pedido
+  // ("do caixa 2", "desde ontem", "do pedido 4471") — e nenhuma solução vai
+  // cobrir todas. Por isso a exigência não é uma fração fixa: pedido curto
+  // precisa casar quase tudo; pedido longo precisa casar pelo menos duas
+  // palavras e um terço do que foi escrito. Sem isso, frase comprida (que é
+  // como as pessoas escrevem de verdade) nunca achava nada.
+  const minimoDeAcertos = palavras.length <= 2
+    ? palavras.length
+    : Math.max(2, Math.ceil(palavras.length * 0.3));
+
+  if (acertos < minimoDeAcertos) return 0;
 
   // O título dizer quase a mesma frase é o sinal mais forte que existe.
   const frase = preparado.__titulo.includes(textoInteiro) || textoInteiro.includes(preparado.__titulo)
@@ -613,16 +699,33 @@ function pontuar(artigo, palavras, textoInteiro) {
 // que não tem a ver.
 const NOTA_MINIMA = 2.2;
 
-//SO O QUE E DO SETOR DE QUEM ESTA ABRINDO. A policy do banco ja faz isso
-//para o solicitante comum, mas a equipe de TI e o autor enxergam a base
-//inteira — e recomendar aqui uma solucao de outro setor seria mandar a
-//pessoa mexer no que nao e o trabalho dela. Sem setor no cadastro, nada e
-//recomendado: nao da para saber o que serve.
+//NADA DE OUTRO SETOR. A policy do banco ja faz isso para o solicitante
+//comum, mas a equipe de TI e o autor enxergam a base inteira — e recomendar
+//aqui uma solucao de outro setor seria mandar a pessoa mexer no que nao e o
+//trabalho dela.
+//
+//Solucao SEM setor marcado vale para todos: a coluna `setores` nasceu depois
+//da base (migration 20260914120000), entao tudo que foi cadastrado antes
+//ficou com a lista vazia. Exigir o setor na lista derrubava justamente as
+//solucoes mais antigas, que sao a maioria — a triagem respondia "nao
+//encontrei nada" para qualquer busca.
 function doMeuSetor(artigo) {
-  return Boolean(solicitante.setorId) && (artigo.setores ?? []).includes(solicitante.setorId);
+  // ADMINISTRADOR VE A BASE INTEIRA: e quem cadastra e mantem as solucoes,
+  // e atende chamado de qualquer setor. A regra de setor existe para nao
+  // mandar quem e de Vendas mexer no que e do Financeiro — nao se aplica a
+  // quem cuida dos dois.
+  if (souAdmin) return true;
+
+  const setoresDoArtigo = artigo.setores ?? [];
+
+  if (!setoresDoArtigo.length) return true;
+
+  return Boolean(solicitante.setorId) && setoresDoArtigo.includes(solicitante.setorId);
 }
 
 function procurarSolucoes(texto, lista) {
+  montarSinonimos();
+
   const palavras = [...new Set(palavrasDe(texto))];
 
   if (!palavras.length) return [];
@@ -787,6 +890,31 @@ function desenharSolucoes(encontradas) {
   });
 }
 
+//QUANDO DA ZERO, A TELA DIZ POR QUE. Ajuda quem usa (reescrever com outras
+//palavras) e ajuda a TI a perceber base vazia ou erro de permissao, que de
+//fora parecem a mesma coisa: "nao encontrei nada".
+function motivoDeNaoAchar(lista) {
+  if (erroDaBase) {
+    return `Não consegui ler a base de soluções (${erroDaBase}). Abra o chamado que a equipe resolve.`;
+  }
+
+  if (!lista.length) return "A base de soluções não tem nenhuma solução cadastrada ainda.";
+
+  const procuradas = lista.filter(doMeuSetor).length;
+
+  if (!procuradas) {
+    return `Nenhuma das ${lista.length} soluções da base está marcada para o seu setor.`;
+  }
+
+  // Administrador procura na base inteira, então falar em "seu setor"
+  // confundiria: para ele os dois números são o mesmo.
+  const onde = souAdmin
+    ? `${procuradas} soluções da base`
+    : `${procuradas} de ${lista.length} soluções (as do seu setor)`;
+
+  return `Procurei nas ${onde}. Tente outras palavras ou abra o chamado.`;
+}
+
 async function buscarSolucoes() {
   const texto = campoTriagem.value.trim();
 
@@ -821,7 +949,7 @@ async function buscarSolucoes() {
     : "ninguém cadastrou uma solução para isso ainda";
   triagemDica.textContent = encontradas.length
     ? "Continue escrevendo para afinar a busca."
-    : "Continue escrevendo ou abra o chamado para a equipe.";
+    : motivoDeNaoAchar(lista);
   botaoTriagemTexto.textContent = encontradas.length
     ? "Nenhuma resolveu, abrir chamado"
     : "Abrir chamado para o TI";
@@ -901,7 +1029,7 @@ function aplicarAcessoRemotoSalvo() {
 }
 
 async function carregar() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioAtual();
 
   if (!user) return;
 

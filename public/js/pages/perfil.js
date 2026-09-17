@@ -1,6 +1,7 @@
 // Dados pessoais: foto, nome e troca de senha.
 
 import { supabase } from "../config/supabase-config.js";
+import { usuarioAtual, esquecerPerfil } from "../sessao.js";
 import { marcarMinhaFotoTrocada, urlDoAvatar, versaoDaMinhaFoto } from "../componentes/avatar.js";
 
 const foto = document.querySelector("[data-foto]");
@@ -72,7 +73,7 @@ function desenharFoto() {
 }
 
 async function carregar() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioAtual();
 
   if (!user) return;
 
@@ -137,6 +138,9 @@ fotoArquivo.addEventListener("change", async () => {
 
   eu.foto_path = caminho;
   fotoArquivo.value = "";
+  // O cadastro guardado em sessao.js ficou velho: quem ler depois nesta
+  // mesma pagina precisa ver a foto nova.
+  esquecerPerfil();
   // Gravou por cima do mesmo caminho: versao nova para esta tela, o topo e
   // as proximas paginas deixarem a foto antiga do cache.
   marcarMinhaFotoTrocada();
@@ -166,6 +170,7 @@ fotoRemover.addEventListener("click", async () => {
   }
 
   eu.foto_path = null;
+  esquecerPerfil();
   desenharFoto();
   avisarTopo({ fotoPath: null });
   avisar("Foto removida");
@@ -209,6 +214,7 @@ botaoSalvar.addEventListener("click", async () => {
 
   eu.nome = nome;
   eu.sobrenome = sobrenome;
+  esquecerPerfil();
   fotoIniciais.textContent = iniciais(nome, sobrenome);
   // O topo da pagina mostra so o primeiro nome; sem isso ele so mudaria ao recarregar.
   document.querySelector("[data-nome]").textContent = nome;

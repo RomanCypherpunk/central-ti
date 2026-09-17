@@ -1,0 +1,53 @@
+/* ==========================================================================
+   ESQUELETO ENQUANTO CONFIRMA QUEM E
+
+   Antes, toda tela protegida nascia com o body escondido e só aparecia
+   quando a sessão (e, em algumas, o perfil) era confirmada — uma tela branca
+   no meio do caminho.
+
+   Agora a maioria das telas aparece na hora: a casca (topo, faixa, títulos,
+   tabela vazia) é HTML estático, não tem dado de ninguém, e o topo já vem
+   preenchido do que está guardado no navegador.
+
+   O esqueleto ficou só onde esconder é questão de permissão — Portal,
+   Painel, Base e Nova solução, que têm data-guarda no body. Lá o cinza cobre
+   o conteúdo até a guarda confirmar o perfil, e quem não pode entrar é
+   levado embora sem nunca ver a tela.
+   ========================================================================== */
+
+/*Cobre da base do topo (84px) para baixo. Fixo e por cima: não depende de
+  cada página ter um lugar próprio para o esqueleto.*/
+body[data-carregando]::after {
+  content: "";
+  position: fixed;
+  inset: 84px 0 0;
+  z-index: 40;
+  background-color: #f4f5f7;
+  background-image: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 20%,
+    rgba(255, 255, 255, 0.9) 40%,
+    rgba(255, 255, 255, 0) 60%
+  );
+  background-size: 250% 100%;
+  animation: esqueleto-respira 1.4s ease-in-out infinite;
+}
+
+/*A base e a nova solução não têm o topo de 84px: o menu lateral fica à
+  esquerda e o conteúdo começa no alto da tela.*/
+body.base-pagina[data-carregando]::after,
+body.solucao-pagina[data-carregando]::after {
+  inset: 0;
+}
+
+@keyframes esqueleto-respira {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+
+/*QUEM PEDE MENOS MOVIMENTO: o cinza fica parado, sem pulsar.*/
+@media (prefers-reduced-motion: reduce) {
+  body[data-carregando]::after {
+    animation: none;
+  }
+}
