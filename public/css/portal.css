@@ -46,17 +46,20 @@ body.portal-pagina {
   /*ETIQUETAS, STATUS E ERRO: CORES COM SIGNIFICADO. NO ESCURO O FUNDO
     FICA ESCURO E O TEXTO CLARO, SENAO O CONTRASTE SOME.*/
   --etiqueta-urgente-fundo: #fdeceb;
+  --etiqueta-urgente-borda: #f3bcbc;
   --etiqueta-urgente-texto: #b02a2a;
   --etiqueta-prioridade-fundo: #fff4e0;
+  --etiqueta-prioridade-borda: #f0d199;
   --etiqueta-prioridade-texto: #9a5b00;
   --etiqueta-normal-fundo: #f0f0f1;
   --etiqueta-normal-texto: #6b6b70;
-  /*ABERTO azul, AGUARDANDO RETORNO verde, USUARIO RESPONDEU amarelo,
-    FECHADO cinza — o cinza apaga o que ja saiu do fluxo de trabalho.*/
-  --status-aberto: #2c5c96;
-  --status-aguardando: #2f9e44;
-  --status-respondeu: #a37a0a;
-  --status-fechado: #8a8a8a;
+  /*ABERTO cinza (neutro, ainda sem urgencia), AGUARDANDO RETORNO amarelo
+    (atencao, bola com o usuario), USUARIO RESPONDEU vermelho (bola com a
+    equipe, precisa de acao), FECHADO verde (resolvido).*/
+  --status-aberto: #6b6b70;
+  --status-aguardando: #9a5b00;
+  --status-respondeu: #b02a2a;
+  --status-fechado: #2f9e44;
   --erro-fundo: #fdeceb;
   --erro-borda: #f3bcbc;
   --erro-texto: #b02a2a;
@@ -91,15 +94,17 @@ body.portal-pagina {
 
   /*MESMOS SIGNIFICADOS, INVERTIDOS: FUNDO ESCURO DESSATURADO E TEXTO CLARO*/
   --etiqueta-urgente-fundo: #3d1f1f;
+  --etiqueta-urgente-borda: #6b3232;
   --etiqueta-urgente-texto: #f1a3a3;
   --etiqueta-prioridade-fundo: #3a2c14;
+  --etiqueta-prioridade-borda: #6b5323;
   --etiqueta-prioridade-texto: #e8bd73;
   --etiqueta-normal-fundo: #2f3036;
   --etiqueta-normal-texto: #a8a8ad;
-  --status-aberto: #7aa9de;
-  --status-aguardando: #5fc77c;
-  --status-respondeu: #d9b441;
-  --status-fechado: #8f8f96;
+  --status-aberto: #a8a8ad;
+  --status-aguardando: #e8bd73;
+  --status-respondeu: #f1a3a3;
+  --status-fechado: #5fc77c;
   --erro-fundo: #3d1f1f;
   --erro-borda: #6b3232;
   --erro-texto: #f1a3a3;
@@ -832,23 +837,29 @@ body.portal-pagina {
    CARD DO CHAMADO
    ========================================================================== */
 
+/*CARD ESTILO SHADCN, DENSIDADE TRELLO: o quadro real vai acumular
+  dezenas de chamados por coluna, entao altura de card importa mais que
+  respiro generoso. Borda fina, cantos moderados, badges compactos — e o
+  status virou uma faixa full-width embaixo (nao um badge numa linha
+  propria) pra economizar altura, no mesmo espirito do Trello.*/
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.3125rem;
-  padding: 0.5rem 0.5rem 0.4375rem;
+  gap: 0.25rem;
+  padding: 0.5rem 0.5625rem 0 0.6875rem;
   border: 1px solid var(--borda);
-  border-radius: 7px;
+  border-radius: 8px;
   background-color: var(--superficie);
-  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.05);
+  box-shadow: var(--sombra-card);
   cursor: grab;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .card:hover {
   border-color: var(--realce-borda);
-  box-shadow: 0 6px 16px rgba(26, 26, 26, 0.09);
-  transform: translateY(-1px);
+  box-shadow: var(--sombra-card-alta);
 }
 
 /*CARD SENDO ARRASTADO: SAI DO CAMINHO VISUALMENTE*/
@@ -857,13 +868,14 @@ body.portal-pagina {
   cursor: grabbing;
 }
 
-/*ETIQUETAS DE PRIORIDADE: SO APARECEM QUANDO A FLAG ESTA MARCADA*/
 .card__etiquetas {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
 }
 
+/*ETIQUETA COMO ERA ANTES DO REDESIGN SHADCN: so fundo solido, sem borda,
+  cantos discretos — usuario preferiu esse aspecto ao pill com borda.*/
 .card__etiqueta {
   padding: 0.0625rem 0.3125rem;
   border-radius: 3px;
@@ -888,28 +900,53 @@ body.portal-pagina {
   color: var(--etiqueta-normal-texto);
 }
 
-/*TITULO: CATEGORIA | TICKET-NNN*/
+/*TITULO: O ELEMENTO DE MAIOR PESO DO CARD. O numero do ticket vem junto
+  (tituloDoChamado ja formata "Categoria | Ticket-NNN" quando nao ha
+  titulo proprio), entao nao tem span separado pro numero. Duas linhas no
+  maximo — titulo maior que isso corta com reticencias, o resto do texto
+  esta disponivel no detalhe.*/
 .card__titulo {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
   margin: 0;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
+  font-weight: 500;
   line-height: 1.35;
   color: var(--texto);
 }
 
-.card__categoria {
-  font-weight: 600;
-}
-
-.card__numero {
-  color: var(--texto-2);
-}
-
-/*STATUS: DERIVADO DOS COMENTARIOS, MESMO VOCABULARIO VISUAL DA HOME*/
-.card__status {
-  display: inline-flex;
+/*MEMBROS: FOTO + NOME DE QUEM ESTA ATENDENDO. SO OCUPA ESPACO QUANDO TEM
+  ALGUEM NO CHAMADO — sem linha divisoria propria, o espacamento do card
+  ja separa visualmente.*/
+.card__membros {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.3125rem;
-  font-size: 0.625rem;
+  gap: 0.25rem 0.5rem;
+}
+
+.card__membros:empty {
+  display: none;
+  margin: 0;
+}
+
+/*STATUS: FAIXA FULL-WIDTH NA BASE DO CARD, como o rotulo colorido do
+  Trello — fundo solido (nao so 12% de opacidade: precisa ler bem numa
+  faixa fina, nao so num badge) com `margin` negativa vazando ate a
+  borda do card (compensa o padding do .card) e cantos inferiores
+  arredondados acompanhando o card.*/
+.card__status {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.375rem -0.5625rem 0 -0.6875rem;
+  padding: 0.25rem 0.6875rem;
+  border-radius: 0 0 7px 7px;
+  font-size: 0.5625rem;
+  font-weight: 600;
 }
 
 .card__status::before {
@@ -921,36 +958,23 @@ body.portal-pagina {
 }
 
 .card__status--aberto {
+  background-color: color-mix(in srgb, var(--status-aberto) 14%, var(--superficie));
   color: var(--status-aberto);
 }
 
 .card__status--aguardando {
+  background-color: color-mix(in srgb, var(--status-aguardando) 14%, var(--superficie));
   color: var(--status-aguardando);
 }
 
 .card__status--respondeu {
+  background-color: color-mix(in srgb, var(--status-respondeu) 14%, var(--superficie));
   color: var(--status-respondeu);
 }
 
 .card__status--fechado {
+  background-color: var(--superficie-2);
   color: var(--status-fechado);
-}
-
-/*MEMBROS: RODAPE DO CARD COM QUEM ESTA ATENDENDO — FOTO E NOME LADO A LADO.
-  Uma linha fina separa do resto; com mais de um membro, quebra de linha.
-  SO OCUPA ESPACO QUANDO TEM ALGUEM NO CHAMADO*/
-.card__membros {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.625rem;
-  margin-top: 0.125rem;
-  padding-top: 0.375rem;
-  border-top: 1px solid var(--borda-suave);
-}
-
-.card__membros:empty {
-  display: none;
 }
 
 .card__membro-chip {
@@ -1009,9 +1033,12 @@ body.portal-pagina {
 
 /*TERCEIRO NO CARD: mesmo circulo do avatar, icone de empresa em vez de
   foto — igual ao chip do detalhe, so no tamanho do card.*/
+/*--superficie-2 e quase preto no escuro (pensada pra fundo de pagina, nao
+  pra avatar dentro de um card ja escuro) — sem contraste com --superficie
+  do card, o avatar do terceiro sumia. color-mix clareia so aqui.*/
 .card__membro--terceiro {
-  background-color: var(--superficie-2);
-  color: var(--texto-3);
+  background-color: color-mix(in srgb, var(--texto-3) 20%, var(--superficie));
+  color: var(--texto-2);
 }
 
 /*A FOTO E A MESMA DE "Dados pessoais", SEJA NO CARD, NO CHIP DE MEMBRO

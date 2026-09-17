@@ -3414,7 +3414,7 @@ não abre formulário embutido — é um link (`<a>`) para
 `?id=` na URL (o mesmo parâmetro que a Base usa pra abrir em modo edição).
 Abre em nova aba (`target="_blank"`) pra não perder o chamado que a
 equipe estava atendendo, já que cadastrar uma solução do zero leva mais
-tempo que send a resposta rápida.
+tempo que enviar uma resposta rápida.
 
 `.rapidos__novo` (a classe do botão) ganhou `display: block`,
 `box-sizing: border-box`, `text-align: center` e `text-decoration: none`
@@ -3423,6 +3423,178 @@ Rápidos) quanto num `<a>` (Soluções), e um link não herda o layout de
 bloco/centralizado que um botão tem por padrão. Testado visualmente num
 harness com o CSS real, tema claro e escuro — idêntico ao botão de Textos
 Rápidos nos dois.
+
+### 2026-09-17 — Faixa lateral no card pelo status (Portal)
+
+Mesma ideia que já existia na tela "Minhas solicitações" do solicitante:
+o card do quadro kanban ganha uma marcação colorida de acordo com o
+status derivado (`derivarStatus`, chamado-comum.js). Duas rodadas com o
+usuário: a primeira versão contornava o card inteiro, achou "muito
+baiano" — trocado por uma faixa fina colada só na borda esquerda (3px,
+acompanhando o arredondado do card). Regra final:
+
+- Aberto → sem faixa (card neutro de sempre)
+- Fechado → sem faixa
+- Aguardando retorno (do usuário) → faixa verde, reaproveitando
+  `--status-aguardando` (mesma cor que já colore o selo de texto)
+- Usuário respondeu → faixa vermelha, usando `--erro-texto` (cor nova só
+  pra faixa; o selo de texto continua âmbar como já era)
+
+Implementado com uma função pequena (`aplicarContornoDoStatus`, antes de
+`montarCard` em portal.js) que troca as classes
+`card--contorno-aguardando`/`card--contorno-respondeu` no elemento
+raiz do card. Chamada em dois lugares: dentro de `montarCard` (toda vez
+que o card nasce ou é substituído por `reconciliarCard`) e dentro de
+`atualizarStatusDoCard` (que só troca o selo em memória sem recriar o
+card inteiro — sem isto a faixa ficaria desatualizada depois de responder
+um chamado sem fechar e reabrir o modal). CSS: `.card` ganhou
+`position: relative`, e a faixa é um `::before` absoluto (`top/bottom: 1px,
+left: 1px, width: 3px`) em vez de mexer no `border` do card — evita
+complicar o `border-radius`/padding existentes.
+
+Testado visualmente num harness com os 4 estados lado a lado e o CSS real
+de `portal.css`, tema claro e escuro — aberto/fechado sem contorno,
+aguardando com borda verde, respondeu com borda vermelha (a cor no escuro
+é mais clara, `#f1a3a3`, pra manter contraste no fundo escuro).
+
+### 2026-09-17 — Redesign do card do quadro (padrão shadcn/ui)
+
+Usuário achou a faixa lateral bonita mas o card em geral "muito baiano" e
+pediu redesign completo no padrão visual shadcn/ui (bordas finas em vez de
+sombra pesada, badges com fundo+borda suaves, hierarquia por
+espaçamento/peso tipográfico em vez de cor decorativa), reorganizando
+urgência, título, status, membros e a faixa lateral. Consultada a skill
+`ui-ux-pro-max` (domínio `style`) para confirmar a direção — minimalismo,
+sombra discreta, cor com propósito semântico — antes de desenhar.
+
+Duas decisões confirmadas com o usuário antes de implementar: manter foto
++ nome nos chips de membro (não trocar por avatares empilhados sem nome,
+que seria mais "shadcn puro" mas menos informativo de relance), e manter
+o número do ticket junto do título numa linha só (não separar em elemento
+monospace de canto).
+
+Mudanças em `portal.css` (a estrutura DOM de `montarCard` em portal.js já
+batia com o novo CSS — nenhuma mudança de JS foi necessária, só de
+classe/estilo):
+
+- `.card`: padding mais generoso e assimétrico (`0.75rem 0.75rem 0.625rem
+  1rem`, a folga extra à esquerda abre espaço pra faixa lateral), sombra
+  restrita às variáveis já existentes (`--sombra-card`/`--sombra-card-alta`,
+  sem duplicar valores de rgba soltos), transição só em
+  `border-color`/`box-shadow` (tirou o `transform: translateY` do hover —
+  mais quieto, sem "flutuar" o card a cada passada de mouse).
+- `.card__etiqueta` (Urgente/Prioridade/Normal): virou badge pill de
+  verdade — fundo + borda da mesma família de cor (duas variáveis novas,
+  `--etiqueta-urgente-borda`/`--etiqueta-prioridade-borda`, claro e
+  escuro), não só texto colorido solto.
+- `.card__status`: mesma lógica de badge, cor de fundo gerada com
+  `color-mix()` a partir da própria `--status-*` (12% de opacidade sobre
+  a superfície do card) em vez de criar mais 8 variáveis de fundo — o selo
+  de texto deixa de ser só "bolinha + palavra colorida" e ganha o mesmo
+  peso visual das etiquetas de prioridade.
+- `.card__titulo`: subiu de 0.6875rem pra 0.75rem e ganhou peso 600 —
+  agora é o elemento de maior destaque do card, como pedido.
+- `.card__membro--terceiro`: bug de contraste encontrado durante o teste
+  visual (não introduzido agora, mas evidenciado pelo redesign) —
+  `--superficie-2` é quase preto no tema escuro (pensada pra fundo de
+  página, não pra avatar dentro de um card já escuro), o avatar de
+  terceiro ficava praticamente invisível. Trocado por
+  `color-mix(in srgb, var(--texto-3) 20%, var(--superficie))`, que clareia
+  relativo à superfície do próprio card — legível nos dois temas agora.
+- Removido `.card__numero`/`.card__categoria` do CSS: eram estilos órfãos
+  (nenhum HTML/JS os usa — o título é um único `textContent`, sem
+  sub-spans), ficaram evidentes ao reescrever o bloco do título.
+
+Testado visualmente com 4 cards (um de cada status, um deles com 3
+membros incluindo um terceiro) num harness com o CSS real, tema claro e
+escuro — badges legíveis, faixa lateral preservada, avatar de terceiro
+com contraste corrigido nos dois temas.
+
+### 2026-09-17 — Card do quadro mais compacto (densidade Trello)
+
+Usuário mandou print do quadro Trello real da equipe (dezenas de cards
+por coluna) e apontou que o card do redesign anterior ficaria alto demais
+numa coluna cheia de verdade. Compactado mantendo o padrão shadcn (badges
+pill, hierarquia por peso/espaçamento), mas repensando o formato do
+status e reduzindo tamanhos/espaçamentos em toda a vertical do card. Duas
+decisões confirmadas com o usuário antes de implementar: status virou uma
+**faixa colorida full-width na base do card** (não mais um badge numa
+linha própria — mesmo padrão do rótulo "Esperando Resposta do Usuário" no
+Trello, bem mais baixo que um badge com padding generoso); etiquetas e
+título continuam em linhas separadas (não lado a lado), só com menos
+espaço entre elas.
+
+Mudanças em `portal.css`:
+
+- `.card`: padding reduzido e assimétrico (`0.5rem 0.5625rem 0
+  0.6875rem` — zero embaixo, porque a faixa de status precisa encostar na
+  borda inferior), `gap` interno de `0.5rem` pra `0.25rem`, `overflow:
+  hidden` (pra faixa de status não vazar do border-radius do card).
+- `.card__titulo`: ganhou `-webkit-line-clamp: 2` — corta em duas linhas
+  com reticências em vez de crescer o card inteiro com títulos longos (o
+  texto completo continua disponível ao abrir o chamado).
+- `.card__status`: deixou de ser badge pill numa linha própria e virou
+  faixa full-width — `margin` negativa (`-0.5625rem`/`-0.6875rem`,
+  compensando o padding do `.card`) faz ela vazar até a borda, cantos
+  inferiores arredondados acompanham o `border-radius` do card, fundo
+  subiu de 12% pra 14% de opacidade (precisa ler numa faixa fina, não só
+  num badge pequeno).
+- `.card__membros`: perdeu a borda superior/`padding-top` que separava do
+  resto — o espaçamento geral do card, já reduzido, dá conta de separar
+  visualmente sem precisar de linha divisória.
+- Reordenado em `montarCard` (portal.js): membros agora vem *antes* do
+  status no DOM (etiquetas → título → membros → status), porque o status
+  precisa ser o último filho pra faixa colada na base funcionar.
+  `atualizarStatusDoCard` não precisou mudar — só edita `className`/
+  `textContent` do elemento já existente, sem reordenar.
+
+**Faixa lateral removida**: perguntado ao usuário se mantinha a faixa
+lateral esquerda (da tarefa anterior) junto com a nova faixa de baixo —
+resposta foi tirar a lateral, já que a faixa de baixo sozinha já comunica
+a cor com clareza e ficava redundante ter as duas. Removida a função
+`aplicarContornoDoStatus` e as classes `card--contorno-aguardando`/
+`--respondeu` inteiras (JS e CSS) — a cor do status agora vive só na
+faixa da base.
+
+Testado visualmente com o CSS real, tema claro e escuro, incluindo um
+card com título propositalmente longo (confirma o corte em 2 linhas) e
+um com 2 membros (confirma alinhamento da faixa de status colada na
+borda mesmo com conteúdo variável acima).
+
+### 2026-09-17 — Ajustes finos: peso do título, cores de status, etiquetas voltam ao antigo
+
+Três ajustes rápidos depois do redesign do card, todos pedidos pelo
+usuário depois de ver o resultado:
+
+1. **Título menos bold**: `.card__titulo` de `font-weight: 600` (semibold)
+   pra `500` (medium) — o 600 ficou pesado demais pro gosto do usuário.
+
+2. **Cores do status trocadas**: mapeamento novo, nada a ver com o antigo
+   (que era aberto=azul, aguardando=verde, respondeu=âmbar,
+   fechado=cinza). Agora:
+   - Aberto → cinza (`#6b6b70` claro / `#a8a8ad` escuro) — neutro, ainda
+     sem nada pra equipe fazer
+   - Aguardando retorno → amarelo/laranja (`#9a5b00` claro / `#e8bd73`
+     escuro)
+   - Usuário respondeu → vermelho (`#b02a2a` claro / `#f1a3a3` escuro)
+   - Fechado → verde (`#2f9e44` claro / `#5fc77c` escuro) — resolvido
+   Só as 4 variáveis `--status-*` mudaram de valor; nenhuma classe CSS
+   nova, o `card__status--*` já lia essas variáveis desde o redesign
+   anterior.
+
+3. **Etiquetas de prioridade voltam ao estilo pré-shadcn**: do pedido
+   original de redesign, a única coisa que o usuário não gostou foi o
+   badge pill com borda nas etiquetas Urgente/Prioridade/Normal.
+   Revertido pra como era antes: sem borda, cantos discretos (3px em vez
+   de pill), `text-transform: uppercase`, `letter-spacing: 0.04em`, fundo
+   sólido lendo `--etiqueta-normal-fundo` (não mais `--superficie-2`). As
+   variáveis `--etiqueta-urgente-borda`/`--etiqueta-prioridade-borda`
+   (criadas pro visual com borda) ficaram sem uso — não removidas, mas
+   inofensivas.
+
+Testado visualmente com o CSS real, tema claro e escuro — confirmado o
+título mais leve, as 4 cores de status na faixa da base, e a etiqueta de
+prioridade de volta ao visual original (uppercase, sem borda).
 
 ## Fase 6 — Automação e integrações
 

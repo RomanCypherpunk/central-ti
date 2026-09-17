@@ -439,18 +439,20 @@ function montarCard(chamado) {
   titulo.textContent = tituloDoChamado(chamado);
   card.appendChild(titulo);
 
-  //STATUS
+  //MEMBROS: antes do status no DOM porque o status agora e uma faixa
+  //full-width que fecha o card embaixo — precisa ser o ultimo filho.
+  const membros = document.createElement("div");
+  membros.className = "card__membros";
+  desenharMembrosDoCard(membros, chamado.chamado_membros, chamado.chamado_terceiros);
+  card.appendChild(membros);
+
+  //STATUS: faixa full-width na base do card — a cor do status vive so
+  //aqui agora, sem duplicar num contorno lateral.
   const status = derivarStatus(chamado);
   const selo = document.createElement("span");
   selo.className = `card__status card__status--${status.chave}`;
   selo.textContent = status.rotulo;
   card.appendChild(selo);
-
-  //MEMBROS
-  const membros = document.createElement("div");
-  membros.className = "card__membros";
-  desenharMembrosDoCard(membros, chamado.chamado_membros, chamado.chamado_terceiros);
-  card.appendChild(membros);
 
   // Ja nasce escondido se nao passa no filtro: vale para a carga, para o
   // chamado que chega pelo tempo real e para o reaberto.
