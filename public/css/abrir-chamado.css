@@ -855,3 +855,187 @@ body {
     transform: none;
   }
 }
+
+/* --------------------------------------------------------------------------
+   TRIAGEM (so no suporte TI): as solucoes que a base achou
+   -------------------------------------------------------------------------- */
+
+.triagem__lista {
+  display: grid;
+  gap: 0.625rem;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.triagem__lista:empty {
+  display: none;
+}
+
+/*Cada solucao e um cartao clicavel inteiro, como as portas da home, so que
+  mais baixo: aqui sao varios de uma vez.*/
+.triagem__solucao {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9375rem 1.125rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background-color: #fff;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+
+.triagem__solucao:hover {
+  border-color: #f0b394;
+  background-color: #fffaf6;
+  transform: translateY(-1px);
+}
+
+.triagem__solucao:focus-visible {
+  outline: 2px solid #f87800;
+  outline-offset: 2px;
+}
+
+.triagem__selo {
+  justify-self: start;
+  padding: 0.125rem 0.5rem;
+  border-radius: 3px;
+  background-color: rgba(221, 91, 18, 0.1);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c24f00;
+}
+
+.triagem__titulo {
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 1rem;
+  color: #14181f;
+}
+
+.triagem__resumo {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #55606e;
+}
+
+.triagem__ver {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #c24f00;
+}
+
+/*Linha de apoio embaixo do campo da triagem: diz o que esta acontecendo
+  (procurando, achou, nao achou) sem tirar a pessoa de onde ela escreve.*/
+.triagem__dica {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/*A SOLUCAO ABRE DENTRO DA TRIAGEM. O cabecalho virou botao (antes era link
+  para a Base): mesmos cantos e mesma borda do cartao, mas sem a aparencia
+  de botao do navegador.*/
+.triagem__item {
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background-color: #fff;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.triagem__item--aberto {
+  border-color: #f0b394;
+}
+
+.triagem__solucao {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.triagem__solucao:hover {
+  transform: none;
+}
+
+.triagem__item--aberto .triagem__solucao {
+  background-color: #fffaf6;
+}
+
+.triagem__ver {
+  font-family: "Sora", system-ui, sans-serif;
+}
+
+/*O PASSO A PASSO, ABERTO NO LUGAR*/
+.triagem__detalhe {
+  padding: 0 1.125rem 1.125rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.triagem__detalhe[hidden] {
+  display: none;
+}
+
+.triagem__onde {
+  margin: 0.875rem 0 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c24f00;
+}
+
+.triagem__conteudo {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #14181f;
+}
+
+.triagem__passos {
+  margin: 0.875rem 0 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  color: #14181f;
+}
+
+.triagem__passos li::marker {
+  font-weight: 700;
+  color: #dd5b12;
+}
+
+.triagem__passo-texto {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.triagem__passo-imagem {
+  display: block;
+  max-width: 100%;
+  margin-top: 0.5rem;
+  border: 1px solid #e4e8ee;
+  border-radius: 3px;
+}
+
+.triagem__anexos {
+  margin: 0.875rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+}
+
+.triagem__anexos a {
+  color: #c24f00;
+}
+
+/*Aberto, o resumo do cabecalho sai: o texto completo logo abaixo comeca
+  pelas mesmas palavras, e ler duas vezes a mesma frase confunde.*/
+.triagem__item--aberto .triagem__resumo {
+  display: none;
+}

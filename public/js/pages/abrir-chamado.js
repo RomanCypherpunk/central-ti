@@ -1,12 +1,13 @@
 // Abrir chamado.
 //
-// Por enquanto é a porta de entrada do "Novo chamado" da home. O caminho
-// certo, quando a triagem existir, é passar por ela antes (triagem.html) e
-// só chegar aqui se a base de soluções não resolver.
+// Porta de entrada do "Novo chamado" da home.
 //
-// Dois passos: escolher o tipo — cadastro de colaborador, desligamento de
-// colaborador ou suporte TI — e preencher o formulário daquele tipo. O tipo
-// vai na URL (?tipo=cadastro), então o voltar do navegador volta às caixas.
+// Escolher o tipo — cadastro de colaborador, desligamento de colaborador ou
+// suporte TI — e preencher o formulário daquele tipo. O suporte tem um passo
+// a mais no meio: a triagem, onde a Base de Soluções tenta resolver antes de
+// virar chamado (cadastro e desligamento não passam por ela — não há solução
+// pronta para procurar). O passo vai na URL (?tipo=suporte&passo=triagem),
+// então o voltar do navegador refaz o caminho.
 //
 // Em todos os tipos, "Quem está abrindo" (nome, e-mail, setor e unidade) vem
 // do cadastro de quem está logado e não pode ser alterado; a unidade do
@@ -38,6 +39,18 @@ const perfilOutro = document.querySelector("[data-perfil-outro]");
 const campoRepassar = document.querySelector("[data-repassar-emails]");
 const caixaExcluirEmail = document.querySelector("[data-excluir-email]");
 
+//TRIAGEM (so no suporte TI)
+const passoTriagem = document.querySelector("[data-passo-triagem]");
+const triagemIcone = document.querySelector("[data-triagem-icone]");
+const campoTriagem = document.querySelector("[data-triagem-texto]");
+const triagemDica = document.querySelector("[data-triagem-dica]");
+const resultadoTriagem = document.querySelector("[data-triagem-resultado]");
+const triagemTitulo = document.querySelector("[data-triagem-titulo]");
+const triagemAjuda = document.querySelector("[data-triagem-ajuda]");
+const triagemLista = document.querySelector("[data-triagem-lista]");
+const botaoTriagemChamado = document.querySelector("[data-triagem-chamado]");
+const botaoTriagemTexto = document.querySelector("[data-triagem-chamado-texto]");
+
 const TAMANHO_MAXIMO = 10 * 1024 * 1024;
 
 // padraoCategoria: como achar a categoria do tipo pelo nome (a migration
@@ -60,7 +73,7 @@ let pendentes = []; // { arquivo, previa: URL local da imagem, ou null }
 let tipoAtual = null;
 
 // Quem está abrindo, lido do cadastro. unidadeId vai no chamado.
-let solicitante = { nome: "", email: "", setor: "", unidade: "", unidadeId: null };
+let solicitante = { nome: "", email: "", setor: "", unidade: "", unidadeId: null, setorId: null };
 
 // Último acesso remoto que esta pessoa informou em um chamado anterior.
 // Guardado aqui (e não só escrito no campo) porque o formulario.reset() do
@@ -227,17 +240,38 @@ const VALIDADORES = {
 };
 
 /* ==========================================================================
-   PASSOS: CAIXAS DE TIPO <-> FORMULARIO
+   PASSOS: CAIXAS DE TIPO -> TRIAGEM (so suporte) -> FORMULARIO
    ========================================================================== */
 
 function mostrarTipos() {
   tipoAtual = null;
   passoTipo.hidden = false;
+  passoTriagem.hidden = true;
   formulario.hidden = true;
   sucesso.hidden = true;
   avisar("");
 
   window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+//TRIAGEM: só o suporte passa por ela. A pessoa escreve o que precisa, a
+//Base de Soluções tenta resolver na hora e o chamado só fica liberado
+//depois dessa tentativa.
+function mostrarTriagem() {
+  tipoAtual = "suporte";
+
+  triagemIcone.innerHTML = passoTipo.querySelector("[data-icone-tipo=suporte]").innerHTML;
+
+  passoTipo.hidden = true;
+  formulario.hidden = true;
+  sucesso.hidden = true;
+  passoTriagem.hidden = false;
+
+  window.scrollTo({ top: 0, behavior: "instant" });
+  campoTriagem.focus({ preventScroll: true });
+
+  // Adianta a leitura da base enquanto a pessoa escreve.
+  carregarArtigos();
 }
 
 function mostrarFormulario(tipo) {
@@ -253,9 +287,19 @@ function mostrarFormulario(tipo) {
   tipoNome.textContent = TIPOS[tipo].titulo;
 
   passoTipo.hidden = true;
+  passoTriagem.hidden = true;
   sucesso.hidden = true;
   formulario.hidden = false;
   avisar("");
+
+  // O que a pessoa escreveu na triagem já vai na descrição: ela não digita
+  // duas vezes a mesma coisa. Só preenche campo vazio, para não apagar o
+  // que ela mesma escreveu ao voltar para a triagem e vir de novo.
+  const descricao = campo("descricao");
+
+  if (tipo === "suporte" && textoDaTriagem && descricao && !descricao.value.trim()) {
+    descricao.value = textoDaTriagem;
+  }
 
   // Sempre abre no topo. O foco no primeiro campo não pode rolar a página
   // (sem preventScroll o navegador descia até ele).
@@ -265,34 +309,536 @@ function mostrarFormulario(tipo) {
     ?.focus({ preventScroll: true });
 }
 
-function tipoDaUrl() {
-  const tipo = new URLSearchParams(window.location.search).get("tipo");
+//O passo vive na URL (?tipo=suporte&passo=triagem), então o voltar do
+//navegador refaz o caminho: formulário -> triagem -> caixas de tipo.
+function passoDaUrl() {
+  const parametros = new URLSearchParams(window.location.search);
+  const tipo = parametros.get("tipo");
 
-  return Object.hasOwn(TIPOS, tipo ?? "") ? tipo : null;
+  if (!Object.hasOwn(TIPOS, tipo ?? "")) return { tipo: null, triagem: false };
+
+  return { tipo, triagem: parametros.get("passo") === "triagem" };
 }
 
 // O voltar do navegador não deve devolver a rolagem antiga: cada passo
 // começa no topo.
 if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
 
-function irPara(tipo) {
-  window.history.pushState({ tipo }, "", tipo ? `?tipo=${tipo}` : window.location.pathname);
+function aplicarPasso(tipo, triagem) {
+  if (!tipo) mostrarTipos();
+  else if (triagem) mostrarTriagem();
+  else mostrarFormulario(tipo);
+}
 
-  if (tipo) mostrarFormulario(tipo); else mostrarTipos();
+function irPara(tipo, { triagem = false } = {}) {
+  const endereco = tipo
+    ? `?tipo=${tipo}${triagem ? "&passo=triagem" : ""}`
+    : window.location.pathname;
+
+  window.history.pushState({ tipo, triagem }, "", endereco);
+  aplicarPasso(tipo, triagem);
 }
 
 window.addEventListener("popstate", () => {
-  const tipo = tipoDaUrl();
+  const { tipo, triagem } = passoDaUrl();
 
-  if (tipo) mostrarFormulario(tipo); else mostrarTipos();
+  aplicarPasso(tipo, triagem);
 });
 
 passoTipo.querySelectorAll("[data-escolher-tipo]").forEach((caixa) => {
-  caixa.addEventListener("click", () => irPara(caixa.dataset.escolherTipo));
+  const tipo = caixa.dataset.escolherTipo;
+
+  // Suporte passa pela triagem; cadastro e desligamento vão direto ao
+  // formulário — não há solução pronta para procurar, o pedido é sempre
+  // trabalho da equipe.
+  caixa.addEventListener("click", () => irPara(tipo, { triagem: tipo === "suporte" }));
 });
 
-formulario.querySelectorAll("[data-trocar-tipo]").forEach((botao) => {
-  botao.addEventListener("click", () => irPara(null));
+// "Voltar" no formulário do suporte devolve a triagem (a pessoa pode rever
+// as soluções); nos outros casos, e na própria triagem, volta às caixas.
+document.querySelectorAll("[data-trocar-tipo]").forEach((botao) => {
+  const naTriagem = Boolean(botao.closest("[data-passo-triagem]"));
+
+  botao.addEventListener("click", () => {
+    if (!naTriagem && tipoAtual === "suporte") irPara("suporte", { triagem: true });
+    else irPara(null);
+  });
+});
+
+/* ==========================================================================
+   TRIAGEM: A BASE DE SOLUCOES ANTES DO CHAMADO
+   ==========================================================================
+
+   A busca roda enquanto a pessoa escreve, aqui no navegador. Os artigos são
+   lidos uma vez (são poucos; a Base de Soluções carrega todos do mesmo
+   jeito) e o RLS já limita ao que ela pode ver.
+
+   Ninguém escreve igual ao título do artigo, então comparar texto com texto
+   acharia quase nada. A busca tenta entender o pedido em quatro camadas:
+
+   1. Tira o ruído: acento, pontuação e palavras que não dizem nada
+      ("preciso", "de", "não está").
+   2. Entende sinônimos do dia a dia: "pc", "máquina" e "computador" são a
+      mesma coisa; "travando" e "lento" também.
+   3. Aceita plural e erro de digitação: "impressoras" acha "impressora",
+      "impresora" também.
+   4. Cobra abrangência: achar 1 palavra de 6 não é achar a solução. Quanto
+      maior a parte do pedido que o artigo cobre, mais alto ele fica — e o
+      que cobre pouco nem aparece, para não recomendar qualquer coisa.
+   ========================================================================== */
+
+let artigos = null;
+let lendoArtigos = null;
+let textoDaTriagem = "";
+let esperaBusca = null;
+
+// Menos que isso ainda não é um pedido: "impressora" tem 10, "pc lento" 8.
+const MINIMO_PARA_BUSCAR = 6;
+
+function carregarArtigos() {
+  if (artigos) return Promise.resolve(artigos);
+  if (lendoArtigos) return lendoArtigos;
+
+  lendoArtigos = supabase
+    .from("artigos")
+    .select("id, titulo, conteudo, tipo, codigo_erro, modulo, sintomas, passos, anexos, setores")
+    .eq("ativo", true)
+    .then(({ data, error }) => {
+      lendoArtigos = null;
+
+      if (error) {
+        console.warn("Triagem: não foi possível ler a base de soluções.", error);
+        return [];
+      }
+
+      artigos = data ?? [];
+
+      return artigos;
+    });
+
+  return lendoArtigos;
+}
+
+function normalizar(texto) {
+  return (texto ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
+//PALAVRAS QUE NAO AJUDAM A ACHAR NADA. Aparecem em quase todo pedido
+//("preciso que", "nao esta funcionando") e, se contassem, empurrariam para
+//cima qualquer artigo comprido.
+const PALAVRAS_VAZIAS = new Set([
+  "a", "o", "as", "os", "um", "uma", "uns", "umas", "de", "do", "da", "dos", "das",
+  "e", "ou", "em", "no", "na", "nos", "nas", "ao", "aos", "pelo", "pela", "por",
+  "para", "pra", "com", "sem", "que", "se", "sobre", "ate", "desde", "mas",
+  "meu", "minha", "meus", "minhas", "seu", "sua", "nosso", "nossa", "dele", "dela",
+  "eu", "ele", "ela", "voce", "vc", "vcs", "nos", "aqui", "ali", "la", "esse", "essa",
+  "este", "esta", "isso", "isto", "aquele", "aquela",
+  "estou", "esta", "estao", "ta", "to", "tao", "sou", "somos", "foi", "era",
+  "tem", "tenho", "temos", "ter", "tinha", "vai", "vou", "fica", "ficou",
+  "fazer", "faz", "fiz", "quero", "queria", "preciso", "precisa", "precisava",
+  "pode", "posso", "podia", "consigo", "consegue", "deu", "dar", "acontece",
+  "muito", "mais", "menos", "ja", "so", "ainda", "sempre", "nunca", "agora",
+  "hoje", "ontem", "amanha", "depois", "antes", "quando", "onde", "como", "qual",
+  "quais", "porque", "por que", "favor", "ajuda", "urgente", "bom", "dia", "tarde", "noite",
+  "nao", "sim", "todos", "toda", "todo", "outra", "outro", "coisa", "algo", "alguem",
+]);
+
+//O QUE A PESSOA CHAMA DE UMA COISA E O ARTIGO CHAMA DE OUTRA. Cada linha é
+//um grupo: qualquer palavra do grupo também procura pelas irmãs, valendo um
+//pouco menos que a palavra escrita.
+const GRUPOS_DE_SINONIMOS = [
+  ["computador", "pc", "maquina", "desktop", "notebook", "note", "cpu", "gabinete"],
+  ["monitor", "tela", "display"],
+  ["teclado", "teclas", "tecla"],
+  ["mouse", "cursor"],
+  ["impressora", "imprimir", "impressao", "impresso", "cupom", "bobina", "etiqueta", "toner", "cartucho"],
+  ["internet", "rede", "wifi", "conexao", "conectar", "cabo", "sinal", "roteador", "offline"],
+  ["lento", "lentidao", "travando", "travou", "travado", "demorando", "demora", "devagar", "congelando", "lerdo"],
+  ["parado", "caiu", "fora", "indisponivel", "inoperante", "sumiu", "desligou"],
+  ["senha", "password", "login", "logar", "acesso", "acessar", "bloqueado", "bloqueio", "desbloquear", "resetar", "redefinir", "expirou", "usuario"],
+  ["email", "emails", "outlook", "correio", "mensagem", "caixa-de-entrada", "assinatura"],
+  ["sistema", "erp", "nl", "programa", "software", "aplicativo", "app"],
+  ["nota", "nf", "nfe", "nfce", "danfe", "faturamento", "faturar", "emitir", "emissao", "fiscal"],
+  ["boleto", "cobranca", "titulo", "pagamento", "financeiro"],
+  ["estoque", "inventario", "saldo", "produto", "cadastro"],
+  ["caixa", "pdv", "frente", "venda", "vendas", "cliente", "atendimento"],
+  ["telefone", "ramal", "celular", "ligacao", "voip"],
+  ["teams", "reuniao", "chamada", "video"],
+  ["excel", "planilha", "arquivo", "pasta", "documento"],
+  ["backup", "restaurar", "recuperar", "perdi", "apagou", "sumido"],
+  ["erro", "falha", "bug", "problema", "mensagem", "alerta", "codigo"],
+  ["entrega", "romaneio", "carga", "expedicao", "logistica", "transporte"],
+  ["orcamento", "pedido", "pre-venda", "prevenda"],
+];
+
+const IRMAS_DA_PALAVRA = new Map();
+
+GRUPOS_DE_SINONIMOS.forEach((grupo) => {
+  grupo.forEach((palavra) => {
+    const irmas = IRMAS_DA_PALAVRA.get(palavra) ?? new Set();
+
+    grupo.forEach((outra) => { if (outra !== palavra) irmas.add(outra); });
+    IRMAS_DA_PALAVRA.set(palavra, irmas);
+  });
+});
+
+function palavrasDe(texto) {
+  return normalizar(texto)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((palavra) => palavra.length >= 3 && !PALAVRAS_VAZIAS.has(palavra));
+}
+
+//DISTANCIA DE EDICAO: quantas letras teriam que mudar para uma palavra virar
+//a outra. É o que faz "impresora" achar "impressora".
+function distancia(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 3;
+
+  let linha = [...Array(b.length + 1).keys()];
+
+  for (let i = 1; i <= a.length; i += 1) {
+    const nova = [i];
+
+    for (let j = 1; j <= b.length; j += 1) {
+      nova[j] = a[i - 1] === b[j - 1]
+        ? linha[j - 1]
+        : 1 + Math.min(linha[j - 1], linha[j], nova[j - 1]);
+    }
+
+    linha = nova;
+  }
+
+  return linha[b.length];
+}
+
+//O QUANTO DUAS PALAVRAS SAO A MESMA COISA: 1 igual, menos que isso conforme
+//a semelhança. O prefixo cobre plural e conjugação ("impressoras",
+//"travando"); a distância cobre o erro de digitação.
+function semelhanca(escrita, doArtigo) {
+  if (escrita === doArtigo) return 1;
+
+  const menor = Math.min(escrita.length, doArtigo.length);
+
+  if (menor >= 4 && (escrita.startsWith(doArtigo) || doArtigo.startsWith(escrita))) return 0.9;
+
+  const tolerancia = menor >= 8 ? 2 : menor >= 5 ? 1 : 0;
+
+  if (tolerancia && distancia(escrita, doArtigo) <= tolerancia) return 0.75;
+
+  return 0;
+}
+
+//ONDE A PALAVRA APARECE MUDA O PESO: no título é do que o artigo trata; no
+//conteúdo pode ser um detalhe de passagem.
+const PESO_DOS_CAMPOS = [
+  { campo: "titulo", peso: 3 },
+  { campo: "codigo", peso: 3 },
+  { campo: "sintomas", peso: 2.5 },
+  { campo: "modulo", peso: 1.5 },
+  { campo: "conteudo", peso: 1.2 },
+];
+
+//O artigo pronto para comparar: cada campo virando lista de palavras. Feito
+//uma vez por artigo, não a cada tecla.
+function prepararArtigo(artigo) {
+  if (artigo.__palavras) return artigo;
+
+  artigo.__palavras = {
+    titulo: palavrasDe(artigo.titulo),
+    conteudo: palavrasDe(artigo.conteudo),
+    sintomas: palavrasDe((artigo.sintomas ?? []).join(" ")),
+    modulo: palavrasDe(artigo.modulo),
+    codigo: palavrasDe(artigo.codigo_erro),
+  };
+  artigo.__titulo = normalizar(artigo.titulo);
+
+  return artigo;
+}
+
+//A melhor nota que uma palavra escrita tira num artigo, olhando campo a
+//campo. As irmãs de sinônimo entram valendo 70%: acertar a palavra que a
+//pessoa usou vale mais do que acertar a prima dela.
+function notaDaPalavra(palavra, preparado) {
+  const tentativas = [{ termo: palavra, ajuste: 1 }];
+
+  (IRMAS_DA_PALAVRA.get(palavra) ?? []).forEach((irma) => {
+    tentativas.push({ termo: irma, ajuste: 0.7 });
+  });
+
+  let melhor = 0;
+
+  PESO_DOS_CAMPOS.forEach(({ campo, peso }) => {
+    preparado.__palavras[campo].forEach((doArtigo) => {
+      tentativas.forEach(({ termo, ajuste }) => {
+        const nota = semelhanca(termo, doArtigo) * peso * ajuste;
+
+        if (nota > melhor) melhor = nota;
+      });
+    });
+  });
+
+  return melhor;
+}
+
+function pontuar(artigo, palavras, textoInteiro) {
+  const preparado = prepararArtigo(artigo);
+
+  let soma = 0;
+  let acertos = 0;
+
+  palavras.forEach((palavra) => {
+    const nota = notaDaPalavra(palavra, preparado);
+
+    if (nota > 0) acertos += 1;
+    soma += nota;
+  });
+
+  if (!acertos) return 0;
+
+  // COBERTURA: de quantas palavras do pedido o artigo dá conta. Um artigo
+  // que responde a 4 de 5 palavras está falando do mesmo assunto; um que
+  // responde a 1 de 5 provavelmente só repete uma palavra comum.
+  const cobertura = acertos / palavras.length;
+
+  if (cobertura < 0.4) return 0;
+
+  // O título dizer quase a mesma frase é o sinal mais forte que existe.
+  const frase = preparado.__titulo.includes(textoInteiro) || textoInteiro.includes(preparado.__titulo)
+    ? 6
+    : 0;
+
+  return (soma + frase) * (0.4 + 0.6 * cobertura);
+}
+
+// Abaixo disso é palpite: melhor dizer que não achou do que recomendar algo
+// que não tem a ver.
+const NOTA_MINIMA = 2.2;
+
+//SO O QUE E DO SETOR DE QUEM ESTA ABRINDO. A policy do banco ja faz isso
+//para o solicitante comum, mas a equipe de TI e o autor enxergam a base
+//inteira — e recomendar aqui uma solucao de outro setor seria mandar a
+//pessoa mexer no que nao e o trabalho dela. Sem setor no cadastro, nada e
+//recomendado: nao da para saber o que serve.
+function doMeuSetor(artigo) {
+  return Boolean(solicitante.setorId) && (artigo.setores ?? []).includes(solicitante.setorId);
+}
+
+function procurarSolucoes(texto, lista) {
+  const palavras = [...new Set(palavrasDe(texto))];
+
+  if (!palavras.length) return [];
+
+  const textoInteiro = normalizar(texto).replace(/\s+/g, " ").trim();
+
+  return lista
+    .filter(doMeuSetor)
+    .map((artigo) => ({ artigo, pontos: pontuar(artigo, palavras, textoInteiro) }))
+    .filter((item) => item.pontos >= NOTA_MINIMA)
+    .sort((a, b) => b.pontos - a.pontos)
+    .slice(0, 4)
+    .map((item) => item.artigo);
+}
+
+function resumoDoArtigo(artigo) {
+  const texto = (artigo.conteudo ?? "").replace(/\s+/g, " ").trim();
+
+  return texto.length > 160 ? `${texto.slice(0, 160)}…` : texto;
+}
+
+//A SOLUCAO ABRE AQUI MESMO. Sair da triagem para a Base levaria embora o
+//texto que a pessoa escreveu e o caminho de volta; o passo a passo aparece
+//dentro do proprio cartao, e um de cada vez, para a tela nao virar uma
+//parede de texto.
+function montarPassos(passos) {
+  const lista = document.createElement("ol");
+  lista.className = "triagem__passos";
+
+  if (!passos?.length) {
+    const vazio = document.createElement("p");
+    vazio.className = "triagem__resumo";
+    vazio.textContent = "Esta solução ainda não tem passo a passo cadastrado.";
+
+    return vazio;
+  }
+
+  passos.forEach((passo) => {
+    const item = document.createElement("li");
+
+    const texto = document.createElement("p");
+    texto.className = "triagem__passo-texto";
+    texto.textContent = passo.texto ?? "";
+    item.appendChild(texto);
+
+    (passo.imagens ?? []).forEach((imagem) => {
+      const foto = document.createElement("img");
+      foto.className = "triagem__passo-imagem";
+      foto.src = imagem.url ?? imagem;
+      foto.alt = imagem.nome ?? "";
+      foto.loading = "lazy";
+      item.appendChild(foto);
+    });
+
+    lista.appendChild(item);
+  });
+
+  return lista;
+}
+
+function montarDetalhe(artigo) {
+  const detalhe = document.createElement("div");
+  detalhe.className = "triagem__detalhe";
+  detalhe.hidden = true;
+
+  const onde = [artigo.modulo, artigo.codigo_erro].filter(Boolean).join(" · ");
+
+  if (onde) {
+    const linha = document.createElement("p");
+    linha.className = "triagem__onde";
+    linha.textContent = onde;
+    detalhe.appendChild(linha);
+  }
+
+  if (artigo.conteudo?.trim()) {
+    const conteudo = document.createElement("p");
+    conteudo.className = "triagem__conteudo";
+    conteudo.textContent = artigo.conteudo.trim();
+    detalhe.appendChild(conteudo);
+  }
+
+  detalhe.appendChild(montarPassos(artigo.passos));
+
+  // Anexo é arquivo (PDF, planilha): abre fora, porque não há como mostrar
+  // aqui dentro — mas é escolha da pessoa, não um desvio do caminho dela.
+  if (artigo.anexos?.length) {
+    const anexos = document.createElement("ul");
+    anexos.className = "triagem__anexos";
+
+    artigo.anexos.forEach((anexo) => {
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+
+      link.href = anexo.url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = anexo.nome ?? "Anexo";
+      item.appendChild(link);
+      anexos.appendChild(item);
+    });
+
+    detalhe.appendChild(anexos);
+  }
+
+  return detalhe;
+}
+
+function desenharSolucoes(encontradas) {
+  triagemLista.replaceChildren();
+
+  encontradas.forEach((artigo) => {
+    const item = document.createElement("li");
+    item.className = "triagem__item";
+
+    const cabecalho = document.createElement("button");
+    cabecalho.type = "button";
+    cabecalho.className = "triagem__solucao";
+    cabecalho.setAttribute("aria-expanded", "false");
+
+    const selo = document.createElement("span");
+    selo.className = "triagem__selo";
+    selo.textContent = artigo.tipo === "erro" ? "Erro" : "Procedimento";
+
+    const titulo = document.createElement("span");
+    titulo.className = "triagem__titulo";
+    titulo.textContent = artigo.titulo ?? "Sem título";
+
+    const resumo = document.createElement("span");
+    resumo.className = "triagem__resumo";
+    resumo.textContent = resumoDoArtigo(artigo);
+
+    const acao = document.createElement("span");
+    acao.className = "triagem__ver";
+    acao.textContent = "Ver solução";
+
+    cabecalho.append(selo, titulo, resumo, acao);
+
+    const detalhe = montarDetalhe(artigo);
+
+    cabecalho.addEventListener("click", () => {
+      const abrindo = detalhe.hidden;
+
+      // Uma de cada vez: abrir a segunda fecha a primeira.
+      triagemLista.querySelectorAll(".triagem__detalhe").forEach((outro) => { outro.hidden = true; });
+      triagemLista.querySelectorAll(".triagem__solucao").forEach((outro) => {
+        outro.setAttribute("aria-expanded", "false");
+        outro.querySelector(".triagem__ver").textContent = "Ver solução";
+      });
+
+      detalhe.hidden = !abrindo;
+      cabecalho.setAttribute("aria-expanded", String(abrindo));
+      acao.textContent = abrindo ? "Fechar solução" : "Ver solução";
+      item.classList.toggle("triagem__item--aberto", abrindo);
+
+      triagemLista.querySelectorAll(".triagem__item").forEach((outro) => {
+        if (outro !== item) outro.classList.remove("triagem__item--aberto");
+      });
+    });
+
+    item.append(cabecalho, detalhe);
+    triagemLista.appendChild(item);
+  });
+}
+
+async function buscarSolucoes() {
+  const texto = campoTriagem.value.trim();
+
+  textoDaTriagem = texto;
+
+  // Pedido curto demais: ainda não dá para procurar nada, e o chamado
+  // continua fechado — a pessoa não passou pela tentativa.
+  if (texto.length < MINIMO_PARA_BUSCAR) {
+    resultadoTriagem.hidden = true;
+    triagemLista.replaceChildren();
+    triagemDica.textContent = "Escreva com as suas palavras. Procuramos na base de soluções sozinhos.";
+    return;
+  }
+
+  triagemDica.textContent = "Procurando soluções…";
+
+  const lista = await carregarArtigos();
+
+  // Enquanto a base carregava a pessoa continuou escrevendo: vale o último
+  // texto, não este.
+  if (campoTriagem.value.trim() !== texto) return;
+
+  const encontradas = procurarSolucoes(texto, lista);
+
+  desenharSolucoes(encontradas);
+
+  triagemTitulo.textContent = encontradas.length
+    ? "Isso pode resolver"
+    : "Não encontrei nada parecido";
+  triagemAjuda.textContent = encontradas.length
+    ? "clique numa solução para ver o passo a passo aqui"
+    : "ninguém cadastrou uma solução para isso ainda";
+  triagemDica.textContent = encontradas.length
+    ? "Continue escrevendo para afinar a busca."
+    : "Continue escrevendo ou abra o chamado para a equipe.";
+  botaoTriagemTexto.textContent = encontradas.length
+    ? "Nenhuma resolveu, abrir chamado"
+    : "Abrir chamado para o TI";
+
+  resultadoTriagem.hidden = false;
+}
+
+//A CADA TECLA, MAS NAO A CADA TECLA: 250ms parado é o suficiente para a
+//pessoa ter terminado a palavra, e evita redesenhar a lista no meio dela.
+campoTriagem.addEventListener("input", () => {
+  clearTimeout(esperaBusca);
+  esperaBusca = setTimeout(buscarSolucoes, 250);
+});
+
+botaoTriagemChamado.addEventListener("click", () => {
+  textoDaTriagem = campoTriagem.value.trim();
+  irPara("suporte");
 });
 
 //DESLIGAMENTO: "Repassar os e-mails para" so aparece enquanto "Excluir
@@ -401,6 +947,8 @@ async function carregar() {
     setor: nomeDoSetor.get(perfil.data.setor_id) ?? "",
     unidade: nomeDaUnidade.get(perfil.data.unidade_id) ?? "",
     unidadeId: perfil.data.unidade_id ?? null,
+    // Usado pela triagem: so recomenda solucao marcada para este setor.
+    setorId: perfil.data.setor_id ?? null,
   };
 
   formulario.querySelectorAll("[data-solicitante]").forEach((entrada) => {
@@ -921,9 +1469,10 @@ botaoOutro.addEventListener("click", () => {
   irPara(null);
 });
 
-// Entrou com ?tipo=... na URL (ou recarregou no meio do formulário): já abre o tipo.
-const tipoInicial = tipoDaUrl();
+// Entrou com ?tipo=... na URL (ou recarregou no meio da triagem/do
+// formulário): já abre no passo certo.
+const passoInicial = passoDaUrl();
 
-if (tipoInicial) mostrarFormulario(tipoInicial); else mostrarTipos();
+aplicarPasso(passoInicial.tipo, passoInicial.triagem);
 
 carregar();
