@@ -520,13 +520,15 @@ body.portal-pagina {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  width: 13.5rem;
-  /*CABE UM PUNHADO DE CARDS ANTES DE ROLAR POR DENTRO; sem isso uma fila
-    cheia passaria do rodape da tela. So o termo dvh precisa dividir pelo
-    zoom (ele mede a tela real); o 11rem ja escala sozinho, por estar
-    dentro do .portal (zoom nao herda, mas o rem do proprio elemento
-    segue o zoom aplicado nele normalmente).*/
-  max-height: calc((100dvh / var(--zoom-portal, 1)) - 11rem);
+  /*Mais larga desde que a letra do quadro cresceu (titulo 12 -> 14px): na
+    largura antiga o titulo quebrava em tres linhas e cortava cedo.*/
+  width: 15.5rem;
+  /*A COLUNA VAI ATE O FIM DO QUADRO, EM QUALQUER ZOOM. Antes a altura era
+    calculada a partir da tela (100dvh / zoom - 11rem), e os 11rem de
+    reserva escalavam junto com o zoom: em 130% a coluna terminava bem acima
+    do rodape, deixando um vao; em 70% passava do ponto. 100% do quadro nao
+    depende do zoom — o quadro ja e exatamente a area disponivel.*/
+  max-height: 100%;
   border: 1px solid var(--borda);
   border-radius: 9px;
   background-color: var(--superficie-2);
@@ -557,7 +559,7 @@ body.portal-pagina {
 .fila__nome {
   margin: 0;
   font-family: "Sora", system-ui, sans-serif;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.3;
   color: var(--texto);
@@ -565,11 +567,11 @@ body.portal-pagina {
 
 .fila__contador {
   flex-shrink: 0;
-  min-width: 1.125rem;
-  padding: 0.0625rem 0.3125rem;
+  min-width: 1.375rem;
+  padding: 0.0625rem 0.375rem;
   border-radius: 999px;
   background-color: var(--borda);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   text-align: center;
   color: var(--texto-2);
 }
@@ -710,7 +712,9 @@ body.portal-pagina {
 
 .fila-nova {
   flex-shrink: 0;
-  width: 13.5rem;
+  /*Mesma largura das colunas: o botao de nova lista e a coluna que ainda
+    nao existe.*/
+  width: 15.5rem;
 }
 
 .fila-nova__botao {
@@ -846,6 +850,12 @@ body.portal-pagina {
   position: relative;
   display: flex;
   flex-direction: column;
+  /*NAO ENCOLHE. Dentro da lista (flex em coluna) o card podia encolher, e
+    com overflow: hidden o navegador preferia espremer todos os cards a
+    rolar a lista: sobrava so a etiqueta, sem titulo, membro nem status.
+    Acontecia sempre que a coluna tinha mais cards do que cabiam — e com
+    zoom maior cabem menos, entao piorava ao dar zoom.*/
+  flex-shrink: 0;
   gap: 0.25rem;
   padding: 0.5rem 0.5625rem 0 0.6875rem;
   border: 1px solid var(--borda);
@@ -877,9 +887,9 @@ body.portal-pagina {
 /*ETIQUETA COMO ERA ANTES DO REDESIGN SHADCN: so fundo solido, sem borda,
   cantos discretos — usuario preferiu esse aspecto ao pill com borda.*/
 .card__etiqueta {
-  padding: 0.0625rem 0.3125rem;
+  padding: 0.125rem 0.375rem;
   border-radius: 3px;
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -912,7 +922,7 @@ body.portal-pagina {
   line-clamp: 2;
   overflow: hidden;
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.35;
   color: var(--texto);
@@ -945,14 +955,14 @@ body.portal-pagina {
   margin: 0.375rem -0.5625rem 0 -0.6875rem;
   padding: 0.25rem 0.6875rem;
   border-radius: 0 0 7px 7px;
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
   font-weight: 600;
 }
 
 .card__status::before {
   content: "";
-  width: 0.3125rem;
-  height: 0.3125rem;
+  width: 0.375rem;
+  height: 0.375rem;
   border-radius: 50%;
   background-color: currentColor;
 }
@@ -1011,19 +1021,19 @@ body.portal-pagina {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 1.875rem;
-  height: 1.875rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 50%;
   background-color: var(--avatar-fundo);
   font-family: "Sora", system-ui, sans-serif;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--avatar-texto);
   overflow: hidden;
 }
 
 .card__membro-nome {
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--texto-2);
   white-space: nowrap;
@@ -1060,7 +1070,9 @@ body.portal-pagina {
 
 /*<dialog> ja traz o fundo esmaecido, o Esc e o foco preso de graça*/
 .detalhe {
-  width: min(60rem, 92vw);
+  /*Mais larga desde que a letra da janela cresceu um degrau: na largura
+    antiga a conversa e a coluna de dados ficavam apertadas.*/
+  width: min(68rem, 94vw);
   /*O ZOOM DO QUADRO (var(--zoom-portal)) ESCALA ESTE DIALOG JUNTO — mesmo
     o <dialog> estando fora da arvore de renderizacao normal (showModal()
     o promove ao "top layer"), o zoom do ancestral .portal ainda se propaga
@@ -1127,7 +1139,7 @@ body.portal-pagina {
   padding: 0.1875rem 0.5rem;
   border-radius: 4px;
   background-color: var(--superficie-2);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1152,7 +1164,7 @@ body.portal-pagina {
 
 .detalhe__corpo {
   display: grid;
-  grid-template-columns: 1fr 20rem;
+  grid-template-columns: 1fr 22rem;
   min-height: 0;
   overflow: hidden;
 }
@@ -1168,7 +1180,7 @@ body.portal-pagina {
   border: 1px solid transparent;
   border-radius: 5px;
   font-family: "Sora", system-ui, sans-serif;
-  font-size: 1.125rem;
+  font-size: 1.3125rem;
   font-weight: 600;
   line-height: 1.35;
   color: var(--texto);
@@ -1213,7 +1225,7 @@ body.portal-pagina {
 
 .dados__rotulo {
   margin: 0 0 0.125rem;
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -1222,7 +1234,7 @@ body.portal-pagina {
 
 .dados__valor {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   line-height: 1.45;
   color: var(--texto);
   overflow-wrap: anywhere;
@@ -1241,7 +1253,7 @@ body.portal-pagina {
   padding: 0.0625rem 0.375rem;
   border-radius: 4px;
   background-color: var(--superficie-2);
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--texto-2);
 }
@@ -1261,7 +1273,7 @@ body.portal-pagina {
 
 .aprovacao__aviso {
   margin: 0 0 0.75rem;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--texto-3);
 }
 
@@ -1285,7 +1297,7 @@ body.portal-pagina {
 .aprovacao__rotulo {
   display: block;
   margin: 0 0 0.3125rem;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--texto-2);
 }
@@ -1298,7 +1310,7 @@ body.portal-pagina {
   border-radius: 6px;
   background-color: var(--superficie);
   font-family: inherit;
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
   color: var(--texto);
   cursor: pointer;
 }
@@ -1321,7 +1333,7 @@ body.portal-pagina {
 .aprovacao__dica:not(:empty) {
   display: block;
   margin: 0.375rem 0 0;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   line-height: 1.4;
   color: var(--texto-3);
 }
@@ -1338,7 +1350,7 @@ body.portal-pagina {
   border: 1px solid var(--borda);
   border-radius: 6px;
   font-family: inherit;
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
@@ -1401,7 +1413,7 @@ body.portal-pagina {
 
 .detalhe__rotulo {
   margin: 0 0 0.4375rem;
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -1423,7 +1435,7 @@ body.portal-pagina {
   border-radius: 4px;
   background-color: var(--superficie-2);
   font-family: inherit;
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1456,7 +1468,7 @@ body.portal-pagina {
   border-radius: 999px;
   background-color: var(--superficie);
   font-family: inherit;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   color: var(--texto);
   cursor: pointer;
   transition: border-color 0.2s ease, background-color 0.2s ease;
@@ -1486,12 +1498,12 @@ body.portal-pagina {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 1.625rem;
-  height: 1.625rem;
+  width: 1.875rem;
+  height: 1.875rem;
   border-radius: 50%;
   background-color: var(--avatar-fundo);
   font-family: "Sora", system-ui, sans-serif;
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--avatar-texto);
   overflow: hidden;
@@ -1559,7 +1571,7 @@ body.portal-pagina {
   border-radius: 50%;
   background: none;
   font-family: inherit;
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1;
   color: var(--texto-4);
   cursor: pointer;
@@ -1595,7 +1607,7 @@ body.portal-pagina {
 }
 
 .detalhe__config-nome {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--texto);
   white-space: nowrap;
   overflow: hidden;
@@ -1633,7 +1645,7 @@ body.portal-pagina {
 
 .detalhe__escolher-titulo {
   margin: 0;
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1648,7 +1660,7 @@ body.portal-pagina {
 
 .detalhe__escolher-nota {
   margin: 0;
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   color: var(--texto-3);
 }
 
@@ -1697,7 +1709,7 @@ body.portal-pagina {
   border-radius: 5px;
   background-color: transparent;
   font-family: inherit;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   color: var(--erro-texto);
   cursor: pointer;
   transition: background-color 0.2s ease;
@@ -1734,7 +1746,7 @@ body.portal-pagina {
   padding: 0.5rem 0.625rem;
   border: 1px solid transparent;
   border-radius: 6px;
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
   line-height: 1.6;
   color: var(--texto);
   white-space: pre-wrap;
@@ -1744,7 +1756,7 @@ body.portal-pagina {
 .detalhe__aviso {
   min-height: 1rem;
   margin: 0.75rem 0 0;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   color: var(--texto-3);
 }
 
@@ -1796,7 +1808,7 @@ body.portal-pagina {
   border-radius: 8px 8px 0 0;
   background: none;
   font-family: "Poppins", system-ui, sans-serif;
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
   line-height: 1.55;
   color: var(--texto);
   resize: vertical;
@@ -1820,7 +1832,7 @@ body.portal-pagina {
   gap: 0.375rem;
   padding: 0.25rem 0.4375rem;
   border-radius: 5px;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   color: var(--texto-3);
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease;
@@ -1880,7 +1892,7 @@ body.portal-pagina {
 }
 
 .conversa__pendente-nome {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   color: var(--texto-2);
   white-space: nowrap;
   overflow: hidden;
@@ -1901,7 +1913,7 @@ body.portal-pagina {
   border-radius: 50%;
   background-color: rgba(16, 10, 8, 0.72);
   font-family: inherit;
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
   line-height: 1;
   color: #fff;
   cursor: pointer;
@@ -2061,7 +2073,7 @@ body.portal-pagina {
   border-radius: 6px;
   background-color: var(--laranja);
   font-family: "Sora", system-ui, sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--superficie);
   cursor: pointer;
@@ -2128,7 +2140,7 @@ body.portal-pagina {
 
 .anexo__nome {
   display: block;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   color: var(--texto);
   white-space: nowrap;
   overflow: hidden;
@@ -2137,7 +2149,7 @@ body.portal-pagina {
 
 .anexo__quando {
   display: block;
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
   color: var(--texto-4);
 }
 
@@ -2187,14 +2199,14 @@ body.portal-pagina {
   height: 6.5rem;
   border-radius: 4px;
   background-color: var(--superficie-2);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   color: var(--texto-4);
 }
 
 .anexos__vazio {
   margin: 0;
   padding: 0.75rem 0;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   text-align: center;
   color: var(--texto-4);
 }
@@ -2219,12 +2231,12 @@ body.portal-pagina {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.875rem;
+  height: 1.875rem;
   border-radius: 50%;
   background-color: var(--avatar-fundo);
   font-family: "Sora", system-ui, sans-serif;
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--avatar-texto);
   overflow: hidden;
@@ -2275,20 +2287,20 @@ body.portal-pagina {
   DENTRO DELES TEM DE FICAR ESCURO SEMPRE — var(--texto) VIRARIA BRANCO
   NO ESCURO E SUMIRIA DENTRO DO BALAO.*/
 .comentario__autor {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--balao-texto);
 }
 
 .comentario__quando {
   flex-shrink: 0;
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
   color: rgba(26, 26, 26, 0.55);
 }
 
 .comentario__texto {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   line-height: 1.55;
   color: var(--balao-texto);
   white-space: pre-wrap;
@@ -2315,7 +2327,7 @@ body.portal-pagina {
 .comentario__solucao-titulo {
   flex: 1;
   min-width: 0;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.4;
   color: var(--balao-texto);
@@ -2326,7 +2338,7 @@ body.portal-pagina {
   padding: 0.3125rem 0.6875rem;
   border-radius: 6px;
   background-color: var(--laranja);
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--superficie);
   text-decoration: none;
@@ -2340,7 +2352,7 @@ body.portal-pagina {
 .conversa__vazia {
   margin: 0;
   padding: 0.75rem 0;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   text-align: center;
   color: var(--texto-4);
 }
@@ -2365,7 +2377,7 @@ body.portal-pagina {
   }
 
   .fila {
-    width: 12rem;
+    width: 14rem;
   }
 }
 
@@ -2400,7 +2412,7 @@ body.portal-pagina {
   border-radius: 5px;
   background: none;
   font-family: inherit;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   color: var(--texto-3);
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease;
@@ -2439,7 +2451,7 @@ body.portal-pagina {
 .rapidos__titulo {
   margin: 0;
   font-family: "Sora", system-ui, sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--texto);
 }
@@ -2470,7 +2482,7 @@ body.portal-pagina {
   border-radius: 6px;
   background: none;
   font-family: inherit;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--laranja);
   text-align: center;
@@ -2508,7 +2520,7 @@ body.portal-pagina {
   border-radius: 5px;
   background-color: var(--superficie);
   font-family: "Poppins", system-ui, sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--texto);
 }
 
@@ -2535,7 +2547,7 @@ body.portal-pagina {
   border: 0;
   border-radius: 5px;
   font-family: inherit;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease;
@@ -2598,7 +2610,7 @@ body.portal-pagina {
 .rapidos__item-titulo {
   display: block;
   margin-bottom: 0.0625rem;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--texto);
 }
@@ -2610,7 +2622,7 @@ body.portal-pagina {
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   line-height: 1.45;
   color: var(--texto-3);
 }
@@ -2654,7 +2666,7 @@ body.portal-pagina {
 .rapidos__vazio {
   margin: 0;
   padding: 0.75rem 0.25rem;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   text-align: center;
   color: var(--texto-4);
 }
@@ -3569,7 +3581,7 @@ body.portal-pagina {
   border-radius: 6px;
   background: none;
   font-family: inherit;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--texto-2);
   cursor: pointer;
