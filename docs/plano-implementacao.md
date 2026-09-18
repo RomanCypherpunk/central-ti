@@ -4115,3 +4115,30 @@ Soluções (`base.css`, sidebar laranja sólida, cores fixas) — confirmando
 que o toggle renderiza corretamente nos dois, com o estado real (ligado,
 herdado da preferência já salva no banco pelos testes anteriores) em
 ambos. Login real, sem mock.
+
+### 2026-09-18 — Correção: foto de terceiro não aparecia ao adicionar, só depois de recarregar
+
+Usuário reportou (com print) que adicionar um terceirizado (ex.: "NL")
+num chamado mostrava o ícone genérico de prédio em vez da foto, tanto no
+card do quadro quanto no chip do detalhe — só recarregando a página a
+foto aparecia certa.
+
+Causa: `adicionarTerceiro` (portal.js) faz uma atualização otimista —
+insere no banco e, sem esperar o tempo real confirmar, já empurra o
+vínculo em `aberto.chamado_terceiros` na memória pra tela reagir na
+hora. Só que o objeto montado ali tinha só `{ id, nome }`, sem
+`foto_path` — mesmo o `fornecedor` (parâmetro da função, vindo da lista
+`terceiros` carregada com `select("id, nome, foto_path")`) já tendo o
+campo disponível. `montarAvatarTerceiro` decide pelo ícone padrão
+sempre que `foto_path` é `undefined`, então o card nascia sem foto até o
+tempo real recarregar o chamado inteiro do banco (que aí sim traz o
+campo) e substituir o objeto.
+
+Corrigido copiando `foto_path` do `fornecedor` pro objeto otimista —
+uma linha. `atualizarCard()`/`desenharMembros()` já leem do mesmo
+`aberto.chamado_terceiros` que a função altera, então a correção cobre
+os dois lugares (card do quadro e chip do detalhe) sem precisar tocar
+neles. Testado com um teste de lógica isolado replicando a decisão de
+`montarAvatarTerceiro` contra o objeto corrigido, e um segundo caso
+confirmando que um terceiro sem foto continua caindo no ícone padrão
+corretamente (não virou "sempre foto").

@@ -1750,7 +1750,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
 
     aberto.chamado_terceiros.push({
       terceiro_id: fornecedor.id,
-      terceiros: { id: fornecedor.id, nome: fornecedor.nome },
+      terceiros: { id: fornecedor.id, nome: fornecedor.nome, foto_path: fornecedor.foto_path },
     });
     avisar("Salvo");
     desenharMembros();
