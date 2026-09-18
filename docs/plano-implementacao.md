@@ -3966,3 +3966,98 @@ Service Worker, ou um estado inconsistente entre o que o navegador acha
 que está inscrito e o que existe no banco). Usuário vai limpar os dados
 do site (ou testar em aba anônima) e testar de novo — aguardando
 resultado antes de investigar mais fundo ou tentar outra hipótese.
+
+**Update mesmo dia — duas causas reais encontradas, uma corrigida:**
+
+1. **404 em `sw.js` em produção**: usuário testou em produção antes do
+   commit (`af7e5ac "teste de notificação 2"`, feito pelo próprio
+   usuário) terminar de propagar na Vercel. Confirmado depois que
+   `https://ti-gasometromadeiras.vercel.app/sw.js` responde 200 — não
+   era bug, só timing do deploy.
+
+2. **`AbortError: Registration failed - push service error`**: usuário
+   usa **Brave**, que bloqueia por padrão os serviços do Google que o
+   Web Push do Chromium depende (FCM). Desativar o Brave Shields não
+   resolveu; a configuração específica (`brave://settings/privacy` →
+   "Use Google services for push messaging", separada do Shields) também
+   foi ligada e mesmo assim não resolveu — investigação desse ponto
+   específico do Brave continua em aberto, não é definitivamente a causa
+   isolada.
+
+3. **Bug real encontrado e corrigido**: ao testar, o usuário reportou que
+   criar um chamado pelo formulário público (que caiu na fila "Internet,
+   Conexão e Telefonia", não no Inbox) não notificou. Investigado: a
+   categoria escolhida no formulário já decide a fila de destino
+   diretamente — nem todo chamado nasce no Inbox, então a regra original
+   do gatilho 2 ("só notifica se caiu na fila de menor `ordem`") estava
+   errada desde o design, não só um caso raro de triagem redirecionando
+   manualmente. Corrigido em `tratarChamadoNovo`
+   (`supabase/functions/notificar-portal/index.ts`): removida a checagem
+   de fila de entrada — agora notifica todo chamado novo, em qualquer
+   fila. Deployado e testado (INSERT de chamado de teste numa fila que
+   não é Inbox → webhook `200 {"ok":true}`, dado de teste limpo depois).
+
+**Update final**: usuário confirmou que a notificação passou a chegar —
+"notificação está 100%". A causa exata da falha inicial no Brave não
+ficou 100% isolada (Shields desativado sozinho não resolveu, a config
+"Use Google services for push messaging" sozinha também não, mas a
+combinação de tudo — incluindo o commit/deploy do `sw.js` finalmente
+propagado — resolveu). Não investigado mais a fundo por já estar
+funcionando.
+
+### 2026-09-18 — Notificações também para o solicitante ("Suas solicitações")
+
+Usuário pediu a mesma ideia do Portal, só que pro lado do solicitante:
+quando um atendente responde o chamado dele, notificar mesmo com a aba
+em segundo plano. Reaproveitada toda a infraestrutura já existente (Web
+Push real, Service Worker compartilhado, tabela `push_subscriptions`,
+Edge Function `notificar-portal`, preferência `usuarios.
+notificacoes_ativas`) — só um gatilho novo e um toggle novo, sem nenhuma
+peça de infraestrutura nova.
+
+**Gatilho 3** (`supabase/functions/notificar-portal/index.ts`,
+`tratarComentarioNovo` reescrita): a mesma função que já tratava
+"solicitante respondeu → avisa atendentes" ganhou o caminho inverso —
+quando o autor do comentário é um ATENDENTE (`autor_id !== solicitante_
+id`), notifica o solicitante com "{Nome do atendente} respondeu seu
+chamado". Os dois caminhos são mutuamente exclusivos (decidido por quem
+escreveu o comentário), então continuam na mesma função em vez de virar
+um terceiro trigger — o payload do webhook já é o mesmo evento
+(`comentarios` INSERT), só a interpretação muda.
+
+**Onde fica o toggle**: a tela "Suas solicitações" não tem o menu de 3
+pontinhos do Portal — só o menu do perfil (Início/Dados pessoais/Portal/
+Soluções). Adicionado como um item a mais nesse menu, com um divisor
+antes (`.topo__menu-divisor`, novo) e o mesmo padrão de interruptor
+visual do Portal (`.topo__menu-item--interruptor`/`.topo__menu-
+interruptor`, novo em `index.css` — o Portal usa `portal.css`, que tem
+tokens de tema; `index.css` usa cores fixas em hex, mesmo padrão do
+resto do arquivo).
+
+`ligarNotificacoes` foi duplicada em `solicitacoes.js` (não
+compartilham módulo com `portal.js`), idêntica exceto o nome do
+parâmetro (`idUsuario` em vez de `atendente`) e uma guarda a mais
+(`if (!item) return`, defensiva — outras páginas que importam pedaços de
+`solicitacoes.js` no futuro não devem quebrar se o HTML não tiver o
+toggle). Chamada em `carregar()`, que agora busca `notificacoes_ativas`
+junto com os chamados no mesmo `Promise.all` (uma query a mais, leve).
+
+Durante o teste apareceu um falso-negativo: o interruptor renderizava
+sem o "trilho" visual (só o texto "Notificações", sem o toggle ao lado).
+Investigado com `document.styleSheets` — confirmado que era cache do
+Chromium do ambiente de teste (o servidor local já servia o CSS
+atualizado, `curl` direto confirmou as 5 ocorrências da classe no
+arquivo; só o navegador de teste estava com uma versão em cache).
+Contornado forçando bypass de cache só pra esse teste; nenhuma mudança
+de código foi necessária — o CSS já estava certo.
+
+Testado de ponta a ponta com login real (mesma conta usada nos testes
+anteriores, autorizada pelo usuário): abrir o menu do perfil → toggle
+aparece com o estado certo (preferência já vinha `true` de testes
+anteriores no Portal, confirmando que a coluna é readmente
+compartilhada) → desligar → religar (gera uma subscription nova) → sem
+erro no console → INSERT real de um comentário de "atendente" (João
+Gabriel) num chamado onde Enzo é o solicitante → notificação
+"Aprovação de Acesso | Ticket-6 / João Gabriel respondeu seu chamado"
+confirmada chegando via `registration.getNotifications()`. Todo dado de
+teste (comentários, subscriptions) apagado do banco ao final.

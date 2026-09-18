@@ -8,13 +8,18 @@
 // primeiro plano porque o navegador suspende o WebSocket do tempo real em
 // abas em background).
 //
-// So 2 gatilhos (o 3o, "fui adicionado como atendente", foi descartado
-// a pedido do usuario):
+// 3 gatilhos (o "fui adicionado como atendente" foi descartado a pedido
+// do usuario):
 //   1. Resposta do solicitante, em chamado onde a pessoa e atendente
 //      -> titulo do chamado / "{Nome do solicitante} respondeu"
-//   2. Chamado novo na fila de entrada (a de menor `ordem`, nao pelo
-//      nome "Inbox" — continua certo se a fila for renomeada)
+//      (Portal — pro atendente)
+//   2. Chamado novo, em qualquer fila (a categoria do formulario ja
+//      decide a fila de destino, nem todo chamado nasce no Inbox)
 //      -> titulo do chamado / "Novo ticket aberto"
+//      (Portal — pra equipe toda, analista/admin)
+//   3. Resposta de um atendente, em chamado de qualquer solicitante
+//      -> titulo do chamado / "{Nome do atendente} respondeu seu chamado"
+//      (Suas solicitações — pro dono do chamado)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3";
 
@@ -66,10 +71,14 @@ async function notificarUsuario(usuarioId: string, titulo: string, corpo: string
   }));
 }
 
-//GATILHO 1: comentario novo. So interessa se e resposta publica do
-//PROPRIO SOLICITANTE (nao nota interna, nao mensagem de sistema, nao
-//resposta da propria equipe) — e so notifica quem ja e atendente daquele
-//chamado.
+//GATILHO 1 (e o novo 3): comentario novo. So interessa resposta publica
+//de gente de verdade (nao nota interna, nao mensagem de sistema). Dois
+//sentidos, mutuamente exclusivos — quem escreveu decide quem e avisado:
+//  - Autor e o SOLICITANTE -> avisa os atendentes do chamado (gatilho 1
+//    original: "{Nome} respondeu seu chamado", pro atendente).
+//  - Autor e ATENDENTE (alguem diferente do solicitante) -> avisa o
+//    SOLICITANTE (gatilho novo, pedido do usuario pra tela de
+//    solicitacoes.html: "{Nome do atendente} respondeu seu chamado").
 async function tratarComentarioNovo(comentario: {
   id: string; chamado_id: string; autor_id: string; tipo: string; visibilidade: string;
 }) {
@@ -86,11 +95,7 @@ async function tratarComentarioNovo(comentario: {
     return;
   }
 
-  // So conta como "resposta do solicitante" se o autor for mesmo o dono
-  // do chamado — resposta de outro atendente da equipe nao notifica.
-  if (comentario.autor_id !== chamado.solicitante_id) return;
-
-  const { data: solicitante } = await supabase
+  const { data: autor } = await supabase
     .from("usuarios")
     .select("nome")
     .eq("id", comentario.autor_id)
@@ -102,30 +107,29 @@ async function tratarComentarioNovo(comentario: {
     categoria_nome: (chamado.categorias as { nome: string } | null)?.nome ?? null,
   });
 
-  const corpo = `${solicitante?.nome ?? "O solicitante"} respondeu`;
+  if (comentario.autor_id === chamado.solicitante_id) {
+    // Solicitante respondeu: avisa quem atende o chamado.
+    const corpo = `${autor?.nome ?? "O solicitante"} respondeu`;
+    const membros = (chamado.chamado_membros ?? []) as { usuario_id: string }[];
 
-  const membros = (chamado.chamado_membros ?? []) as { usuario_id: string }[];
+    await Promise.all(membros.map((membro) => notificarUsuario(membro.usuario_id, rotulo, corpo)));
+  } else {
+    // Atendente respondeu: avisa o dono do chamado.
+    const corpo = `${autor?.nome ?? "Um atendente"} respondeu seu chamado`;
 
-  await Promise.all(membros.map((membro) => notificarUsuario(membro.usuario_id, rotulo, corpo)));
+    await notificarUsuario(chamado.solicitante_id, rotulo, corpo);
+  }
 }
 
-//GATILHO 2: chamado novo. So interessa se caiu na fila de entrada (menor
-//`ordem` entre as filas ativas) — chamado criado direto em outra fila
-//(ex.: aberto pela triagem/equipe já noutro estágio) não conta como
-//"chegou coisa nova pra olhar".
+//GATILHO 2: chamado novo, em QUALQUER fila. A categoria escolhida no
+//formulário público já decide a fila de destino (nem todo chamado nasce
+//no Inbox — cair direto em "Internet, Conexão e Telefonia" por causa da
+//categoria é normal, não só triagem/equipe redirecionando manualmente),
+//então restringir à fila de menor `ordem` deixava passar chamados novos
+//de verdade sem avisar ninguém.
 async function tratarChamadoNovo(chamado: {
   id: string; numero: number; titulo: string | null; fila_id: string; categorias?: unknown;
 }) {
-  const { data: filaDeEntrada } = await supabase
-    .from("filas")
-    .select("id")
-    .eq("ativo", true)
-    .order("ordem", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (!filaDeEntrada || chamado.fila_id !== filaDeEntrada.id) return;
-
   const { data: categoria } = await supabase
     .from("chamados")
     .select("categorias(nome)")
