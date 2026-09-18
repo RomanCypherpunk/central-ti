@@ -4061,3 +4061,57 @@ Gabriel) num chamado onde Enzo é o solicitante → notificação
 "Aprovação de Acesso | Ticket-6 / João Gabriel respondeu seu chamado"
 confirmada chegando via `registration.getNotifications()`. Todo dado de
 teste (comentários, subscriptions) apagado do banco ao final.
+
+### 2026-09-18 — Toggle de notificações em toda tela do solicitante
+
+Usuário pediu que o interruptor não ficasse restrito a "Suas
+solicitações" — precisa poder ligar em qualquer tela (Home, Base de
+Soluções, Dados pessoais, Abrir chamado), já que o Web Push funciona
+independente de qual página está aberta (quem recebe é o Service
+Worker, não uma aba específica). Decidido explicitamente com o usuário:
+o Portal/Painel ficam de fora dessa centralização — mantêm seu próprio
+interruptor equivalente no menu de 3 pontinhos (já existente, lado do
+atendente).
+
+**Refatoração**: a lógica de `ligarNotificacoes` (antes duplicada em
+`portal.js` e recém-duplicada em `solicitacoes.js`) foi extraída para um
+módulo novo, `public/js/componentes/notificacoes.js` — mesmo padrão de
+`componentes/avatar.js`/`chamado-comum.js` (peças compartilhadas entre
+páginas). `solicitacoes.js` teve o bloco antigo removido e voltou a só
+cuidar dos próprios chamados; `portal.js` manteve a implementação
+própria sem alteração (mecânica igual, mas com os gatilhos do lado do
+atendente e reaproveitando o menu de 3 pontinhos, que tem estrutura
+diferente do menu de perfil — não valia a pena forçar os dois a
+compartilhar o mesmo módulo).
+
+`main.js` (carregado por quase toda página autenticada) importa o novo
+módulo e chama `ligarNotificacoes(supabase, user.id, perfil?.
+notificacoes_ativas)` dentro de `preencherUsuario()` — a mesma função já
+buscava os dados do usuário pro topo, só ganhou `notificacoes_ativas` a
+mais no `select`. A função em si já tinha (desde a versão em
+`solicitacoes.js`) uma guarda `if (!item) return` — por isso funciona
+sem checagem extra em `main.js`: nas páginas sem o item de menu no HTML
+(hoje nenhuma, já que todas as 6 telas ganharam o item; Painel/Portal
+usam o deles próprio e não chamam este módulo) ela simplesmente não faz
+nada.
+
+**HTML replicado em 6 telas** (todas com o mesmo bloco: divisor +
+botão, sempre como último item do menu de perfil, antes de "Sair"):
+`index.html`, `perfil.html`, `abrir-chamado.html`, `solicitacoes.html`
+(comentário do HTML atualizado, já que a lógica não está mais em
+`solicitacoes.js`), `base.html`, `nova-solucao.html`.
+
+**CSS**: `base.html`/`nova-solucao.html` não herdam de `index.css` (são
+o sistema de design separado da área do João Gabriel, confirmado em
+`docs/preferencias.md`) — precisaram do mesmo bloco de CSS replicado em
+`base.css` e `nova-solucao.css` além de `index.css`. Três cópias do
+mesmo CSS (`.topo__menu-divisor`, `.topo__menu-item--interruptor`,
+`.topo__menu-interruptor`), cada uma nas cores fixas do próprio arquivo
+(nenhum dos três usa tokens CSS de tema).
+
+Testado visualmente em duas telas de sistemas de design diferentes —
+Home (`index.css`, tokens/cores no padrão do resto do site) e Base de
+Soluções (`base.css`, sidebar laranja sólida, cores fixas) — confirmando
+que o toggle renderiza corretamente nos dois, com o estado real (ligado,
+herdado da preferência já salva no banco pelos testes anteriores) em
+ambos. Login real, sem mock.

@@ -356,6 +356,59 @@ html[data-sidebar="colapsada"] .sidebar__colapsar-texto {
   color: #dd5b12;
 }
 
+.topo__menu-divisor {
+  display: block;
+  height: 1px;
+  margin: 0.3125rem 0.25rem;
+  background-color: #ececec;
+}
+
+/*ITEM COM INTERRUPTOR (Notificações): mesma regra de index.css/portal.css,
+  replicada aqui porque base.css não herda de index.css.*/
+.topo__menu-item--interruptor {
+  width: 100%;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.topo__menu-item--interruptor span:not(.topo__menu-interruptor) {
+  flex: 1;
+}
+
+.topo__menu-interruptor {
+  position: relative;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1rem;
+  border-radius: 999px;
+  background-color: #e5e5e5;
+  transition: background-color 0.15s ease;
+}
+
+.topo__menu-interruptor::before {
+  content: "";
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.topo__menu-item--interruptor[aria-checked="true"] .topo__menu-interruptor {
+  background-color: #dd5b12;
+}
+
+.topo__menu-item--interruptor[aria-checked="true"] .topo__menu-interruptor::before {
+  transform: translateX(0.75rem);
+}
+
 /*SAIR*/
 .topo__sair {
   display: flex;

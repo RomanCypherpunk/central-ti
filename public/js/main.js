@@ -2,6 +2,7 @@
 
 import { supabase } from "./config/supabase-config.js";
 import { pintarFoto, versaoDaMinhaFoto } from "./componentes/avatar.js";
+import { ligarNotificacoes } from "./componentes/notificacoes.js";
 
 //ENTRADA DA PAGINA: CARTOES E PAINEIS SOBEM COM FADE, EM SEQUENCIA.
 //So na primeira visita de cada pagina nesta sessao: repetida a cada troca de
@@ -278,13 +279,19 @@ async function preencherUsuario() {
   // cadastro e nao acompanha quem edita o nome em "Dados pessoais".
   const { data: perfil, error } = await supabase
     .from("usuarios")
-    .select("nome, sobrenome, perfil, status_aprovacao, ativo, foto_path, setores(nome)")
+    .select("nome, sobrenome, perfil, status_aprovacao, ativo, foto_path, setores(nome), notificacoes_ativas")
     .eq("id", user.id)
     .single();
 
   // Falha de rede com o topo ja guardado: fica o guardado, que e melhor que
   // trocar o nome pelo e-mail e apagar os itens do menu.
   if (error && guardadoValido) return;
+
+  // So faz algo nas paginas que tem o interruptor no menu (o Portal/
+  // Painel tem o proprio, no menu de 3 pontinhos — este aqui e so pro
+  // lado do solicitante). Roda mesmo com erro de rede acima (guardadoValido
+  // ja teria saido antes): a preferencia so muda quando a pessoa clica.
+  ligarNotificacoes(supabase, user.id, perfil?.notificacoes_ativas);
 
   const nome = perfil?.nome ?? user.email;
   const sobrenome = perfil?.sobrenome ?? "";

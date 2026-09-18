@@ -55,112 +55,6 @@ function mostrarErro(texto) {
   erroEl.classList.add("solicitacoes__erro--visivel");
 }
 
-//NOTIFICACOES DO NAVEGADOR (WEB PUSH DE VERDADE): quando um atendente
-//responde o chamado. Mesma mecanica do Portal (ligarNotificacoes em
-//portal.js) — Service Worker compartilhado (sw.js, na raiz de public/),
-//mesma tabela push_subscriptions, mesma preferencia
-//usuarios.notificacoes_ativas. Copiada aqui porque as duas telas nao
-//compartilham modulo.
-const VAPID_CHAVE_PUBLICA = "BIGSZJ5WgPPZ4QiousUz386eNLUY-GKuKmne3VzyZfL9RLx-kUNHOMa3nD1KzxmNy2njaxw4URNqE7A_1934ho8";
-
-function chaveVapidParaUint8Array(chaveBase64) {
-  const preenchimento = "=".repeat((4 - (chaveBase64.length % 4)) % 4);
-  const base64 = (chaveBase64 + preenchimento).replace(/-/g, "+").replace(/_/g, "/");
-  const bruto = window.atob(base64);
-
-  return Uint8Array.from([...bruto].map((caractere) => caractere.charCodeAt(0)));
-}
-
-function ligarNotificacoes(idUsuario, ativasNoCadastro) {
-  const item = document.querySelector("[data-acao-notificacoes]");
-
-  if (!item) return;
-
-  const suportado = "serviceWorker" in navigator && "PushManager" in window;
-
-  let ativas = Boolean(ativasNoCadastro) && suportado && Notification.permission === "granted";
-
-  function desenhar() {
-    item.setAttribute("aria-checked", String(ativas));
-  }
-
-  desenhar();
-
-  if (ativasNoCadastro && suportado && Notification.permission !== "granted") {
-    supabase.from("usuarios").update({ notificacoes_ativas: false }).eq("id", idUsuario);
-  }
-
-  async function inscrever() {
-    const registro = await navigator.serviceWorker.register("/sw.js");
-    const existente = await registro.pushManager.getSubscription();
-    const subscription = existente ?? await registro.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: chaveVapidParaUint8Array(VAPID_CHAVE_PUBLICA),
-    });
-
-    const json = subscription.toJSON();
-
-    await supabase.from("push_subscriptions").upsert({
-      usuario_id: idUsuario,
-      endpoint: json.endpoint,
-      p256dh: json.keys.p256dh,
-      auth: json.keys.auth,
-    }, { onConflict: "endpoint" });
-  }
-
-  async function desinscrever() {
-    if (!("serviceWorker" in navigator)) return;
-
-    const registro = await navigator.serviceWorker.getRegistration("/sw.js");
-    const subscription = await registro?.pushManager.getSubscription();
-
-    if (!subscription) return;
-
-    await supabase.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
-    await subscription.unsubscribe();
-  }
-
-  item.addEventListener("click", async () => {
-    if (ativas) {
-      ativas = false;
-      desenhar();
-      await supabase.from("usuarios").update({ notificacoes_ativas: false }).eq("id", idUsuario);
-      await desinscrever();
-      return;
-    }
-
-    if (!suportado) {
-      alert("Este navegador não suporta notificações.");
-      return;
-    }
-
-    const permissao = Notification.permission === "granted"
-      ? "granted"
-      : await Notification.requestPermission();
-
-    if (permissao !== "granted") {
-      alert("Notificações bloqueadas no navegador. Permita o site nas configurações do navegador para ativar.");
-      return;
-    }
-
-    try {
-      await inscrever();
-    } catch (erro) {
-      console.error("Não foi possível ativar as notificações:", erro);
-      alert("Não foi possível ativar as notificações. Tente de novo.");
-      return;
-    }
-
-    ativas = true;
-    desenhar();
-    await supabase.from("usuarios").update({ notificacoes_ativas: true }).eq("id", idUsuario);
-  });
-
-  if (ativas) {
-    inscrever().catch((erro) => console.warn("Não foi possível confirmar a inscrição de notificações:", erro));
-  }
-}
-
 //SO CONVERSA DE VERDADE MUDA O STATUS: mensagem automatica de abertura
 //(tipo 'sistema') nao conta, senao todo chamado nasceria "em andamento".
 function comentariosHumanos(chamado) {
@@ -772,14 +666,11 @@ async function carregar() {
 
   // A RLS já limita aos próprios chamados; o filtro explícito deixa a
   // intenção visível na query e evita depender só dela.
-  const [{ data, error }, { data: perfil }] = await Promise.all([
-    supabase
-      .from("chamados")
-      .select(CAMPOS_CHAMADO)
-      .eq("solicitante_id", user.id)
-      .order("abertura_em", { ascending: false }),
-    supabase.from("usuarios").select("notificacoes_ativas").eq("id", user.id).maybeSingle(),
-  ]);
+  const { data, error } = await supabase
+    .from("chamados")
+    .select(CAMPOS_CHAMADO)
+    .eq("solicitante_id", user.id)
+    .order("abertura_em", { ascending: false });
 
   if (error) {
     resumoEl.textContent = "";
@@ -795,7 +686,6 @@ async function carregar() {
   abrirChamadoDaUrl();
 
   ligarTempoReal();
-  ligarNotificacoes(user.id, perfil?.notificacoes_ativas);
 }
 
 //TEMPO REAL: a lista e a conversa acompanham o banco sem recarregar —
