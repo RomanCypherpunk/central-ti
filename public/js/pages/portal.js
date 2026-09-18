@@ -3936,19 +3936,38 @@ function ligarQuadroMenu(exportar) {
   });
 }
 
-//NOTIFICACOES DO NAVEGADOR: chamado novo no Inbox, resposta do
-//solicitante num chamado onde a pessoa e atendente, e ser adicionado como
-//atendente. Um interruptor so, liga tudo junto — a preferencia mora em
-//usuarios.notificacoes_ativas (opt-in explicito; a permissao do proprio
-//navegador ja e opt-in, mas sem isto o navegador perguntaria nao
-//esperar toda vez que a pagina carrega, mesmo pra quem ja recusou).
-//Retorna { notificar } para ligarTempoReal disparar as notificacoes sem
-//duplicar a checagem de permissao/preferencia em cada gatilho.
+//NOTIFICACOES DO NAVEGADOR (WEB PUSH DE VERDADE): resposta do solicitante
+//num chamado onde a pessoa e atendente, e chamado novo na fila de
+//entrada. Diferente de uma primeira tentativa com a Notification API
+//pura (que so disparava com a aba do Portal em primeiro plano, porque o
+//navegador suspende o WebSocket do tempo real com a aba em segundo
+//plano), aqui quem detecta a novidade e envia o aviso e o SERVIDOR
+//(trigger no banco -> Edge Function notificar-portal -> Web Push) — o
+//Service Worker (sw.js) recebe e mostra a notificacao mesmo com a aba
+//minimizada ou em outra aba. So nao funciona com o navegador inteiro
+//fechado.
+//
+//Um interruptor so, liga tudo junto — a preferencia mora em
+//usuarios.notificacoes_ativas, mas o que realmente decide se a pessoa
+//recebe e ter uma inscricao de push valida em push_subscriptions (a
+//Edge Function so manda pra quem tem uma).
+const VAPID_CHAVE_PUBLICA = "BIGSZJ5WgPPZ4QiousUz386eNLUY-GKuKmne3VzyZfL9RLx-kUNHOMa3nD1KzxmNy2njaxw4URNqE7A_1934ho8";
+
+//O NAVEGADOR EXIGE A CHAVE PUBLICA COMO Uint8Array (URL-safe base64 ->
+//bytes), nao a string direto.
+function chaveVapidParaUint8Array(chaveBase64) {
+  const preenchimento = "=".repeat((4 - (chaveBase64.length % 4)) % 4);
+  const base64 = (chaveBase64 + preenchimento).replace(/-/g, "+").replace(/_/g, "/");
+  const bruto = window.atob(base64);
+
+  return Uint8Array.from([...bruto].map((caractere) => caractere.charCodeAt(0)));
+}
+
 function ligarNotificacoes(atendente, ativasNoCadastro) {
   const item = document.querySelector("[data-acao-notificacoes]");
+  const suportado = "serviceWorker" in navigator && "PushManager" in window;
 
-  let ativas = Boolean(ativasNoCadastro) && typeof Notification !== "undefined"
-    && Notification.permission === "granted";
+  let ativas = Boolean(ativasNoCadastro) && suportado && Notification.permission === "granted";
 
   function desenhar() {
     item.setAttribute("aria-checked", String(ativas));
@@ -3959,8 +3978,38 @@ function ligarNotificacoes(atendente, ativasNoCadastro) {
   // Preferencia dizia "ligado" mas a permissao do navegador nao existe (ou
   // foi revogada depois) — sem isto o interruptor mentiria "ligado" sem
   // nenhuma notificacao nunca aparecer.
-  if (ativasNoCadastro && typeof Notification !== "undefined" && Notification.permission !== "granted") {
+  if (ativasNoCadastro && suportado && Notification.permission !== "granted") {
     supabase.from("usuarios").update({ notificacoes_ativas: false }).eq("id", atendente);
+  }
+
+  async function inscrever() {
+    const registro = await navigator.serviceWorker.register("/sw.js");
+    const existente = await registro.pushManager.getSubscription();
+    const subscription = existente ?? await registro.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: chaveVapidParaUint8Array(VAPID_CHAVE_PUBLICA),
+    });
+
+    const json = subscription.toJSON();
+
+    await supabase.from("push_subscriptions").upsert({
+      usuario_id: atendente,
+      endpoint: json.endpoint,
+      p256dh: json.keys.p256dh,
+      auth: json.keys.auth,
+    }, { onConflict: "endpoint" });
+  }
+
+  async function desinscrever() {
+    if (!("serviceWorker" in navigator)) return;
+
+    const registro = await navigator.serviceWorker.getRegistration("/sw.js");
+    const subscription = await registro?.pushManager.getSubscription();
+
+    if (!subscription) return;
+
+    await supabase.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
+    await subscription.unsubscribe();
   }
 
   item.addEventListener("click", async () => {
@@ -3968,10 +4017,11 @@ function ligarNotificacoes(atendente, ativasNoCadastro) {
       ativas = false;
       desenhar();
       await supabase.from("usuarios").update({ notificacoes_ativas: false }).eq("id", atendente);
+      await desinscrever();
       return;
     }
 
-    if (typeof Notification === "undefined") {
+    if (!suportado) {
       alert("Este navegador não suporta notificações.");
       return;
     }
@@ -3985,20 +4035,26 @@ function ligarNotificacoes(atendente, ativasNoCadastro) {
       return;
     }
 
+    try {
+      await inscrever();
+    } catch (erro) {
+      console.error("Não foi possível ativar as notificações:", erro);
+      alert("Não foi possível ativar as notificações. Tente de novo.");
+      return;
+    }
+
     ativas = true;
     desenhar();
     await supabase.from("usuarios").update({ notificacoes_ativas: true }).eq("id", atendente);
   });
 
-  //DISPARA SO SE A PESSOA LIGOU E O NAVEGADOR PERMITE — checagem unica
-  //aqui, os gatilhos em ligarTempoReal so montam titulo/corpo.
-  function notificar(titulo, corpo) {
-    if (!ativas) return;
-
-    new Notification(titulo, { body: corpo, icon: "assets/img/logo-1x1.png" });
+  // Preferencia ja estava ligada ao carregar a pagina (outra sessao, ou
+  // recarregou): garante que a inscricao deste navegador tambem existe —
+  // o navegador pode ter perdido a subscription (ex.: dados do site
+  // limpos) sem a preferencia no banco saber disso.
+  if (ativas) {
+    inscrever().catch((erro) => console.warn("Não foi possível confirmar a inscrição de notificações:", erro));
   }
-
-  return { notificar };
 }
 
 //EXPORTAR: PLANILHA CSV COM OS CHAMADOS CRIADOS NUM PERIODO (em aberto e
@@ -4697,14 +4753,7 @@ function atualizarResumo(chamados, totalFilas) {
 //caminho so para desenhar, e o RLS continua decidindo o que cada um ve.
 //Mudanca em usuarios (cor, foto, nome) atualiza a pessoa onde ela aparece.
 //Precisa da migration 20260914160000_realtime_portal.sql aplicada.
-function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, terceiros, atendente, notificar }) {
-  //FILA DE ENTRADA: a de menor `ordem`, nao a que se chama literalmente
-  //"Inbox" — assim continua certo se a equipe renomear a fila algum dia.
-  const filaDeEntrada = filas.reduce(
-    (menor, fila) => (fila.ordem < menor.ordem ? fila : menor),
-    filas[0],
-  );
-
+function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, terceiros }) {
   const pendentes = new Map(); // chamado_id -> timeout da busca agendada
   let esperaRessincronizar = null;
   let jaConectou = false;
@@ -4787,62 +4836,15 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
   //O CHAMADO QUE VEIO DO BANCO ENTRA NO ARRAY. Chamado ja conhecido e
   //atualizado no mesmo objeto (Object.assign), e nao trocado: o detalhe
   //aberto e a busca seguram a referencia dele.
-  //TRES AVISOS: chamado novo na fila de entrada, resposta do solicitante
-  //num chamado onde a pessoa e atendente, e ter sido adicionado como
-  //atendente. Roda ANTES do Object.assign — precisa do estado de ANTES
-  //(existente) pra comparar com o que chegou (dados) e nao repetir aviso
-  //de coisa que ja tinha acontecido antes desta carga.
-  //Sem notificacao pra chamado que a propria pessoa acabou de criar/
-  //responder/atribuir (ve isso na hora, na propria tela) — so eventos de
-  //outra pessoa. E sem avisar com a aba em foco: quem esta olhando o
-  //quadro ja ve o card mudar.
-  function avisarSeForNovidade(existente, dados) {
-    if (document.hasFocus()) return;
-
-    const rotulo = tituloDoChamado(dados);
-
-    // 1) CHAMADO NOVO NA FILA DE ENTRADA.
-    if (!existente) {
-      if (dados.fila_id === filaDeEntrada?.id) {
-        notificar(rotulo, "Novo chamado");
-      }
-      return;
-    }
-
-    // 2) RESPOSTA DO SOLICITANTE, EM CHAMADO ONDE SOU ATENDENTE.
-    const souAtendente = (dados.chamado_membros ?? [])
-      .some((membro) => membro.usuario_id === atendente);
-
-    if (souAtendente) {
-      const comentariosNovos = (dados.comentarios ?? [])
-        .filter((comentario) => !(existente.comentarios ?? []).some((c) => c.id === comentario.id));
-
-      const respostaDoSolicitante = comentariosNovos.find((comentario) =>
-        comentario.tipo === "humano" && comentario.autor_id === dados.solicitante_id);
-
-      if (respostaDoSolicitante) {
-        const nome = primeiroNome(respostaDoSolicitante.usuarios ?? dados.usuarios);
-        notificar(rotulo, `${nome} respondeu seu chamado`);
-        return;
-      }
-    }
-
-    // 3) FUI ADICIONADO COMO ATENDENTE (nao tava, agora ta).
-    const jaEraMembro = (existente.chamado_membros ?? [])
-      .some((membro) => membro.usuario_id === atendente);
-
-    if (!jaEraMembro && souAtendente) {
-      notificar(rotulo, "Você foi adicionado como atendente");
-    }
-  }
-
+  //As notificacoes de "chamado novo"/"solicitante respondeu" nao moram
+  //mais aqui — viraram responsabilidade do servidor (trigger + Edge
+  //Function notificar-portal, via Web Push), porque o navegador suspende
+  //o WebSocket do tempo real com a aba em segundo plano e a versao
+  //client-side so avisava quando a pessoa ja tinha voltado pra aba.
   function guardarChamado(dados) {
     aplicarCores(dados);
 
     const existente = chamados.find((chamado) => chamado.id === dados.id);
-
-    avisarSeForNovidade(existente, dados);
-
     const chamado = existente ? Object.assign(existente, dados) : dados;
 
     if (!existente) chamados.unshift(chamado);
@@ -5201,7 +5203,7 @@ async function montarQuadro() {
   ligarBusca(chamados.data, filas.data, detalhe);
   const exportar = ligarExportar(chamados.data, filas.data, carregarFechados);
   ligarQuadroMenu(exportar);
-  const notificacoes = ligarNotificacoes(atendente, usuarioAtendendo.notificacoesAtivas);
+  ligarNotificacoes(atendente, usuarioAtendendo.notificacoesAtivas);
   ligarFiltros(chamados.data, equipe.data ?? [], filas.data);
   finalizados = ligarFinalizados(chamados.data, filas.data, detalhe, carregarFechados);
   ligarFundo();
@@ -5217,8 +5219,6 @@ async function montarQuadro() {
     detalhe,
     finalizados,
     terceiros: terceiros.data ?? [],
-    atendente,
-    notificar: notificacoes.notificar,
   });
 }
 

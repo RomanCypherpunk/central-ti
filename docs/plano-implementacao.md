@@ -3662,6 +3662,307 @@ navegador em si (`Notification.requestPermission()`) não dá pra simular
 em teste automatizado, precisa ser conferido manualmente no navegador
 real.
 
+### 2026-09-17 — Correção: notificações não apareciam em segundo plano
+
+Usuário testou em produção e nenhum dos 3 gatilhos notificou. Root-caused
+com o console do navegador real (não deu pra reproduzir em teste
+automatizado, já que depende do comportamento de suspensão de aba do
+navegador): a notificação da resposta do solicitante só apareceu no
+instante em que ele **voltou** pra aba do Portal — não antes, enquanto
+ela estava em outra aba.
+
+Causa: `avisarSeForNovidade` tinha um `if (document.hasFocus()) return`
+pra não notificar duas vezes quem já está olhando o quadro (o card muda
+na hora, ao vivo). Só que o navegador suspende a conexão WebSocket do
+Supabase Realtime quando a aba fica em segundo plano — o evento não
+chega "atrasado", ele literalmente não é entregue até a aba ganhar foco
+de novo. Nesse instante exato em que a conexão acorda e o evento chega,
+`document.hasFocus()` já é `true` (a pessoa acabou de focar a aba), então
+a checagem bloqueava justamente o único momento em que o evento existia
+pra ser avaliado. Na prática isso derrubava os 3 gatilhos sempre, porque
+o cenário "eu com o Portal em background, evento chega, aba ainda sem
+foco" quase nunca acontece de verdade — o evento só existe pro código
+depois que o foco já voltou.
+
+Corrigido removendo a checagem de foco: `avisarSeForNovidade` agora
+sempre notifica quando reconhece um dos 3 padrões. Custo aceito: se a
+pessoa estiver mesmo com o Portal em foco vendo o card mudar ao vivo,
+pode receber uma notificação redundante do que acabou de ver acontecer
+na tela — melhor que o comportamento anterior, que não notificava nunca
+de verdade. Reexecutado o teste de lógica isolado (Node, os mesmos 3
+cenários principais) confirmando que a remoção não alterou o
+comportamento correto dos gatilhos, só removeu o bloqueio indevido.
+
 ## Fase 6 — Automação e integrações
 
 **Status: não iniciada.**
+
+### 2026-09-17 — Design: Web Push de verdade pras notificações do Portal
+
+A notificação do navegador (Fase 4) só dispara com a aba do Portal em
+primeiro plano — testado em produção e em localhost, confirmado com o
+próprio usuário: o navegador suspende o WebSocket do Supabase Realtime
+com a aba em segundo plano, e o evento só chega (logo, só notifica) no
+instante em que a aba ganha foco de novo. Isso não é bug de código, é
+limitação de qualquer solução baseada só em JS rodando na aba — a única
+forma de notificar de verdade com a aba em segundo plano/minimizada é Web
+Push real (Service Worker + servidor). Custo em infraestrutura Supabase é
+essencialmente zero pro volume de chamados da empresa (Edge Function
+grátis até bem acima do necessário, tabela nova é irrisória em espaço,
+VAPID é protocolo nativo do navegador sem serviço terceirizado pago) — o
+usuário confirmou que quer seguir por esse caminho sabendo disso.
+
+**Viabilidade técnica confirmada**: testado com uma Edge Function
+descartável deployada de verdade no projeto (`teste-webpush`, apagada
+depois do teste) que a lib `npm:web-push@3` carrega e funciona no runtime
+Deno das Edge Functions do Supabase — `webpush.generateVAPIDKeys()`
+retornou um par de chaves real. Reaproveitando esse mesmo par de chaves
+pra implementação final (decisão do usuário, pra não gerar de novo à
+toa).
+
+**Gatilhos reduzidos de 3 pra 2** (o usuário pediu pra tirar "fui
+adicionado como atendente" e ajustar o texto dos outros dois):
+1. Resposta do solicitante, em chamado onde a pessoa é atendente →
+   título do chamado / "{Nome do solicitante} respondeu"
+2. Chamado novo na fila de entrada (menor `ordem`, não pelo nome
+   "Inbox") → título do chamado / "Novo ticket aberto"
+
+#### Arquitetura
+
+```
+Solicitante responde  ──▶  INSERT em comentarios
+Chamado novo           ──▶  INSERT em chamados
+                              │
+                              ▼
+                    Database Webhook (Supabase)
+                              │
+                              ▼
+                Edge Function "notificar-portal"
+        (busca o chamado com service_role, decide se é
+         um dos 2 gatilhos, acha quem precisa saber,
+         busca as inscrições de push dessa pessoa)
+                              │
+                              ▼
+                  webpush.sendNotification(...)
+                    (assinado com VAPID)
+                              │
+                              ▼
+              Navegador do atendente (Service Worker)
+           — funciona com a aba em 2º plano/minimizada,
+             não funciona com o navegador inteiro fechado
+```
+
+#### Peças novas
+
+- **Tabela `push_subscriptions`**: `id`, `usuario_id` (FK), `endpoint`
+  (text, único), `p256dh` (text), `auth` (text), `criado_em`. RLS: cada
+  usuário só insere/vê/apaga a própria (`usuario_id = auth.uid()`); sem
+  policy de SELECT pra outros papéis — só a Edge Function (via
+  service_role, que ignora RLS) lê a tabela inteira pra mandar os pushes.
+- **`public/sw.js`** (novo, na raiz de `public/` — Service Workers só
+  controlam o escopo a partir de onde são servidos): escuta `self.
+  addEventListener("push", ...)`, extrai `{ titulo, corpo }` do payload
+  e chama `self.registration.showNotification(titulo, { body: corpo,
+  icon: "assets/img/logo-1x1.png" })`. Registrado só a partir de
+  `portal.js` (`navigator.serviceWorker.register("/sw.js")`), não em
+  outras páginas.
+- **`ligarNotificacoes` (portal.js) reescrita**: ao ligar, além de pedir
+  `Notification.requestPermission()`, registra o Service Worker e chama
+  `registration.pushManager.subscribe({ userVisibleOnly: true,
+  applicationServerKey: CHAVE_PUBLICA_VAPID })`, convertendo o resultado
+  pras 3 colunas de `push_subscriptions` e inserindo via `upsert` (chave
+  única em `endpoint` — o mesmo navegador pode gerar o mesmo endpoint de
+  novo depois de desligar/ligar). Ao desligar, cancela a subscription
+  (`subscription.unsubscribe()`) e apaga a linha correspondente.
+- **`supabase/functions/notificar-portal/index.ts`** (nova Edge
+  Function): recebe o payload do Database Webhook (formato padrão:
+  `{ type: "INSERT", table, record, ... }`), ramifica em dois casos
+  (`table === "comentarios"` vs `table === "chamados"`), busca o que
+  falta com o client `service_role`, decide se é novidade, monta título/
+  corpo, busca as inscrições da(s) pessoa(s) certa(s) em
+  `push_subscriptions` e chama `webpush.sendNotification` pra cada uma —
+  se vier 404/410 (subscription morta), apaga a linha. Chave privada
+  VAPID fica como secret da function (`supabase secrets set`), nunca no
+  código.
+- **2 Database Webhooks** (configurados no Studio ou via migration com
+  `pg_net`/`supabase_functions.http_request` — a definir na hora de
+  implementar): INSERT em `comentarios` e INSERT em `chamados`, ambos
+  apontando pra `notificar-portal`.
+
+#### O que muda no que já existe
+
+- `ligarTempoReal`/`avisarSeForNovidade` (a versão client-side desta
+  sessão) some — a notificação passa a ser 100% responsabilidade do
+  servidor. O toggle de "Notificações do navegador" continua no mesmo
+  lugar (menu de 3 pontinhos), só a mecânica por trás muda.
+- Migration nova adicionando `push_subscriptions` (a coluna `usuarios.
+  notificacoes_ativas` já existe, continua sendo a preferência exibida
+  no toggle).
+
+#### Limitações que o usuário já está ciente
+
+- Só funciona com o navegador aberto (pode estar minimizado, em outra
+  aba, outro programa em foco) — navegador **fechado por completo** não
+  recebe (isso exigiria a OS acordar o navegador via push nativo do
+  sistema operacional, que foge do escopo de uma Web App).
+- Extensões/configurações do navegador ou do sistema operacional que
+  bloqueiam notificações continuam bloqueando aqui também — não tem como
+  contornar isso do lado da aplicação.
+
+Próximo passo: implementar as peças acima, testar de ponta a ponta com
+um chamado de teste (aba em segundo plano de verdade, não só trocada) e
+documentar o resultado nesta mesma seção antes de considerar concluído.
+
+### 2026-09-18 — Web Push implementado e testado de ponta a ponta
+
+Tudo da seção acima implementado e confirmado funcionando com push real
+(não simulado) — o teste crítico era justamente saber se a notificação
+chega de verdade num navegador de verdade, sem depender da aba estar em
+primeiro plano.
+
+**Peças criadas**:
+- `supabase/migrations/20260917140000_push_notifications.sql` — extensão
+  `pg_net`, tabela `push_subscriptions` (RLS: cada um só mexe na própria),
+  função `notificar_portal_via_webhook()` (lê `supabase_url`/
+  `service_role_key` do Supabase Vault, chama a Edge Function via
+  `net.http_post`), e os 2 triggers (`comentarios_notificar_portal`,
+  `chamados_notificar_portal`). Aplicada com sucesso.
+- Secrets no Vault (`supabase_url`, `service_role_key`) — configurados
+  manualmente pelo usuário via SQL Editor do Supabase Studio (o agente
+  não pôde rodar esse SQL diretamente: o próprio sandbox de execução
+  bloqueia qualquer comando que carregue a service_role key em texto
+  puro, mesmo para o uso correto de guardá-la no Vault — proteção contra
+  vazamento de credencial, não um problema do procedimento em si).
+  Confirmados presentes com `select name from vault.decrypted_secrets`.
+- Secrets da Edge Function (`supabase secrets set`): `VAPID_PUBLIC_KEY`,
+  `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` — reaproveitado o par de chaves
+  gerado no teste de viabilidade anterior (decisão do usuário, evitar
+  gerar de novo à toa).
+- `supabase/functions/notificar-portal/index.ts` — deployada. Usa
+  `npm:web-push@3` (confirmado compatível com o runtime Deno das Edge
+  Functions num teste de viabilidade isolado antes de escrever a lógica
+  de negócio). Dois branches (`tratarComentarioNovo`/`tratarChamadoNovo`),
+  cada um busca o que falta saber com o client `service_role`, decide se
+  é novidade, e chama `notificarUsuario()` — que busca as inscrições da
+  pessoa e manda o push, apagando a inscrição só se o erro vier com
+  `statusCode` 404/410 (subscription realmente morta — um erro de
+  validação da própria lib, como aconteceu no primeiro teste com dados
+  fake, não tem `statusCode` e corretamente não apaga nada).
+- `public/sw.js` — Service Worker novo, só escuta `push` (mostra a
+  notificação) e `notificationclick` (foca uma aba do Portal já aberta,
+  ou abre uma nova).
+- `ligarNotificacoes` em `portal.js` reescrita: registra o Service
+  Worker, converte a chave pública VAPID de base64url pra `Uint8Array`
+  (testado isoladamente: 65 bytes, prefixo `0x04` — formato correto de
+  chave EC P-256 não comprimida), chama `pushManager.subscribe()`, grava
+  as 3 colunas em `push_subscriptions` via upsert (`onConflict:
+  "endpoint"`). Ao desligar, cancela a subscription e apaga a linha. Se a
+  preferência já estava ligada ao carregar a página, reconfirma a
+  inscrição (cobre o caso do navegador ter perdido a subscription sem o
+  banco saber).
+- Removida a lógica client-side antiga (`avisarSeForNovidade` dentro de
+  `ligarTempoReal`) — a notificação é 100% responsabilidade do servidor
+  agora. `ligarTempoReal` voltou a não precisar de `atendente`/
+  `notificar` nos parâmetros.
+
+**Testado de ponta a ponta, com push real (Playwright + Chromium, permissão
+de notificação concedida via `context.grantPermissions`)**:
+1. Function de viabilidade (`teste-webpush`, descartada depois):
+   confirmou que `web-push` funciona no runtime Deno real do Supabase.
+2. Inscrição de push real gerada por um Chromium de verdade (endpoint
+   `fcm.googleapis.com/fcm/send/...`, chaves `p256dh`/`auth` reais) —
+   inserida manualmente em `push_subscriptions` pra testar o envio sem
+   precisar do fluxo de login completo do Portal.
+3. Gatilho 1 (resposta do solicitante): INSERT de comentário real em
+   `comentarios` → webhook `200 {"ok":true}` → notificação apareceu de
+   verdade no navegador de teste (`registration.getNotifications()`
+   confirmou: título "#84 - Cancelar Pedido", corpo "Vendedor
+   respondeu").
+4. Gatilho 2 (chamado novo): INSERT de chamado real na fila Inbox →
+   mesmo fluxo → notificação confirmada ("#87 - Teste push chamado
+   novo" / "Novo ticket aberto").
+5. Todo dado de teste (comentários, chamado, inscrições de push) apagado
+   do banco ao final — confirmado com contagem zerada nas 3 tabelas.
+
+**O que ainda não foi testado** (precisa do usuário, não dá pra simular):
+o fluxo completo pelo próprio Portal (clicar no interruptor de verdade,
+não inserir a inscrição direto no banco) e a notificação chegando com o
+navegador realmente minimizado/em outro programa em foco — os testes
+acima confirmam que o mecanismo de entrega funciona, mas o "clique no
+interruptor → pede permissão → ativa" precisa de uma passada manual do
+usuário pra fechar o ciclo.
+
+### 2026-09-18 — Correção: painel de Contatos/Administradores vazio (regressão da feature "Soluções no chat")
+
+Usuário reportou que nenhuma aba do Painel carregava dados (Contatos,
+Administradores — provavelmente todas, já que o erro acontecia antes de
+qualquer uma renderizar). Print do console confirmou:
+
+```
+Uncaught (in promise) TypeError: Cannot read properties of null (reading 'addEventListener')
+  at ligarSolucoes (portal.js:3028:16)
+  at ligarDetalhe (portal.js:3051:20)
+  at montarPainel (painel.js:4920:19)
+```
+
+Causa: a feature "Soluções no chat" (2026-09-17) adicionou o botão e o
+painel de busca só em `portal.html`, esquecendo que `painel.js` importa e
+reaproveita `ligarDetalhe` de `portal.js` para o mesmo modal de detalhe
+do chamado dentro do Painel — exatamente o padrão que já existia para
+"Textos rápidos" (esse sim replicado nas duas telas desde o início).
+`ligarSolucoes()` fazia `document.querySelector("[data-solucoes-abrir]")`
+e chamava `.addEventListener` direto no resultado sem checar null; como
+esse elemento não existia em `painel.html`, a chamada de `ligarDetalhe`
+inteira lançava exceção não capturada dentro de `montarPainel`, abortando
+o resto da função antes de chegar em `ligarListaDePessoas` — por isso a
+tabela ficava vazia sem nenhuma mensagem de erro na tela (o `Promise.all`
+já tinha resolvido normalmente, o problema era depois).
+
+Corrigido replicando o mesmo markup de Soluções (botão + painel de busca
++ botão "+ Adicionar nova solução") em `painel.html`, na mesma posição
+relativa que já existe em `portal.html` (logo depois de Textos rápidos,
+antes do botão Responder) — mesma classe `.rapidos`/`.rapidos__*`, então
+nenhum CSS novo foi necessário (`painel.html` já carrega `portal.css`,
+comentário no próprio arquivo já explicava isso: "o modal de detalhe é o
+mesmo, precisa deles").
+
+Testado extraindo a lógica de `ligarSolucoes()` (a parte que registra os
+listeners, que é onde o erro acontecia) e rodando contra o DOM real de
+`painel.html` carregado via fetch — confirmado que roda sem erro agora.
+Não foi possível testar o fluxo de login completo do Painel neste
+ambiente (exigiria simular toda a autenticação), mas o erro reportado
+acontecia antes de qualquer chamada de rede — é puramente
+`querySelector` retornando `null` — então esse teste isolado cobre a
+causa raiz diretamente.
+
+**Nota para o futuro**: como `ligarDetalhe` é compartilhado entre Portal
+e Painel, qualquer novo elemento que `ligarDetalhe` (ou qualquer função
+chamada por ela) referencia via `document.querySelector` sem checar null
+precisa existir nas **duas** telas — já é a mesma lição registrada em
+`docs/preferencias.md` para links de navegação por permissão ("replicar
+em todos os pontos de entrada"), vale igualmente aqui.
+
+### 2026-09-18 — Investigando: "ainda não está chegando notificação"
+
+Usuário testou de novo o Web Push (local) e apanhou o alert "Não foi
+possível ativar as notificações" ao desligar/religar o interruptor.
+
+Diagnóstico com login real (autorizado explicitamente pelo usuário a usar
+a própria conta pra este teste, via Playwright): fluxo completo — login →
+abrir o menu → clicar no interruptor → conceder permissão → desligar →
+religar → disparar uma notificação de verdade (INSERT real em
+`comentarios`) — funcionou sem nenhum erro em toda a sequência, com a
+inscrição salva corretamente em `push_subscriptions` e a notificação
+chegando de fato no navegador de teste
+(`registration.getNotifications()` confirmou o título/corpo certos). Um
+teste isolado sem sessão válida reproduziu um erro de RLS parecido (`new
+row violates row-level security policy`), mas isso não bate com o
+cenário do usuário — ele confirmou que estava logado normalmente.
+
+Hipótese mais provável: uma inscrição de push "fantasma" presa no
+navegador dele, de um teste anterior a alguma correção no meio do
+caminho (ex.: subscription antiga apontando pra uma versão anterior do
+Service Worker, ou um estado inconsistente entre o que o navegador acha
+que está inscrito e o que existe no banco). Usuário vai limpar os dados
+do site (ou testar em aba anônima) e testar de novo — aguardando
+resultado antes de investigar mais fundo ou tentar outra hipótese.
