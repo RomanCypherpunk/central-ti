@@ -20,6 +20,7 @@
 // descrição legível, que é o que a equipe lê na ficha do Portal.
 
 import { supabase } from "../config/supabase-config.js";
+import { prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/otimizar-upload.js";
 
 const passoTipo = document.querySelector("[data-passo-tipo]");
 const formulario = document.querySelector("[data-formulario]");
@@ -1263,6 +1264,13 @@ function adicionarArquivos(arquivos) {
   arquivos.forEach((arquivo) => {
     const aceito = arquivo.type.startsWith("image/") || arquivo.type === "application/pdf";
 
+    try {
+      validarArquivoParaUpload(arquivo);
+    } catch {
+      recusados.push(`${arquivo.name} (PDFs têm limite de 5 MB)`);
+      return;
+    }
+
     if (!aceito || arquivo.size > TAMANHO_MAXIMO) {
       recusados.push(arquivo.name);
       return;
@@ -1507,10 +1515,11 @@ async function enviarAnexos(chamadoId) {
   const inicio = Date.now();
 
   const enviados = await Promise.all(pendentes.map(async ({ arquivo }, indice) => {
-    const caminho = `${chamadoId}/${inicio}-${indice + 1}-${nomeSeguro(arquivo.name)}`;
+    const arquivoOtimizado = await prepararArquivoParaUpload(arquivo);
+    const caminho = `${chamadoId}/${inicio}-${indice + 1}-${nomeSeguro(arquivoOtimizado.name)}`;
     const { error } = await supabase.storage
       .from("anexos")
-      .upload(caminho, arquivo, { contentType: arquivo.type });
+      .upload(caminho, arquivoOtimizado, { contentType: arquivoOtimizado.type, cacheControl: "31536000" });
 
     if (error) {
       console.error("Falha ao enviar anexo:", arquivo.name, error);

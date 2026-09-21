@@ -3,6 +3,7 @@
 import { supabase } from "../config/supabase-config.js";
 import { pintarImagemPrivada } from "../componentes/storage-privado.js";
 import { inscreverPush, limparPushNoLogout } from "../componentes/push-sessao.js";
+import { prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/otimizar-upload.js";
 // Peças que o Painel também usa: moram em componentes/ para as duas telas
 // mostrarem status, nome e avatar pela mesma regra.
 import {
@@ -2575,6 +2576,13 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
 
     if (!texto && !arquivos.length) return;
 
+    try {
+      arquivos.forEach(validarArquivoParaUpload);
+    } catch (erroArquivo) {
+      avisar(erroArquivo.message, true);
+      return;
+    }
+
     // O envio leva alguns segundos com varias imagens: se a pessoa abrir
     // outro ticket no meio, tudo continua indo para este chamado.
     const chamado = aberto;
@@ -2617,8 +2625,11 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
       // assim que a policy do bucket amarra a permissao do arquivo a do
       // chamado. O indice no nome evita dois arquivos no mesmo caminho.
       const enviados = await Promise.all(arquivos.map(async (arquivo, indice) => {
-        const caminho = `${chamado.id}/${inicio}-${indice + 1}-${arquivo.name}`;
-        const { error } = await supabase.storage.from("anexos").upload(caminho, arquivo);
+        const arquivoOtimizado = await prepararArquivoParaUpload(arquivo);
+        const caminho = `${chamado.id}/${inicio}-${indice + 1}-${arquivoOtimizado.name}`;
+        const { error } = await supabase.storage
+          .from("anexos")
+          .upload(caminho, arquivoOtimizado, { contentType: arquivoOtimizado.type, cacheControl: "31536000" });
 
         if (error) {
           console.error("Falha ao enviar anexo:", arquivo.name, error);
@@ -4808,13 +4819,12 @@ function ligarFundo() {
     botaoAplicar.textContent = "Aplicando…";
     avisar("");
 
-    const { arquivo } = escolhido;
+    const { arquivo: arquivoOriginal } = escolhido;
+    const arquivo = await prepararArquivoParaUpload(arquivoOriginal);
     const extensao = (arquivo.name.split(".").pop() || "jpg").toLowerCase();
     const caminho = `${usuarioId}.${extensao}`;
 
-    // Sem compressao nem redimensionar: o arquivo vai exatamente como saiu do
-    // computador, na resolucao original. contentType explicito para a imagem
-    // colada (Ctrl+V) nao ir como arquivo generico.
+    // A imagem sai do navegador já otimizada quando WebP reduzir o tamanho.
     const { error: erroUpload } = await supabase.storage
       .from("fundos-portal")
       .upload(caminho, arquivo, { upsert: true, contentType: arquivo.type, cacheControl: "3600" });

@@ -9,9 +9,11 @@
 
 import { supabase } from "../config/supabase-config.js";
 import { pintarImagemPrivada } from "../componentes/storage-privado.js";
+import { prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/otimizar-upload.js";
 
 const BUCKET = "artigos";
 const MAX_IMAGENS_POR_PASSO = 3;
+const imagensEmOtimizacao = new Set();
 
 // O nome do arquivo (colado ou anexado) vira parte do CAMINHO no Storage, e
 // o Storage recusa alguns caracteres nele — "#" por exemplo devolve
@@ -271,11 +273,19 @@ function atualizarImagensDoPasso(card) {
   anexarBtn.querySelector("span").textContent = atingiuLimite ? " Máximo de 3 imagens" : " Anexar imagem";
 }
 
-function adicionarImagensAoPasso(card, novosArquivos) {
-  for (const arquivo of novosArquivos) {
-    if (card._imagens.length >= MAX_IMAGENS_POR_PASSO) break;
-    card._imagens.push(arquivo);
-  }
+async function adicionarImagensAoPasso(card, novosArquivos) {
+  const vagas = Math.max(0, MAX_IMAGENS_POR_PASSO - card._imagens.length);
+  const arquivos = novosArquivos.filter(Boolean).slice(0, vagas);
+
+  // Otimiza já ao colar/escolher, antes da prévia e do salvamento. Assim a
+  // imagem que vai para o Storage — e depois entra no PDF — é a menor versão.
+  let tarefa;
+  tarefa = Promise.all(arquivos.map(prepararArquivoParaUpload))
+    .finally(() => imagensEmOtimizacao.delete(tarefa));
+  imagensEmOtimizacao.add(tarefa);
+
+  const otimizados = await tarefa;
+  card._imagens.push(...otimizados);
 
   atualizarImagensDoPasso(card);
 }
@@ -310,13 +320,13 @@ function criarPassoCard(passoInicial) {
 
   textarea.addEventListener("input", () => ajustarAltura(textarea));
 
-  textarea.addEventListener("paste", (evento) => {
+  textarea.addEventListener("paste", async (evento) => {
     const item = Array.from(evento.clipboardData.items).find((i) => i.type.startsWith("image/"));
 
     if (!item) return;
 
     evento.preventDefault();
-    adicionarImagensAoPasso(card, [item.getAsFile()]);
+    await adicionarImagensAoPasso(card, [item.getAsFile()]);
   });
 
   const anexarBtn = card.querySelector(".passo-card__anexar");
@@ -324,9 +334,10 @@ function criarPassoCard(passoInicial) {
 
   anexarBtn.addEventListener("click", () => inputImagem.click());
 
-  inputImagem.addEventListener("change", () => {
-    adicionarImagensAoPasso(card, Array.from(inputImagem.files));
+  inputImagem.addEventListener("change", async () => {
+    const arquivos = Array.from(inputImagem.files);
     inputImagem.value = "";
+    await adicionarImagensAoPasso(card, arquivos);
   });
 
   atualizarImagensDoPasso(card);
@@ -780,8 +791,15 @@ function coletarSetores() {
 
 //ENVIO DE ARQUIVOS
 async function enviarArquivo(artigoId, nomeArquivo, arquivo) {
-  const caminho = `${artigoId}/${nomeArquivo}`;
-  const { error } = await supabase.storage.from(BUCKET).upload(caminho, arquivo);
+  const arquivoOtimizado = await prepararArquivoParaUpload(arquivo);
+  const base = nomeArquivo.replace(/\.[^.]+$/, "");
+  const extensao = arquivoOtimizado.name.includes(".")
+    ? arquivoOtimizado.name.slice(arquivoOtimizado.name.lastIndexOf("."))
+    : "";
+  const caminho = `${artigoId}/${base}${extensao}`;
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(caminho, arquivoOtimizado, { contentType: arquivoOtimizado.type, cacheControl: "31536000" });
 
   if (error) throw error;
 
@@ -816,6 +834,8 @@ async function coletarAnexos(artigoId) {
 
   return Promise.all(arquivos.map(async (arquivo, indice) => {
     if (!(arquivo instanceof File)) return arquivo;
+
+    validarArquivoParaUpload(arquivo);
 
     const nomeArquivo = `${Date.now()}-${indice + 1}-${nomeSeguro(arquivo.name)}`;
     const url = await enviarArquivo(artigoId, nomeArquivo, arquivo);
@@ -859,6 +879,10 @@ salvarBtn.addEventListener("click", async () => {
   salvarBtn.textContent = idEdicao ? "Salvando edição..." : "Salvando...";
 
   try {
+    // Não deixa um clique rápido em Salvar subir a imagem original enquanto
+    // ela ainda está sendo convertida após colar no passo.
+    await Promise.all([...imagensEmOtimizacao]);
+
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) throw new Error("Sessão expirada.");
@@ -902,6 +926,11 @@ salvarBtn.addEventListener("click", async () => {
     // "InvalidKey" é o Storage recusando um caractere no nome do arquivo —
     // com nomeSeguro() isso não deveria mais acontecer, mas se acontecer diz
     // qual é o problema em vez do genérico, que não dava nenhuma pista.
+    if (erro?.message?.includes("ultrapassa o limite de 5 MB")) {
+      publicacaoErro.textContent = erro.message;
+      return;
+    }
+
     publicacaoErro.textContent = erro?.error === "InvalidKey" || erro?.statusCode === "400"
       ? "Um dos arquivos anexados tem um nome com caractere que o sistema não aceita. Renomeie o arquivo (evite #, %, ? e barras) e tente de novo."
       : "Não foi possível salvar. Tente novamente.";
