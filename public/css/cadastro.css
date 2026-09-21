@@ -135,6 +135,15 @@ body {
   min-height: 0;
   padding: 2.5rem 3.5rem;
   background-color: #fff;
+  /*ROLA POR DENTRO QUANDO NAO CABE. A tela inteira não rola (.cadastro),
+    e o formulário ficava preso na altura da janela: quando aparecia o aviso
+    de senha fora das regras, o conteúdo crescia, os botões Voltar e Criar
+    conta desciam para fora da tela e não havia como chegar neles. Em
+    notebook, ou com o zoom do navegador acima de 100%, acontecia sempre.
+    Agora só este lado rola; a vitrine laranja continua parada. Com espaço
+    sobrando, o margin: auto do .cadastro__formulario segue centralizando —
+    margem automática não corta o topo quando o conteúdo passa da altura.*/
+  overflow-y: auto;
 }
 
 .cadastro__formulario {

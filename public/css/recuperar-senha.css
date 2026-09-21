@@ -135,6 +135,10 @@ body {
   min-height: 0;
   padding: 2.5rem 3.5rem;
   background-color: #fff;
+  /*Rola por dentro quando nao cabe — mesma correcao do cadastro.css: a
+    tela inteira nao rola, e um aviso de erro no topo empurrava os botoes
+    para fora da janela, sem como alcancar.*/
+  overflow-y: auto;
 }
 
 .recuperar__formulario {
