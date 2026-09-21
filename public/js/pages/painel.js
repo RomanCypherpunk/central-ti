@@ -839,6 +839,7 @@ function ligarPessoaDialog(setores, unidades) {
   const emailJanela = document.querySelector("[data-pessoa-email]");
   const aviso = document.querySelector("[data-pessoa-aviso]");
   const botaoSalvar = document.querySelector("[data-pessoa-salvar]");
+  const botaoExcluir = document.querySelector("[data-pessoa-excluir]");
   const dicaEmail = document.querySelector("[data-pessoa-dica-email]");
   const campoSenhaCaixa = document.querySelector("[data-pessoa-campo-senha]");
 
@@ -895,6 +896,7 @@ function ligarPessoaDialog(setores, unidades) {
     // Sem id ainda nao ha onde subir a foto (o nome do arquivo e o id da
     // pessoa) — a foto de quem esta sendo criado entra depois, editando.
     fotoAcoes.hidden = criando;
+    botaoExcluir.hidden = criando;
 
     dicaEmail.textContent = criando
       ? "É o e-mail de login da pessoa — confira antes de salvar."
@@ -1042,6 +1044,36 @@ function ligarPessoaDialog(setores, unidades) {
     avisar("Conta criada");
     janela.close();
   }
+
+  botaoExcluir.addEventListener("click", async () => {
+    if (!editando) return;
+
+    const confirmacao = window.prompt(
+      `Excluir permanentemente a conta de ${nomeCompleto(editando) ?? "esta pessoa"}?\n\n`
+      + "Esta ação não pode ser desfeita. Digite EXCLUIR para confirmar.",
+    );
+    if (confirmacao !== "EXCLUIR") return;
+
+    botaoExcluir.disabled = true;
+    botaoSalvar.disabled = true;
+    avisar("Excluindo conta…");
+    const { data, error } = await supabase.functions.invoke("excluir-usuario", {
+      body: { usuario_id: editando.id },
+    });
+
+    if (error || !data?.ok) {
+      console.error("Erro ao excluir conta:", error);
+      avisar(data?.erro ?? "Não foi possível excluir a conta.", true);
+      botaoExcluir.disabled = false;
+      botaoSalvar.disabled = false;
+      return;
+    }
+
+    document.dispatchEvent(new CustomEvent("central-ti:pessoa-excluida", {
+      detail: { id: editando.id },
+    }));
+    janela.close();
+  });
 
   formulario.addEventListener("submit", async (evento) => {
     evento.preventDefault();
@@ -1306,6 +1338,14 @@ function ligarListaDePessoas({ prefixo, pessoas, setores, unidades, dialog, rotu
 
     desenhar();
   }
+
+  document.addEventListener("central-ti:pessoa-excluida", (evento) => {
+    const id = evento.detail?.id;
+    const indice = pessoas.findIndex((pessoa) => pessoa.id === id);
+    if (indice < 0) return;
+    pessoas.splice(indice, 1);
+    desenhar();
+  });
 
   /* ========================================================================
      FILTRAR: unidade, setor, perfil, situacao. Mesmo padrao visual e de

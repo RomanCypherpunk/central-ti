@@ -1543,6 +1543,17 @@ html[data-painel-sidebar="colapsada"] .painel {
   color: #fff;
 }
 
+.pessoa__botao--perigo {
+  border-color: var(--erro-texto);
+  color: var(--erro-texto);
+}
+
+.pessoa__botao--perigo:hover {
+  border-color: var(--erro-texto);
+  background: var(--erro-fundo);
+  color: var(--erro-texto);
+}
+
 .pessoa__botao:active {
   transform: translateY(1px);
 }

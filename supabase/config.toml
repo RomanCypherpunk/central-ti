@@ -82,5 +82,8 @@ enabled = true
 [functions.criar-usuario]
 verify_jwt = true
 
+[functions.excluir-usuario]
+verify_jwt = true
+
 [functions.notificar-portal]
 verify_jwt = true
