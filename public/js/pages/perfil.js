@@ -3,6 +3,7 @@
 import { supabase } from "../config/supabase-config.js";
 import { marcarMinhaFotoTrocada } from "../componentes/avatar.js";
 import { pintarImagemPrivada } from "../componentes/storage-privado.js";
+import { prepararArquivoParaUpload } from "../componentes/otimizar-upload.js";
 
 const foto = document.querySelector("[data-foto]");
 const fotoIniciais = document.querySelector("[data-foto-iniciais]");
@@ -97,9 +98,11 @@ async function carregar() {
 
 //FOTO NOVA: SOBE PARA O STORAGE E O CAMINHO VAI PARA O PERFIL
 fotoArquivo.addEventListener("change", async () => {
-  const arquivo = fotoArquivo.files[0];
+  let arquivo = fotoArquivo.files[0];
 
   if (!arquivo) return;
+
+  arquivo = await prepararArquivoParaUpload(arquivo);
 
   if (arquivo.size > TAMANHO_MAXIMO) {
     avisar("A foto precisa ter até 2 MB.", true);
@@ -114,7 +117,7 @@ fotoArquivo.addEventListener("change", async () => {
 
   const { error: erroUpload } = await supabase.storage
     .from("avatares")
-    .upload(caminho, arquivo, { upsert: true });
+    .upload(caminho, arquivo, { upsert: true, contentType: arquivo.type, cacheControl: "3600" });
 
   if (erroUpload) {
     avisar("Não foi possível enviar a foto.", true);

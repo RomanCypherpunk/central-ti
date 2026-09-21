@@ -13,6 +13,7 @@
 
 import { supabase } from "../config/supabase-config.js";
 import { pintarImagemPrivada } from "../componentes/storage-privado.js";
+import { prepararArquivoParaUpload } from "../componentes/otimizar-upload.js";
 import { ligarDetalhe, confirmarNoSite } from "./portal.js";
 import { pintarFoto } from "../componentes/avatar.js";
 import {
@@ -1212,9 +1213,11 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
   fotoBotaoTrocar.addEventListener("click", () => fotoArquivo.click());
 
   fotoArquivo.addEventListener("change", async () => {
-    const arquivo = fotoArquivo.files[0];
+    let arquivo = fotoArquivo.files[0];
 
     if (!arquivo || !editando) return;
+
+    arquivo = await prepararArquivoParaUpload(arquivo);
 
     if (arquivo.size > TAMANHO_MAXIMO_FOTO) {
       avisar("A foto precisa ter até 2 MB.", true);
@@ -1230,7 +1233,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
 
     const { error: erroUpload } = await supabase.storage
       .from("avatares")
-      .upload(caminho, arquivo, { upsert: true });
+      .upload(caminho, arquivo, { upsert: true, contentType: arquivo.type, cacheControl: "3600" });
 
     if (erroUpload) {
       console.error("Erro ao enviar foto:", erroUpload);
@@ -1946,9 +1949,17 @@ function ligarItemSimplesDialog() {
   });
 
   fotoArquivo.addEventListener("change", async () => {
-    const arquivo = fotoArquivo.files[0];
+    let arquivo = fotoArquivo.files[0];
 
     if (!arquivo || !editando) return;
+
+    arquivo = await prepararArquivoParaUpload(arquivo);
+
+    if (arquivo.size > TAMANHO_MAXIMO_FOTO) {
+      avisar("A foto precisa ter até 2 MB.", true);
+      fotoArquivo.value = "";
+      return;
+    }
 
     fotoBotaoTrocar.disabled = true;
     avisar("Enviando foto…");
@@ -1958,7 +1969,7 @@ function ligarItemSimplesDialog() {
 
     const { error: erroUpload } = await supabase.storage
       .from(contexto.bucketFoto)
-      .upload(caminho, arquivo, { upsert: true });
+      .upload(caminho, arquivo, { upsert: true, contentType: arquivo.type, cacheControl: "3600" });
 
     if (erroUpload) {
       console.error(`Erro ao enviar foto em ${contexto.bucketFoto}:`, erroUpload);

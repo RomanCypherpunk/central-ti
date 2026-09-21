@@ -9,6 +9,7 @@
 
 import { supabase } from "../config/supabase-config.js";
 import { pintarImagemPrivada } from "../componentes/storage-privado.js";
+import { prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/otimizar-upload.js";
 
 const BUCKET = "artigos";
 const MAX_IMAGENS_POR_PASSO = 3;
@@ -780,8 +781,15 @@ function coletarSetores() {
 
 //ENVIO DE ARQUIVOS
 async function enviarArquivo(artigoId, nomeArquivo, arquivo) {
-  const caminho = `${artigoId}/${nomeArquivo}`;
-  const { error } = await supabase.storage.from(BUCKET).upload(caminho, arquivo);
+  const arquivoOtimizado = await prepararArquivoParaUpload(arquivo);
+  const base = nomeArquivo.replace(/\.[^.]+$/, "");
+  const extensao = arquivoOtimizado.name.includes(".")
+    ? arquivoOtimizado.name.slice(arquivoOtimizado.name.lastIndexOf("."))
+    : "";
+  const caminho = `${artigoId}/${base}${extensao}`;
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(caminho, arquivoOtimizado, { contentType: arquivoOtimizado.type, cacheControl: "31536000" });
 
   if (error) throw error;
 
@@ -816,6 +824,8 @@ async function coletarAnexos(artigoId) {
 
   return Promise.all(arquivos.map(async (arquivo, indice) => {
     if (!(arquivo instanceof File)) return arquivo;
+
+    validarArquivoParaUpload(arquivo);
 
     const nomeArquivo = `${Date.now()}-${indice + 1}-${nomeSeguro(arquivo.name)}`;
     const url = await enviarArquivo(artigoId, nomeArquivo, arquivo);
@@ -902,6 +912,11 @@ salvarBtn.addEventListener("click", async () => {
     // "InvalidKey" é o Storage recusando um caractere no nome do arquivo —
     // com nomeSeguro() isso não deveria mais acontecer, mas se acontecer diz
     // qual é o problema em vez do genérico, que não dava nenhuma pista.
+    if (erro?.message?.includes("ultrapassa o limite de 5 MB")) {
+      publicacaoErro.textContent = erro.message;
+      return;
+    }
+
     publicacaoErro.textContent = erro?.error === "InvalidKey" || erro?.statusCode === "400"
       ? "Um dos arquivos anexados tem um nome com caractere que o sistema não aceita. Renomeie o arquivo (evite #, %, ? e barras) e tente de novo."
       : "Não foi possível salvar. Tente novamente.";
