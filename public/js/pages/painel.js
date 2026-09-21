@@ -12,7 +12,7 @@
 // como biblioteca.
 
 import { supabase } from "../config/supabase-config.js";
-import { pintarImagemPrivada } from "../componentes/storage-privado.js";
+import { pintarImagemPrivada, invalidarStoragePrivado } from "../componentes/storage-privado.js";
 import { prepararArquivoParaUpload } from "../componentes/otimizar-upload.js";
 import { ligarDetalhe, confirmarNoSite } from "./portal.js";
 import { pintarFoto } from "../componentes/avatar.js";
@@ -1259,6 +1259,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
       return;
     }
 
+    invalidarStoragePrivado("avatares");
     editando.foto_path = gravada.foto_path;
     // Mesmo caminho de antes: sem versao nova a janela mostraria a foto antiga.
     pintarAvatar(avatarJanela, editando, String(Date.now()));
@@ -1301,6 +1302,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
       return;
     }
 
+    invalidarStoragePrivado("avatares");
     editando.foto_path = null;
     pintarAvatar(avatarJanela, editando);
     fotoBotaoRemover.hidden = true;
@@ -1995,6 +1997,7 @@ function ligarItemSimplesDialog() {
       return;
     }
 
+    invalidarStoragePrivado(contexto.bucketFoto);
     Object.assign(editando, gravada);
     atualizarFotoNaTela();
     contexto.aoSalvar(editando, false);
@@ -2033,6 +2036,7 @@ function ligarItemSimplesDialog() {
       return;
     }
 
+    invalidarStoragePrivado(contexto.bucketFoto);
     Object.assign(editando, gravada ?? { foto_path: null });
     atualizarFotoNaTela();
     contexto.aoSalvar(editando, false);

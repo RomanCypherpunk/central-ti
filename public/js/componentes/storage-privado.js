@@ -1,20 +1,48 @@
 import { supabase, SUPABASE_URL } from "../config/supabase-config.js";
 
-const BUCKETS = new Set(["artigos", "terceiros", "avatares"]);
+const BUCKETS = new Set(["artigos", "terceiros", "avatares", "fundos-portal", "anexos"]);
 const cache = new Map();
 const imagensPendentes = new WeakMap();
 let geracao = 0;
 const VALIDADE = 300;
+const PREFIXO_CACHE_IMAGENS = "central-ti-imagens-v1";
+const TAMANHO_MAXIMO_CACHE_IMAGEM = 2 * 1024 * 1024;
+let donoDoCache = null;
 
-supabase.auth.onAuthStateChange(() => {
+function cacheDisponivel() {
+  return typeof window !== "undefined" && "caches" in window;
+}
+
+function nomeDoCache(usuarioId, bucket) {
+  return `${PREFIXO_CACHE_IMAGENS}:${usuarioId}:${bucket}`;
+}
+
+async function apagarCachesDoUsuario(usuarioId) {
+  if (!usuarioId || !cacheDisponivel()) return;
+
+  const prefixo = `${PREFIXO_CACHE_IMAGENS}:${usuarioId}:`;
+  const nomes = await caches.keys();
+  await Promise.all(nomes.filter((nome) => nome.startsWith(prefixo)).map((nome) => caches.delete(nome)));
+}
+
+supabase.auth.onAuthStateChange((_evento, sessao) => {
+  const proximoDono = sessao?.user?.id ?? null;
+  const anterior = donoDoCache;
+  donoDoCache = proximoDono;
   geracao += 1;
   cache.clear();
+
+  // Imagens privadas não ficam disponíveis para quem entrar depois no mesmo
+  // navegador. A limpeza é assíncrona para nunca atrasar o login ou logout.
+  if (anterior && anterior !== proximoDono) apagarCachesDoUsuario(anterior).catch(() => {});
 });
 
 export function invalidarStoragePrivado(bucket) {
   for (const chave of cache.keys()) {
     if (chave.includes(`:${bucket}:`)) cache.delete(chave);
   }
+
+  if (donoDoCache && cacheDisponivel()) caches.delete(nomeDoCache(donoDoCache, bucket)).catch(() => {});
 }
 
 export function caminhoStoragePrivado(bucket, referencia) {
@@ -48,12 +76,71 @@ export async function urlStoragePrivado(bucket, referencia) {
   return data.signedUrl;
 }
 
+function chaveDaImagemNoCache(caminho) {
+  const partes = caminho.split("/").map(encodeURIComponent).join("/");
+  return new Request(`${window.location.origin}/__central-ti-imagens/${partes}`);
+}
+
+// Cache Storage persiste entre páginas, mas é separado por usuário e bucket.
+// Só imagens pequenas entram nele; PDF e arquivos grandes continuam abrindo
+// diretamente pelo Storage, sem ocupar o navegador do usuário.
+export async function blobImagemPrivada(bucket, referencia) {
+  const caminho = caminhoStoragePrivado(bucket, referencia);
+  const { data: { session }, error: erroSessao } = await supabase.auth.getSession();
+  const usuarioId = session?.user?.id;
+
+  if (erroSessao || !usuarioId) throw new Error("Sessão expirada.");
+
+  let armazenamento = null;
+  let chave = null;
+
+  if (cacheDisponivel()) {
+    try {
+      armazenamento = await caches.open(nomeDoCache(usuarioId, bucket));
+      chave = chaveDaImagemNoCache(caminho);
+      const guardada = await armazenamento.match(chave);
+
+      if (guardada) return guardada.blob();
+    } catch {
+      // Se Cache Storage estiver bloqueado, a imagem ainda abre normalmente.
+      armazenamento = null;
+      chave = null;
+    }
+  }
+
+  const resposta = await fetch(await urlStoragePrivado(bucket, caminho));
+  if (!resposta.ok) throw new Error("Não foi possível carregar a imagem.");
+
+  const blob = await resposta.blob();
+  if (!blob.type.startsWith("image/")) throw new Error("Arquivo não é uma imagem.");
+
+  if (armazenamento && chave && blob.size <= TAMANHO_MAXIMO_CACHE_IMAGEM) {
+    try {
+      await armazenamento.put(chave, new Response(blob, { headers: { "content-type": blob.type } }));
+    } catch {
+      // Quota cheia ou cache indisponível não impede que a imagem apareça.
+    }
+  }
+
+  return blob;
+}
+
 export function pintarImagemPrivada(img, bucket, referencia, aoFalhar = () => {}) {
   const pedido = {};
   imagensPendentes.set(img, pedido);
   img.removeAttribute("src");
-  urlStoragePrivado(bucket, referencia).then(url => {
-    if (imagensPendentes.get(img) === pedido) img.src = url;
+  blobImagemPrivada(bucket, referencia).then((blob) => {
+    const url = URL.createObjectURL(blob);
+
+    if (imagensPendentes.get(img) !== pedido) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    const liberar = () => URL.revokeObjectURL(url);
+    img.addEventListener("load", liberar, { once: true });
+    img.addEventListener("error", liberar, { once: true });
+    img.src = url;
   }).catch(() => {
     if (imagensPendentes.get(img) === pedido) aoFalhar();
   });

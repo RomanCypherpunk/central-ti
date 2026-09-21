@@ -1,7 +1,7 @@
 // Portal de Chamados: quadro kanban da equipe de TI — Fase 4.
 
 import { supabase } from "../config/supabase-config.js";
-import { pintarImagemPrivada } from "../componentes/storage-privado.js";
+import { pintarImagemPrivada, blobImagemPrivada, invalidarStoragePrivado } from "../componentes/storage-privado.js";
 import { inscreverPush, limparPushNoLogout } from "../componentes/push-sessao.js";
 import { prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/otimizar-upload.js";
 // Peças que o Painel também usa: moram em componentes/ para as duas telas
@@ -2360,7 +2360,9 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
       const url = urlGuardada(imagem.dataset.caminho);
 
       if (url) {
-        imagem.src = url;
+        pintarImagemPrivada(imagem, "anexos", imagem.dataset.caminho, () => {
+          imagem.closest(".comentario__imagem")?.classList.add("comentario__imagem--falhou");
+        });
       } else {
         imagem.closest(".comentario__imagem")?.classList.add("comentario__imagem--falhou");
       }
@@ -4660,7 +4662,7 @@ function ligarFundo() {
   const TAMANHO_MAXIMO = 15 * 1024 * 1024;
 
   let usuarioId = null;
-  let fundoAtualUrl = null; // URL assinada do fundo salvo; null = degrade padrao
+  let fundoAtualUrl = null; // URL local do fundo salvo; null = degrade padrao
   let escolhido = null; // { arquivo, url, largura, altura } — escolhida, ainda nao aplicada
 
   function avisar(texto, erro = false) {
@@ -4717,6 +4719,11 @@ function ligarFundo() {
     escolhido = null;
     resolucao.hidden = true;
     campoArquivo.value = "";
+  }
+
+  function limparFundoAtual() {
+    if (fundoAtualUrl?.startsWith("blob:")) URL.revokeObjectURL(fundoAtualUrl);
+    fundoAtualUrl = null;
   }
 
   //RESOLUCAO: compara com os pixels reais da tela (tamanho x densidade — um
@@ -4790,21 +4797,22 @@ function ligarFundo() {
       .eq("id", user.id)
       .single();
 
-    fundoAtualUrl = null;
+    limparFundoAtual();
 
     if (data?.fundo_path) {
-      // Bucket privado: precisa de URL assinada, diferente do avatar (publico).
-      const { data: assinada } = await supabase.storage
-        .from("fundos-portal")
-        .createSignedUrl(data.fundo_path, 3600);
-
-      fundoAtualUrl = assinada?.signedUrl ?? null;
+      try {
+        // Busca no Cache Storage antes do Storage: fundos são o arquivo mais
+        // pesado do Portal e não devem baixar de novo a cada página aberta.
+        fundoAtualUrl = URL.createObjectURL(await blobImagemPrivada("fundos-portal", data.fundo_path));
+      } catch {
+        fundoAtualUrl = null;
+      }
     }
 
     const carregou = await mostrarNoQuadro(fundoAtualUrl);
 
     if (!carregou) {
-      fundoAtualUrl = null;
+      limparFundoAtual();
       await mostrarNoQuadro(null);
     }
 
@@ -4851,6 +4859,7 @@ function ligarFundo() {
       return;
     }
 
+    invalidarStoragePrivado("fundos-portal");
     descartarEscolhido();
     await carregarFundoSalvo();
     janela.close();
