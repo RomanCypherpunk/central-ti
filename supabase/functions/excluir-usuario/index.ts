@@ -44,7 +44,7 @@ Deno.serve(async (request) => {
     return reply({ erro: "Somente administradores ativos podem excluir contas." }, 403);
   }
 
-  let body: { usuario_id?: unknown };
+  let body: { usuario_id?: unknown; destino_id?: unknown };
   try {
     const text = await request.text();
     if (new TextEncoder().encode(text).length > 1024) return reply({ erro: "Corpo muito grande." }, 413);
@@ -53,11 +53,12 @@ Deno.serve(async (request) => {
     return reply({ erro: "Corpo do pedido inválido." }, 400);
   }
   if (!body || typeof body !== "object" || Array.isArray(body)
-    || Object.keys(body).length !== 1 || !("usuario_id" in body)
-    || typeof body.usuario_id !== "string" || !UUID.test(body.usuario_id)) {
+    || Object.keys(body).sort().join(",") !== "destino_id,usuario_id"
+    || typeof body.usuario_id !== "string" || !UUID.test(body.usuario_id)
+    || typeof body.destino_id !== "string" || !UUID.test(body.destino_id)) {
     return reply({ erro: "Usuário inválido." }, 400);
   }
-  if (body.usuario_id === callerUser.id) {
+  if (body.usuario_id === callerUser.id || body.usuario_id === body.destino_id) {
     return reply({ erro: "Não é permitido excluir a própria conta." }, 409);
   }
 
@@ -69,42 +70,28 @@ Deno.serve(async (request) => {
   if (limitError) return reply({ erro: "Não foi possível validar o limite de requisições." }, 503);
   if (!allowed) return reply({ erro: "Muitas tentativas. Aguarde alguns minutos." }, 429);
 
-  const { data: target, error: targetError } = await admin
-    .from("usuarios")
-    .select("id,perfil,status_aprovacao,ativo,foto_path")
-    .eq("id", body.usuario_id)
-    .maybeSingle();
-  if (targetError) return reply({ erro: "Não foi possível consultar a conta." }, 500);
-  if (!target) return reply({ erro: "Conta não encontrada." }, 404);
-
-  if (target.perfil === "admin" && target.status_aprovacao === "aprovado" && target.ativo) {
-    const { count, error } = await admin.from("usuarios")
-      .select("id", { count: "exact", head: true })
-      .eq("perfil", "admin").eq("status_aprovacao", "aprovado").eq("ativo", true);
-    if (error) return reply({ erro: "Não foi possível validar os administradores." }, 500);
-    if ((count ?? 0) <= 1) return reply({ erro: "Não é permitido excluir o último administrador ativo." }, 409);
+  const { data: transfer, error: transferError } = await admin.rpc(
+    "transferir_historico_e_reservar_exclusao",
+    { p_ator_id: callerUser.id, p_usuario_id: body.usuario_id, p_destino_id: body.destino_id },
+  );
+  const result = transfer as { ok?: boolean; code?: string; foto_path?: string | null } | null;
+  if (transferError) return reply({ erro: "Não foi possível transferir o histórico da conta." }, 500);
+  if (!result?.ok) {
+    const messages: Record<string, string> = {
+      "target-not-found": "Conta não encontrada.",
+      "invalid-target": "Escolha contas diferentes e não exclua a própria conta.",
+      "invalid-destination": "A conta de destino precisa estar ativa e aprovada.",
+      "team-destination-required": "Contas da equipe devem ser transferidas para outro analista ou administrador.",
+      "last-admin": "Não é permitido excluir o último administrador ativo.",
+    };
+    return reply({ erro: messages[result?.code ?? ""] ?? "Não foi possível preparar a exclusão." }, 409);
   }
 
-  const references = [
-    ["chamados", "solicitante_id"],
-    ["chamado_membros", "usuario_id"],
-    ["comentarios", "autor_id"],
-    ["anexos", "usuario_id"],
-    ["artigos", "autor_id"],
-    ["artigo_feedback", "usuario_id"],
-  ] as const;
-  const checks = await Promise.all(references.map(([table, column]) => admin
-    .from(table).select("id", { count: "exact", head: true }).eq(column, target.id)));
-  if (checks.some(({ error }) => error)) return reply({ erro: "Não foi possível verificar o histórico da conta." }, 500);
-  if (checks.some(({ count }) => (count ?? 0) > 0)) {
-    return reply({ erro: "Esta conta possui histórico vinculado. Desative-a para preservar chamados e registros." }, 409);
-  }
-
-  const { error: deleteError } = await admin.auth.admin.deleteUser(target.id);
+  const { error: deleteError } = await admin.auth.admin.deleteUser(body.usuario_id);
   if (deleteError) return reply({ erro: "Não foi possível excluir a conta." }, 500);
 
-  if (target.foto_path) {
-    const { error } = await admin.storage.from("avatares").remove([target.foto_path]);
+  if (result.foto_path) {
+    const { error } = await admin.storage.from("avatares").remove([result.foto_path]);
     if (error) console.error("account-avatar-removal-failed");
   }
   return reply({ ok: true });

@@ -831,7 +831,7 @@ const TAMANHO_MAXIMO_FOTO = 2 * 1024 * 1024;
 //dialog (abrir/criar/salvar/foto) UMA unica vez — ligar duas vezes
 //duplicaria cada envio de formulário — e devolve funções que cada lista
 //(ligarListaDePessoas) chama para abrir o dialog na pessoa certa.
-function ligarPessoaDialog(setores, unidades) {
+function ligarPessoaDialog(setores, unidades, pessoas) {
   const janela = document.querySelector("[data-pessoa]");
   const formulario = document.querySelector("[data-pessoa-form]");
   const avatarJanela = document.querySelector("[data-pessoa-avatar]");
@@ -842,6 +842,8 @@ function ligarPessoaDialog(setores, unidades) {
   const botaoExcluir = document.querySelector("[data-pessoa-excluir]");
   const dicaEmail = document.querySelector("[data-pessoa-dica-email]");
   const campoSenhaCaixa = document.querySelector("[data-pessoa-campo-senha]");
+  const campoDestinoCaixa = document.querySelector("[data-pessoa-destino-caixa]");
+  const campoDestino = document.querySelector('[data-pessoa-campo="destino_id"]');
 
   //FOTO: caixa com os dois botoes (trocar/remover) + o input de arquivo
   //escondido atras do botao "Trocar foto", igual ao "Dados pessoais".
@@ -897,6 +899,7 @@ function ligarPessoaDialog(setores, unidades) {
     // pessoa) — a foto de quem esta sendo criado entra depois, editando.
     fotoAcoes.hidden = criando;
     botaoExcluir.hidden = criando;
+    campoDestinoCaixa.hidden = criando;
 
     dicaEmail.textContent = criando
       ? "É o e-mail de login da pessoa — confira antes de salvar."
@@ -927,6 +930,22 @@ function ligarPessoaDialog(setores, unidades) {
     formulario.querySelector('[data-pessoa-campo="status_aprovacao"]').value =
       pessoa.status_aprovacao ?? "pendente";
     formulario.querySelector('[data-pessoa-campo="ativo"]').checked = Boolean(pessoa.ativo);
+    campoDestino.replaceChildren();
+    const vazio = document.createElement("option");
+    vazio.value = "";
+    vazio.textContent = "Selecione a conta de destino";
+    campoDestino.appendChild(vazio);
+    const destinoPrecisaSerEquipe = ["analista", "admin"].includes(pessoa.perfil);
+    pessoas
+      .filter((outra) => outra.id !== pessoa.id && outra.ativo && outra.status_aprovacao === "aprovado")
+      .filter((outra) => !destinoPrecisaSerEquipe || ["analista", "admin"].includes(outra.perfil))
+      .sort((a, b) => (nomeCompleto(a) ?? "").localeCompare(nomeCompleto(b) ?? "", "pt-BR"))
+      .forEach((outra) => {
+        const opcao = document.createElement("option");
+        opcao.value = outra.id;
+        opcao.textContent = `${nomeCompleto(outra) ?? "Sem nome"} — ${outra.email ?? "sem e-mail"}`;
+        campoDestino.appendChild(opcao);
+      });
 
     janela.showModal();
   }
@@ -1048,6 +1067,12 @@ function ligarPessoaDialog(setores, unidades) {
   botaoExcluir.addEventListener("click", async () => {
     if (!editando) return;
 
+    if (!campoDestino.value) {
+      avisar("Selecione a conta que receberá o histórico.", true);
+      campoDestino.focus();
+      return;
+    }
+
     const confirmacao = window.prompt(
       `Excluir permanentemente a conta de ${nomeCompleto(editando) ?? "esta pessoa"}?\n\n`
       + "Esta ação não pode ser desfeita. Digite EXCLUIR para confirmar.",
@@ -1058,7 +1083,7 @@ function ligarPessoaDialog(setores, unidades) {
     botaoSalvar.disabled = true;
     avisar("Excluindo conta…");
     const { data, error } = await supabase.functions.invoke("excluir-usuario", {
-      body: { usuario_id: editando.id },
+      body: { usuario_id: editando.id, destino_id: campoDestino.value },
     });
 
     if (error || !data?.ok) {
@@ -4980,7 +5005,7 @@ async function montarPainel() {
 
   //DIALOG DE PESSOA: UM SO, compartilhado por Contatos e Administradores
   //(ver comentario em ligarPessoaDialog).
-  const dialogPessoa = ligarPessoaDialog(setores.data ?? [], unidades.data ?? []);
+  const dialogPessoa = ligarPessoaDialog(setores.data ?? [], unidades.data ?? [], pessoas.data ?? []);
 
   ligarListaDePessoas({
     prefixo: "contatos",
