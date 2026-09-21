@@ -31,6 +31,12 @@ function endpointPermitido(value: string) {
   } catch { return false; }
 }
 
+function tituloNotificacao(value: unknown) {
+  if (typeof value !== "string") return "Central de TI";
+  const titulo = value.replace(/\s+/g, " ").trim().slice(0, 120);
+  return titulo || "Central de TI";
+}
+
 function autorizado(request: Request) {
   // verify_jwt=true valida assinatura, expiração e emissor antes de executar
   // esta função. Aqui só restringimos a chamada ao papel de serviço, sem
@@ -80,7 +86,7 @@ async function row(table: string, fields: string, id: string) {
   return result.data;
 }
 
-async function send(userId: string, teamOnly: boolean) {
+async function send(userId: string, teamOnly: boolean, titulo: string) {
   // A inscrição existente não é autorização. Revalidar usuário e preferência agora.
   const user = await row("usuarios", "ativo,status_aprovacao,perfil,notificacoes_ativas", userId);
   if (!user?.ativo || user.status_aprovacao !== "aprovado" || !user.notificacoes_ativas) return;
@@ -91,10 +97,10 @@ async function send(userId: string, teamOnly: boolean) {
   for (const subscription of subscriptions ?? []) {
     if (!endpointPermitido(subscription.endpoint)) continue;
     try {
-      // Nunca transmitir título, nome ou número do chamado para tela bloqueada.
+      // O título é relido do banco; nunca vem do payload recebido pelo webhook.
       await webpush.sendNotification({ endpoint: subscription.endpoint,
         keys: { p256dh: subscription.p256dh, auth: subscription.auth } },
-      JSON.stringify({ titulo: "Central de TI", corpo: "Há uma atualização. Entre para consultar." }),
+      JSON.stringify({ titulo, corpo: "Nova atualização" }),
       { timeout: 5000, TTL: 60 });
     } catch (error) {
       const status = (error as { statusCode?: number }).statusCode;
@@ -126,13 +132,15 @@ Deno.serve(async (request) => {
   } catch { return reply(400, { error: "invalid-body" }); }
   try {
     const recipients = new Map<string, boolean>();
+    let titulo = "Central de TI";
     if (event.table === "comentarios") {
       const comment = await row("comentarios", "chamado_id,autor_id,tipo,visibilidade", event.id);
       if (!comment || comment.tipo !== "humano" || comment.visibilidade !== "publico") {
         return reply(200, { ok: true, ignored: true });
       }
-      const ticket = await row("chamados", "solicitante_id,chamado_membros(usuario_id)", comment.chamado_id);
+      const ticket = await row("chamados", "solicitante_id,titulo,chamado_membros(usuario_id)", comment.chamado_id);
       if (!ticket) return reply(200, { ok: true, ignored: true });
+      titulo = tituloNotificacao(ticket.titulo);
       const author = await row("usuarios", "ativo,status_aprovacao,perfil", comment.autor_id);
       if (!author?.ativo || author.status_aprovacao !== "aprovado") return reply(200, { ok: true, ignored: true });
       if (comment.autor_id === ticket.solicitante_id) {
@@ -141,8 +149,9 @@ Deno.serve(async (request) => {
         recipients.set(ticket.solicitante_id, false);
       }
     } else {
-      const ticket = await row("chamados", "id", event.id);
+      const ticket = await row("chamados", "id,titulo", event.id);
       if (!ticket) return reply(404, { error: "event-not-found" });
+      titulo = tituloNotificacao(ticket.titulo);
       const { data: team, error } = await db.from("usuarios").select("id")
         .in("perfil", ["analista", "admin"]).eq("ativo", true).eq("status_aprovacao", "aprovado")
         .eq("notificacoes_ativas", true);
@@ -154,7 +163,7 @@ Deno.serve(async (request) => {
     if (claim.error?.code === "23505") return reply(200, { ok: true, duplicate: true });
     if (claim.error) throw new Error("event-claim-failed");
     // Sem Promise.all ilimitado sobre dispositivos/usuários controlados pelo cliente.
-    for (const [userId, teamOnly] of recipients) await send(userId, teamOnly);
+    for (const [userId, teamOnly] of recipients) await send(userId, teamOnly, titulo);
     return reply(200, { ok: true });
   } catch {
     console.error("push-processing-failed");
