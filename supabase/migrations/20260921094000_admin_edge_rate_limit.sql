@@ -8,6 +8,8 @@ create table public.admin_user_creation_limits (
 alter table public.admin_user_creation_limits enable row level security;
 revoke all on public.admin_user_creation_limits from public, anon, authenticated;
 grant select, insert, update, delete on public.admin_user_creation_limits to service_role;
+create policy admin_user_creation_limits_service_role on public.admin_user_creation_limits
+for all to service_role using (true) with check (true);
 
 create or replace function public.consumir_limite_criacao_usuario(p_ator_id uuid)
 returns boolean
