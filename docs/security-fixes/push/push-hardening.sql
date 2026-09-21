@@ -10,8 +10,6 @@ create table if not exists public.push_eventos_processados (
 alter table public.push_eventos_processados enable row level security;
 revoke all on public.push_eventos_processados from public, anon, authenticated;
 grant select, insert on public.push_eventos_processados to service_role;
-create policy push_eventos_service_role on public.push_eventos_processados
-for all to service_role using (true) with check (true);
 
 -- NOT VALID preserva inscrições históricas inválidas para revisão, mas bloqueia
 -- novas escritas inválidas. A Edge também recusa os endpoints históricos.
@@ -39,10 +37,15 @@ with check (usuario_id = auth.uid() and exists (
 ));
 revoke all on public.push_subscriptions from anon;
 
--- O Vault protege em repouso. pg_net é um schema gerenciado pelo Supabase e
--- não está nos schemas expostos pela API (config.toml: public/graphql_public).
--- Seu acesso ocorre somente nesta função de trigger, executada como owner.
+-- O Vault protege em repouso; a queue de pg_net contém Authorization em claro.
+-- Preserva permissões de postgres/service_role e restringe clientes.
 revoke all on schema vault from public, anon, authenticated;
+revoke all on all tables in schema vault from public, anon, authenticated;
+revoke all on all functions in schema vault from public, anon, authenticated;
+revoke all on schema net from public, anon, authenticated;
+revoke all on all tables in schema net from public, anon, authenticated;
+revoke all on all sequences in schema net from public, anon, authenticated;
+revoke all on all functions in schema net from public, anon, authenticated;
 
 create or replace function public.notificar_portal_via_webhook()
 returns trigger language plpgsql security definer set search_path = '' as $$

@@ -18,6 +18,7 @@ supabase/.env.*
 *.key
 *.p12
 *.pfx
+__pycache__/
 
 # os / editor
 .DS_Store
