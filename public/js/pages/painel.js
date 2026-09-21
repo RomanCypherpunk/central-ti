@@ -927,7 +927,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     if (!destinos.length) {
       const vazio = document.createElement("p");
       vazio.className = "pessoa__confirmacao-vazio";
-      vazio.textContent = "Nenhuma conta elegível encontrada.";
+      vazio.textContent = "Nenhuma conta encontrada.";
       confirmacaoDestinos.appendChild(vazio);
       return;
     }
@@ -946,7 +946,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
       opcao.append(nome, email);
       opcao.addEventListener("click", () => {
         destinoSelecionado = pessoa;
-        confirmacaoSelecao.textContent = `Histórico será transferido para ${nomeCompleto(pessoa) ?? "esta conta"}.`;
+        confirmacaoSelecao.textContent = `Vai para ${nomeCompleto(pessoa) ?? "esta conta"}.`;
         desenharDestinos(confirmacaoBusca.value);
         atualizarBotaoConfirmacao();
         confirmacaoCampo.focus();
@@ -1149,9 +1149,9 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     confirmacaoTransferir.checked = false;
     confirmacaoTransferencia.hidden = true;
     confirmacaoSemTransferencia.hidden = false;
-    confirmacaoTexto.textContent = `A conta de ${nomeCompleto(editando) ?? "esta pessoa"} será excluída permanentemente. Você pode transferir o histórico ou mantê-lo sem autor e responsável. Esta ação não pode ser desfeita.`;
+    confirmacaoTexto.textContent = `A conta de ${nomeCompleto(editando) ?? "esta pessoa"} será excluída. Não dá para desfazer.`;
     confirmacaoBusca.value = "";
-    confirmacaoSelecao.textContent = "Nenhuma conta selecionada.";
+    confirmacaoSelecao.textContent = "Nenhuma conta escolhida.";
     confirmacaoCampo.value = "";
     confirmacaoExcluir.disabled = true;
     confirmacaoCaixa.hidden = false;
@@ -1166,7 +1166,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     transferirHistorico = confirmacaoTransferir.checked;
     destinoSelecionado = null;
     confirmacaoBusca.value = "";
-    confirmacaoSelecao.textContent = "Nenhuma conta selecionada.";
+    confirmacaoSelecao.textContent = "Nenhuma conta escolhida.";
     confirmacaoTransferencia.hidden = !transferirHistorico;
     confirmacaoSemTransferencia.hidden = transferirHistorico;
     if (transferirHistorico) {

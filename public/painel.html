@@ -1417,8 +1417,11 @@
 
           <section class="pessoa__confirmacao" data-pessoa-confirmacao hidden
                    role="alertdialog" aria-modal="true" aria-labelledby="pessoa-confirmacao-titulo">
+            <!--MESMO DESENHO DA CONFIRMACAO DO SITE (.confirmacao, portal.css):
+                titulo em Sora, texto curto, botoes compactos e o vermelho so no
+                botao que exclui. Os botoes usam as proprias classes de la.-->
             <div class="pessoa__confirmacao-caixa">
-              <h3 id="pessoa-confirmacao-titulo" class="pessoa__confirmacao-titulo">Confirmação de exclusão</h3>
+              <h3 id="pessoa-confirmacao-titulo" class="pessoa__confirmacao-titulo">Excluir conta</h3>
               <p class="pessoa__confirmacao-texto" data-pessoa-confirmacao-texto></p>
               <label class="pessoa__caixa pessoa__confirmacao-transferir">
                 <input type="checkbox" data-pessoa-confirmacao-transferir>
@@ -1426,26 +1429,26 @@
               </label>
               <div data-pessoa-confirmacao-transferencia hidden>
                 <label class="pessoa__campo">
-                  <span class="pessoa__rotulo">Buscar conta de destino</span>
+                  <span class="pessoa__rotulo">Conta de destino</span>
                   <input class="pessoa__entrada" type="search" data-pessoa-confirmacao-busca
-                         placeholder="Buscar por nome ou e-mail" autocomplete="off">
+                         placeholder="Nome ou e-mail" autocomplete="off">
                 </label>
                 <div class="pessoa__confirmacao-destinos" data-pessoa-confirmacao-destinos
                      role="listbox" aria-label="Contas para receber o histórico"></div>
-                <p class="pessoa__confirmacao-selecao" data-pessoa-confirmacao-selecao>Nenhuma conta selecionada.</p>
+                <p class="pessoa__confirmacao-selecao" data-pessoa-confirmacao-selecao>Nenhuma conta escolhida.</p>
               </div>
               <p class="pessoa__confirmacao-selecao" data-pessoa-confirmacao-sem-transferencia>
-                Sem transferência, o histórico será mantido sem autor ou responsável.
+                Sem transferir, o histórico fica sem responsável.
               </p>
               <label class="pessoa__campo">
                 <span class="pessoa__rotulo">Digite EXCLUIR para confirmar</span>
                 <input class="pessoa__entrada" type="text" data-pessoa-confirmacao-campo
                        autocomplete="off" spellcheck="false">
               </label>
-              <div class="pessoa__confirmacao-acoes">
-                <button class="pessoa__botao" type="button" data-pessoa-confirmacao-cancelar>Cancelar</button>
-                <button class="pessoa__botao pessoa__botao--perigo" type="button"
-                        data-pessoa-confirmacao-excluir disabled>Excluir permanentemente</button>
+              <div class="confirmacao__acoes">
+                <button class="confirmacao__botao" type="button" data-pessoa-confirmacao-cancelar>Cancelar</button>
+                <button class="confirmacao__botao confirmacao__botao--principal confirmacao__botao--perigo" type="button"
+                        data-pessoa-confirmacao-excluir disabled>Excluir</button>
               </div>
             </div>
           </section>
