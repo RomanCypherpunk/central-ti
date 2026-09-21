@@ -150,7 +150,7 @@ function validarEtapa1() {
 }
 
 //VALIDACAO DA ETAPA 2
-const SENHA_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const SENHA_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,128}$/;
 
 function validarEtapa2() {
   if (!/^\S+@\S+\.\S+$/.test(campoEmail.value.trim())) {
@@ -158,7 +158,7 @@ function validarEtapa2() {
     return false;
   }
   if (!SENHA_REGEX.test(campoSenha.value)) {
-    mostrarErro(erroEtapa2, "A senha precisa de no mínimo 8 caracteres, com maiúscula, número e símbolo.");
+    mostrarErro(erroEtapa2, "A senha precisa de 8 caracteres, com minúscula, maiúscula, número e símbolo.");
     return false;
   }
   if (campoSenha.value !== campoConfirmar.value) {

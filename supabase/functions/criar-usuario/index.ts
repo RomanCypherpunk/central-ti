@@ -27,31 +27,34 @@
 //      de aprovacao com uma nota — sem precisar de logica nova aqui para
 //      isso.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.116.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-const CABECALHOS_CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function responder(corpo: unknown, status = 200) {
-  return new Response(JSON.stringify(corpo), {
-    status,
-    headers: { ...CABECALHOS_CORS, "Content-Type": "application/json" },
-  });
-}
+const CABECALHOS_CORS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Max-Age": "600",
+};
 
 const PERFIS_VALIDOS = ["solicitante", "contribuinte", "analista", "admin"];
 const STATUS_VALIDOS = ["pendente", "aprovado", "rejeitado"];
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: CABECALHOS_CORS });
+  const responder = (corpo: unknown, status = 200) => new Response(JSON.stringify(corpo), {
+    status,
+    headers: { ...CABECALHOS_CORS, "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CABECALHOS_CORS });
   if (req.method !== "POST") return responder({ erro: "Método não permitido." }, 405);
+  if (req.headers.get("content-type")?.split(";", 1)[0].trim() !== "application/json") {
+    return responder({ erro: "Tipo de conteúdo não suportado." }, 415);
+  }
 
   const autorizacao = req.headers.get("Authorization") ?? "";
 
@@ -84,6 +87,14 @@ Deno.serve(async (req) => {
   // ignora tudo) — entao a checagem manual e a UNICA linha de defesa.
   if (!ehAdmin) return responder({ erro: "Só administradores podem criar contas." }, 403);
 
+  const clienteAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: permitido, error: erroLimite } = await clienteAdmin
+    .rpc("consumir_limite_criacao_usuario", { p_ator_id: quemChamou.id });
+  if (erroLimite) return responder({ erro: "Não foi possível validar o limite de requisições." }, 503);
+  if (!permitido) return responder({ erro: "Muitas tentativas. Aguarde alguns minutos." }, 429);
+
   let corpo: {
     nome?: string; sobrenome?: string; email?: string; senha?: string;
     setor_id?: string | null; unidade_id?: string | null;
@@ -91,7 +102,9 @@ Deno.serve(async (req) => {
   };
 
   try {
-    corpo = await req.json();
+    const texto = await req.text();
+    if (new TextEncoder().encode(texto).length > 16_384) return responder({ erro: "Corpo muito grande." }, 413);
+    corpo = JSON.parse(texto);
   } catch {
     return responder({ erro: "Corpo do pedido inválido." }, 400);
   }
@@ -102,17 +115,21 @@ Deno.serve(async (req) => {
   const perfil = corpo.perfil ?? "solicitante";
   const statusAprovacao = corpo.status_aprovacao ?? "pendente";
 
-  if (!nome) return responder({ erro: "Nome é obrigatório." }, 400);
-  if (!email) return responder({ erro: "E-mail é obrigatório." }, 400);
-  if (senha.length < 6) return responder({ erro: "A senha precisa ter pelo menos 6 caracteres." }, 400);
+  if (!nome || nome.length > 100) return responder({ erro: "Nome inválido." }, 400);
+  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return responder({ erro: "E-mail inválido." }, 400);
+  if (senha.length < 8 || senha.length > 128 || !/[a-z]/.test(senha) || !/[A-Z]/.test(senha)
+    || !/[0-9]/.test(senha) || !/[^A-Za-z0-9]/.test(senha)) {
+    return responder({ erro: "A senha precisa ter 8 caracteres, maiúscula, minúscula, número e símbolo." }, 400);
+  }
+  if (corpo.sobrenome && corpo.sobrenome.trim().length > 100) return responder({ erro: "Sobrenome inválido." }, 400);
+  if (corpo.setor_id && !UUID.test(corpo.setor_id)) return responder({ erro: "Setor inválido." }, 400);
+  if (corpo.unidade_id && !UUID.test(corpo.unidade_id)) return responder({ erro: "Unidade inválida." }, 400);
   if (!PERFIS_VALIDOS.includes(perfil)) return responder({ erro: "Perfil inválido." }, 400);
   if (!STATUS_VALIDOS.includes(statusAprovacao)) return responder({ erro: "Status de cadastro inválido." }, 400);
 
   // CLIENT COM SERVICE_ROLE: a unica parte deste arquivo com privilegio
   // real. Fica isolado nesta variavel para o resto do codigo continuar
   // obvio sobre o que tem poder de ignorar RLS.
-  const clienteAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
   // Dispara handle_new_user() (insere em usuarios + abre o chamado de
   // Aprovação de Acesso) — mesmo caminho do autocadastro por cadastro.html.
   const { data: criado, error: erroCriar } = await clienteAdmin.auth.admin.createUser({
@@ -153,12 +170,10 @@ Deno.serve(async (req) => {
     .single();
 
   if (erroAtualizar || !usuarioFinal) {
-    // A conta de login ja existe (o passo anterior funcionou); so o ajuste
-    // fino de perfil/setor falhou. Avisa em vez de fingir sucesso total.
-    return responder({
-      erro: "A conta foi criada, mas não foi possível ajustar setor/perfil. Edite pelo Contatos.",
-      usuario: { id: criado.user.id, email },
-    }, 207);
+    // Falha fechada: uma conta sem o perfil escolhido não pode ficar ativa/orfã.
+    const { error: erroLimpeza } = await clienteAdmin.auth.admin.deleteUser(criado.user.id);
+    if (erroLimpeza) console.error("criar-usuario: falha ao remover conta parcial");
+    return responder({ erro: "Não foi possível concluir a criação da conta." }, 500);
   }
 
   return responder({ usuario: usuarioFinal }, 201);

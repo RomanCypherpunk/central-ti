@@ -12,6 +12,7 @@
 // como biblioteca.
 
 import { supabase } from "../config/supabase-config.js";
+import { pintarImagemPrivada } from "../componentes/storage-privado.js";
 import { ligarDetalhe, confirmarNoSite } from "./portal.js";
 import { pintarFoto } from "../componentes/avatar.js";
 import {
@@ -1015,8 +1016,9 @@ function ligarPessoaDialog(setores, unidades) {
       return;
     }
 
-    if (corpo.senha.length < 6) {
-      avisar("A senha precisa ter pelo menos 6 caracteres.", true);
+    if (corpo.senha.length < 8 || !/[a-z]/.test(corpo.senha) || !/[A-Z]/.test(corpo.senha)
+      || !/[0-9]/.test(corpo.senha) || !/[^A-Za-z0-9]/.test(corpo.senha)) {
+      avisar("A senha precisa ter 8 caracteres, maiúscula, minúscula, número e símbolo.", true);
       return;
     }
 
@@ -1727,11 +1729,11 @@ function ligarItemSimplesDialog() {
       return;
     }
 
-    const { data } = supabase.storage.from(contexto.bucketFoto).getPublicUrl(editando.foto_path);
     avatarFoto.innerHTML = "";
 
     const img = document.createElement("img");
-    img.src = `${data.publicUrl}?v=${Date.now()}`;
+    pintarImagemPrivada(img, contexto.bucketFoto, editando.foto_path,
+      () => { if (avatarFoto.contains(img)) avatarFoto.innerHTML = ICONE_PADRAO_FOTO; });
     img.alt = "";
     avatarFoto.appendChild(img);
     fotoBotaoRemover.hidden = false;

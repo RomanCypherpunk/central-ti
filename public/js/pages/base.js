@@ -8,6 +8,7 @@
 
 import { supabase } from "../config/supabase-config.js";
 import { pintarFoto } from "../componentes/avatar.js";
+import { pintarImagemPrivada, urlStoragePrivado, abrirArquivoPrivado } from "../componentes/storage-privado.js";
 
 const contagemEl = document.getElementById("busca-contagem");
 const buscaInput = document.getElementById("busca-input");
@@ -59,7 +60,7 @@ function escapar(texto) {
 
   div.textContent = texto ?? "";
 
-  return div.innerHTML;
+  return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function formatarData(dataIso) {
@@ -137,7 +138,7 @@ function criarCard(artigo) {
     <div class="solucao-card__topo">
       <span class="tipo-pill" style="background-color:${tipoInfo.fundo}; color:${tipoInfo.cor};">
         <svg class="tipo-pill__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${tipoInfo.icone}</svg>
-        ${tipoInfo.label}
+        ${escapar(tipoInfo.label)}
       </span>
     </div>
 
@@ -252,7 +253,7 @@ function renderizarGaleriaPasso(imagens) {
   if (!imagens || imagens.length === 0) return "";
 
   const itens = imagens
-    .map((img) => `<img class="painel-passo__imagem" src="${escapar(img.url)}" alt="${escapar(img.nome || "Imagem do passo")}">`)
+    .map((img) => `<img class="painel-passo__imagem" data-arquivo-artigo="${escapar(img.url)}" alt="${escapar(img.nome || "Imagem do passo")}">`)
     .join("");
 
   return `<div class="painel-passo__galeria">${itens}</div>`;
@@ -265,7 +266,7 @@ function renderizarPassos(passos) {
 
   return passos.map((passo) => `
     <div class="painel-passo">
-      <span class="painel-passo__numero">${passo.ordem}</span>
+      <span class="painel-passo__numero">${escapar(passo.ordem)}</span>
       <div class="painel-passo__conteudo">
         <p class="painel-passo__texto">${escapar(passo.texto)}</p>
         ${renderizarGaleriaPasso(passo.imagens)}
@@ -291,7 +292,7 @@ function renderizarAnexos(anexos) {
   if (!anexos || anexos.length === 0) return "";
 
   const itens = anexos
-    .map((anexo) => `<li><a href="${escapar(anexo.url)}" target="_blank" rel="noopener">${escapar(anexo.nome)}</a></li>`)
+    .map((anexo) => `<li><a href="#" data-arquivo-artigo="${escapar(anexo.url)}" target="_blank" rel="noopener">${escapar(anexo.nome)}</a></li>`)
     .join("");
 
   return `
@@ -368,7 +369,20 @@ function abrirPainel(artigo) {
   `;
 
   painelCorpoEl.querySelectorAll(".painel-passo__imagem").forEach((img) => {
-    img.addEventListener("click", () => abrirLightbox(img.src, img.alt));
+    pintarImagemPrivada(img, "artigos", img.dataset.arquivoArtigo);
+    img.addEventListener("click", async () => {
+      try {
+        abrirLightbox(await urlStoragePrivado("artigos", img.dataset.arquivoArtigo), img.alt);
+      } catch {
+        window.alert("Imagem indisponível para sua sessão.");
+      }
+    });
+  });
+  painelCorpoEl.querySelectorAll("a[data-arquivo-artigo]").forEach((link) => {
+    link.addEventListener("click", (evento) => {
+      evento.preventDefault();
+      abrirArquivoPrivado("artigos", link.dataset.arquivoArtigo);
+    });
   });
 
   painelCorpoEl.querySelectorAll(".painel-relacionada").forEach((botao) => {
@@ -432,7 +446,7 @@ function nomeArquivoPdf(titulo) {
 
 async function carregarImagemBase64(url) {
   try {
-    const resposta = await fetch(url);
+    const resposta = await fetch(await urlStoragePrivado("artigos", url));
 
     if (!resposta.ok) throw new Error(`Resposta ${resposta.status}`);
 

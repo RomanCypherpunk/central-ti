@@ -15,7 +15,7 @@
 // - Redesenhar com a mesma URL não recria a imagem.
 // As iniciais só aparecem sem foto ou quando o arquivo falha.
 
-import { supabase } from "../config/supabase-config.js";
+import { invalidarStoragePrivado, pintarImagemPrivada } from "./storage-privado.js";
 
 const CHAVE_VERSAO = "avatar-versao";
 
@@ -29,6 +29,7 @@ export function versaoDaMinhaFoto() {
 
 export function marcarMinhaFotoTrocada() {
   const versao = String(Date.now());
+  invalidarStoragePrivado("avatares");
 
   try {
     localStorage.setItem(CHAVE_VERSAO, versao);
@@ -37,12 +38,6 @@ export function marcarMinhaFotoTrocada() {
   }
 
   return versao;
-}
-
-export function urlDoAvatar(fotoPath, versao = null) {
-  const { data } = supabase.storage.from("avatares").getPublicUrl(fotoPath);
-
-  return versao ? `${data.publicUrl}?v=${versao}` : data.publicUrl;
 }
 
 //elemento: o circulo do avatar (cada tela tem a sua classe e o seu tamanho).
@@ -55,11 +50,11 @@ export function pintarFoto(elemento, fotoPath, letras, { classeFoto = "", versao
     return;
   }
 
-  const url = urlDoAvatar(fotoPath, versao);
+  const referencia = versao ? `${fotoPath}?v=${encodeURIComponent(versao)}` : fotoPath;
 
-  if (elemento.dataset.fotoUrl === url && elemento.querySelector("img")) return;
+  if (elemento.dataset.fotoUrl === referencia && elemento.querySelector("img")) return;
 
-  elemento.dataset.fotoUrl = url;
+  elemento.dataset.fotoUrl = referencia;
 
   const foto = document.createElement("img");
 
@@ -69,12 +64,16 @@ export function pintarFoto(elemento, fotoPath, letras, { classeFoto = "", versao
   // Arquivo sumido do Storage: as iniciais no lugar, nunca imagem quebrada.
   // So vale se o circulo ainda estiver esperando esta mesma foto.
   foto.addEventListener("error", () => {
-    if (elemento.dataset.fotoUrl !== url) return;
+    if (elemento.dataset.fotoUrl !== referencia) return;
 
     delete elemento.dataset.fotoUrl;
     elemento.textContent = letras;
   }, { once: true });
-  foto.src = url;
+  pintarImagemPrivada(foto, "avatares", fotoPath, () => {
+    if (elemento.dataset.fotoUrl !== referencia) return;
+    delete elemento.dataset.fotoUrl;
+    elemento.textContent = letras;
+  });
 
   elemento.replaceChildren(foto);
 }

@@ -1,7 +1,8 @@
 // Dados pessoais: foto, nome e troca de senha.
 
 import { supabase } from "../config/supabase-config.js";
-import { marcarMinhaFotoTrocada, urlDoAvatar, versaoDaMinhaFoto } from "../componentes/avatar.js";
+import { marcarMinhaFotoTrocada } from "../componentes/avatar.js";
+import { pintarImagemPrivada } from "../componentes/storage-privado.js";
 
 const foto = document.querySelector("[data-foto]");
 const fotoIniciais = document.querySelector("[data-foto-iniciais]");
@@ -36,13 +37,6 @@ function iniciais(nome, sobrenome) {
   return (primeira[0] ?? "").concat(ultima[0] ?? "").toUpperCase();
 }
 
-//O bucket de avatares e publico, entao a URL e direta e serve para <img>.
-//A versao so muda quando a foto e trocada (marcarMinhaFotoTrocada): com o
-//Date.now() de antes, cada visita baixava a foto de novo e ela piscava.
-function urlDaFoto(caminho) {
-  return urlDoAvatar(caminho, versaoDaMinhaFoto());
-}
-
 //O avatar do topo e do main.js: ele escuta este evento e se redesenha.
 function avisarTopo(detalhe) {
   window.dispatchEvent(new CustomEvent("perfil:atualizado", { detail: detalhe }));
@@ -58,7 +52,10 @@ function desenharFoto() {
   }
 
   const imagem = document.createElement("img");
-  imagem.src = urlDaFoto(eu.foto_path);
+  pintarImagemPrivada(imagem, "avatares", eu.foto_path, () => {
+    imagem.remove();
+    fotoIniciais.hidden = false;
+  });
   imagem.alt = "";
   // Se o arquivo sumiu do Storage, as iniciais voltam em vez de imagem quebrada.
   imagem.addEventListener("error", () => {

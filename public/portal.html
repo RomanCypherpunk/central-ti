@@ -10,15 +10,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/index.css">
   <link rel="stylesheet" href="css/portal.css">
-  <script>
-    // Antes da primeira pintura, senao a tela pisca no tema errado ao recarregar.
-    document.documentElement.dataset.tema =
-      localStorage.getItem("tema-portal") ?? "claro";
-
-    // Mesmo motivo: o quadro ja nasce no zoom escolhido, sem pular de tamanho.
-    const zoomSalvo = Number(localStorage.getItem("zoom-portal"));
-    if (zoomSalvo) document.documentElement.style.setProperty("--zoom-portal", zoomSalvo);
-  </script>
+  <script src="js/head-preferences.js"></script>
 </head>
 <body class="portal-pagina" style="visibility: hidden">
 
@@ -190,7 +182,7 @@
 
           <!--PAINEL: SO ADMIN. Nasce escondido e o main.js revela, igual ao
               atalho do Portal no menu do perfil. A pagina tambem barra na
-              entrada (painel-guard.js), entao esconder aqui e so conforto.-->
+              entrada (guard.js), entao esconder aqui e so conforto.-->
           <span class="quadro-menu__divisor" data-menu-painel hidden aria-hidden="true"></span>
 
           <a class="quadro-menu__item" href="painel.html" data-menu-painel hidden>
@@ -709,8 +701,7 @@
     </dialog>
   </main>
 
-  <script type="module" src="js/auth-guard.js"></script>
-  <script type="module" src="js/portal-guard.js"></script>
+  <script type="module" src="js/guard.js"></script>
   <script type="module" src="js/main.js"></script>
   <script type="module" src="js/pages/portal.js"></script>
 </body>

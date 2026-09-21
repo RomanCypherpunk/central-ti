@@ -13,27 +13,15 @@
   <link rel="stylesheet" href="css/painel.css">
   <!--GRAFICOS DA ABA ANALISE. So essa pagina usa — mesmo padrao do jsPDF
       na Base (CDN direto, sem passo de build), versao travada.-->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!--EXPORTAR ANALISE EM PDF: html2canvas tira uma "foto" da sub-aba
       renderizada (inclusive os graficos em canvas do Chart.js) e o jsPDF
       cola essa imagem numa pagina A4 retrato — mesma dupla usada por
       muita gente pra "imprimir a tela exatamente como esta", sem
       reimplementar layout nenhum no PDF.-->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script>
-    // Antes da primeira pintura, senao a tela pisca no tema errado ao recarregar.
-    // O Painel acompanha o tema do Portal: e a mesma area de trabalho.
-    document.documentElement.dataset.tema =
-      localStorage.getItem("tema-portal") ?? "claro";
-
-    // Mesmo motivo, pro menu lateral: sem isso ele nasce largo e soca pra
-    // 72px um instante depois, se a pessoa tinha deixado recolhido.
-    // Chave propria do Painel — nao a mesma da Base de Solucoes
-    // (sidebarColapsada): recolher um nao mexe no outro, de proposito.
-    document.documentElement.dataset.painelSidebar =
-      localStorage.getItem("painelSidebarColapsada") === "true" ? "colapsada" : "expandida";
-  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="js/head-preferences.js"></script>
 </head>
 <!--As DUAS classes de proposito: portal-pagina traz os tokens de cor e o tema
     escuro do portal.css (o modal de detalhe e o mesmo, precisa deles), e
@@ -1373,8 +1361,8 @@
             <label class="pessoa__campo pessoa__campo--largo" data-pessoa-campo-senha hidden>
               <span class="pessoa__rotulo">Senha</span>
               <input class="pessoa__entrada" type="password" data-pessoa-campo="senha"
-                     autocomplete="new-password" minlength="6">
-              <span class="pessoa__dica">Pelo menos 6 caracteres. A pessoa pode trocar depois.</span>
+                     autocomplete="new-password" minlength="8" maxlength="128">
+              <span class="pessoa__dica">Pelo menos 8 caracteres, com minúscula, maiúscula, número e símbolo.</span>
             </label>
 
             <label class="pessoa__campo">
@@ -1711,8 +1699,7 @@
     </div>
   </main>
 
-  <script type="module" src="js/auth-guard.js"></script>
-  <script type="module" src="js/painel-guard.js"></script>
+  <script type="module" src="js/guard.js"></script>
   <script type="module" src="js/main.js"></script>
   <script type="module" src="js/pages/painel.js"></script>
 </body>
