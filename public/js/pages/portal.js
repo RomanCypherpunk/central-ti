@@ -497,8 +497,42 @@ function pesoDePrioridade(chamado) {
   return 0;
 }
 
-function ordenarChamados(chamados, criterio) {
+//ORDEM MANUAL: a que a pessoa monta arrastando os cards dentro da coluna.
+//Guardada por lista, neste navegador — mesma escolha dos outros criterios
+//(nada disso vai para o banco). E so a sequencia de ids da coluna.
+const CHAVE_ORDEM_MANUAL = "ordem-manual-portal";
+
+function lerOrdensManuais() {
+  try {
+    return JSON.parse(localStorage.getItem(CHAVE_ORDEM_MANUAL)) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function salvarOrdemManual(filaId, ids) {
+  const todas = lerOrdensManuais();
+
+  todas[filaId] = ids;
+
+  try {
+    localStorage.setItem(CHAVE_ORDEM_MANUAL, JSON.stringify(todas));
+  } catch {
+    // Sem localStorage a ordem vale ate recarregar a pagina.
+  }
+}
+
+function ordenarChamados(chamados, criterio, filaId = null) {
   const lista = [...chamados];
+
+  if (criterio === "manual") {
+    const posicao = new Map((lerOrdensManuais()[filaId] ?? []).map((id, indice) => [id, indice]));
+
+    // Quem ainda nao tem lugar (chegou depois de a ordem ser montada) vai
+    // para o topo, na ordem de inclusao: chamado novo nao fica escondido
+    // no fim da coluna. sort estavel mantem a ordem entre eles.
+    return lista.sort((a, b) => (posicao.get(a.id) ?? -1) - (posicao.get(b.id) ?? -1));
+  }
 
   if (criterio === "prioridade") {
     // Empate de prioridade mantem a ordem de inclusao (sort estavel).
@@ -513,7 +547,13 @@ function ordenarChamados(chamados, criterio) {
   return lista;
 }
 
-const ROTULOS_ORDEM = { inclusao: "Data de inclusão", prioridade: "Prioridade", numero: "Número do ticket" };
+const ROTULOS_ORDEM = {
+  inclusao: "Data de inclusão",
+  prioridade: "Prioridade",
+  numero: "Número do ticket",
+  // Ligada sozinha ao soltar um card na coluna (ver guardarOrdemManual).
+  manual: "Ordem manual",
+};
 
 //MENU DE 3 PONTINHOS DA LISTA: ordenar (3 opcoes, marca a atual) + arquivar.
 //So monta o HTML — abrir/fechar/clicar e tudo delegado em ligarArrastarLista,
@@ -617,7 +657,7 @@ function montarFila(fila, chamados) {
   const lista = document.createElement("ul");
   lista.className = "fila__cards";
 
-  const ordenados = ordenarChamados(chamados, ordemSalvaDaLista(fila.id));
+  const ordenados = ordenarChamados(chamados, ordemSalvaDaLista(fila.id), fila.id);
 
   if (ordenados.length) {
     ordenados.forEach((chamado) => lista.appendChild(montarCard(chamado)));
@@ -655,7 +695,7 @@ function reordenarColunaNaTela(coluna, chamados, criterio) {
     [...lista.querySelectorAll(".card")].map((card) => [card.dataset.chamado, card]),
   );
 
-  ordenarChamados(daFila, criterio).forEach((chamado) => {
+  ordenarChamados(daFila, criterio, filaId).forEach((chamado) => {
     const card = porId.get(chamado.id);
     if (card) lista.appendChild(card);
   });
@@ -676,30 +716,59 @@ function comAnimacaoFlip(elementos, mudarDom) {
     return;
   }
 
+  // ONDE CADA UM ESTA NA TELA AGORA — inclusive no meio de um deslizar que
+  // ainda nao terminou. Ao arrastar, os cards mudam de lugar varias vezes
+  // por segundo, e a animacao nova tem que partir de onde o card esta, nao
+  // de onde ele estava indo.
   const antes = new Map(
     elementos.map((elemento) => [elemento, elemento.getBoundingClientRect()])
   );
 
+  // Para a animacao em curso antes de medir o destino: com o deslizar
+  // anterior ainda aplicado, a posicao final vinha errada e o card saltava.
+  elementos.forEach((elemento) => {
+    elemento.style.transition = "none";
+    elemento.style.transform = "none";
+  });
+
   mudarDom();
+
+  // As medidas vêm em px da tela, e o transform é aplicado em px do próprio
+  // elemento: com o quadro em 130%, um deslocamento de 130px na tela é 100px
+  // no transform. Sem dividir pelo zoom, o card saía do lugar errado e dava
+  // um solavanco antes de deslizar.
+  const zoom = zoomDoQuadro();
+  const animar = [];
 
   for (const elemento of elementos) {
     const rectAntes = antes.get(elemento);
-    if (!rectAntes) continue;
-
     const rectDepois = elemento.getBoundingClientRect();
-    const deltaX = rectAntes.left - rectDepois.left;
-    const deltaY = rectAntes.top - rectDepois.top;
+    const deltaX = rectAntes ? (rectAntes.left - rectDepois.left) / zoom : 0;
+    const deltaY = rectAntes ? (rectAntes.top - rectDepois.top) / zoom : 0;
 
-    if (!deltaX && !deltaY) continue;
+    if (!deltaX && !deltaY) {
+      elemento.style.transition = "";
+      elemento.style.transform = "";
+      continue;
+    }
 
-    elemento.style.transition = "none";
     elemento.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+    animar.push(elemento);
+  }
 
-    requestAnimationFrame(() => {
+  if (!animar.length) return;
+
+  // Obriga o navegador a registrar o ponto de partida antes de soltar a
+  // transicao; sem isto ele pode juntar as duas mudancas e o card pula
+  // direto para o fim, sem deslizar.
+  void animar[0].offsetWidth;
+
+  requestAnimationFrame(() => {
+    animar.forEach((elemento) => {
       elemento.style.transition = "";
       elemento.style.transform = "";
     });
-  }
+  });
 }
 
 //ATUALIZA O CONTADOR E O AVISO DE VAZIO DE UMA COLUNA DEPOIS DE MOVER UM
@@ -777,6 +846,109 @@ function avaliarAutoScroll(x) {
 //ARRASTAR E SOLTAR: MOVE O CARD NA HORA E DESFAZ SE O BANCO RECUSAR
 function ligarArrastar() {
   let cardArrastado = null;
+  // De onde o card saiu: para devolver se a pessoa soltar fora de uma coluna
+  // (ou apertar Esc), ou se o banco recusar a mudança de fila.
+  let origem = null;
+  let soltou = false;
+
+  //ONDE O CARD ESTA DE VERDADE, sem o deslizar da animacao. A posicao na tela
+  //(getBoundingClientRect) inclui o transform do FLIP: no meio do deslizar o
+  //card parece estar onde ainda nao chegou. Decidir por ela fazia o card
+  //entrar antes de um vizinho, o vizinho deslizar, no meio do caminho
+  //parecer acima do mouse de novo, o card voltar... — o vai-e-vem que fazia
+  //os cards e o ponteiro piscarem. Descontando o transform, a decisao e pela
+  //posicao final, que nao muda enquanto a animacao roda.
+  function areaSemAnimacao(card) {
+    const area = card.getBoundingClientRect();
+    const transformacao = getComputedStyle(card).transform;
+
+    if (!transformacao || transformacao === "none") return area;
+
+    // O transform e em px do proprio card; na tela ele aparece multiplicado
+    // pelo zoom do quadro.
+    const deslocamento = new DOMMatrixReadOnly(transformacao).m42 * zoomDoQuadro();
+
+    return { top: area.top - deslocamento, height: area.height };
+  }
+
+  //ONDE O CARD ENTRA: antes do primeiro card visivel cuja metade fica abaixo
+  //do mouse. Cards escondidos pelo filtro nao contam — a pessoa nao os ve.
+  function cardDepoisDoPonto(lista, y) {
+    const cards = lista.querySelectorAll(".card:not(.card--filtrado)");
+
+    for (const card of cards) {
+      // O proprio card arrastado fica de fora pela identidade, e nao pela
+      // marca card--arrastando: ela entra um quadro de tela depois, e o
+      // primeiro dragover pode chegar antes. Sem isto o card tentava entrar
+      // "antes de si mesmo" e mudava de lugar em todo evento.
+      if (card === cardArrastado) continue;
+
+      const area = areaSemAnimacao(card);
+
+      if (y < area.top + area.height / 2) return card;
+    }
+
+    return null;
+  }
+
+  //A COLUNA DO PONTO: a que esta embaixo do mouse ou, se o mouse estiver no
+  //vao abaixo de uma coluna curta (fora da caixa dela, mas na mesma faixa),
+  //a coluna daquela faixa. Soltar ali e querer o card naquela coluna — antes
+  //contava como "soltou fora" e o card voltava. Entre duas colunas, no
+  //espaco que as separa, continua sem coluna.
+  function colunaNoPonto(evento) {
+    const debaixoDoMouse = evento.target.closest(".fila");
+
+    if (debaixoDoMouse) return debaixoDoMouse;
+
+    return [...quadro.querySelectorAll(".fila")].find((coluna) => {
+      const area = coluna.getBoundingClientRect();
+
+      return evento.clientX >= area.left && evento.clientX <= area.right;
+    }) ?? null;
+  }
+
+  function proximoCardVisivel(card) {
+    let proximo = card.nextElementSibling;
+
+    while (proximo && !(proximo.classList.contains("card") && !proximo.classList.contains("card--filtrado"))) {
+      proximo = proximo.nextElementSibling;
+    }
+
+    return proximo;
+  }
+
+  function cardsDas(...listas) {
+    return [...new Set(listas)].flatMap((lista) => [...lista.querySelectorAll(".card")]);
+  }
+
+  function devolverParaOrigem(card, deOnde) {
+    const listaAtual = card.parentElement;
+    // O vizinho de antes pode ter saido dali nesse meio tempo (tempo real).
+    const antesDe = deOnde.proximo?.parentElement === deOnde.lista ? deOnde.proximo : null;
+
+    comAnimacaoFlip(cardsDas(listaAtual, deOnde.lista), () => {
+      deOnde.lista.insertBefore(card, antesDe);
+    });
+
+    [listaAtual, deOnde.lista].forEach((lista) => sincronizarColuna(lista.closest(".fila")));
+  }
+
+  //A ORDEM QUE A PESSOA ARRUMOU PASSA A VALER NA COLUNA. Soltar um card num
+  //lugar e dizer "quero ele aqui": guarda a ordem da coluna inteira e liga o
+  //criterio "Ordem manual" no menu dela. Escolher outro criterio no menu
+  //volta a ordenar por ele; a ordem manual fica guardada para quando voltar.
+  function guardarOrdemManual(coluna) {
+    const filaId = coluna.dataset.fila;
+    const ids = [...coluna.querySelectorAll(".fila__cards > .card")].map((card) => card.dataset.chamado);
+
+    salvarOrdemManual(filaId, ids);
+    salvarOrdemDaLista(filaId, "manual");
+
+    coluna.querySelectorAll(".fila__menu-item[data-fila-menu-ordenar]").forEach((item) => {
+      item.classList.toggle("fila__menu-item--marcado", item.dataset.filaMenuOrdenar === "manual");
+    });
+  }
 
   quadro.addEventListener("dragstart", (evento) => {
     const card = evento.target.closest(".card");
@@ -784,16 +956,36 @@ function ligarArrastar() {
     if (!card) return;
 
     cardArrastado = card;
-    card.classList.add("card--arrastando");
+    soltou = false;
+    origem = { lista: card.parentElement, proximo: card.nextElementSibling };
     evento.dataTransfer.effectAllowed = "move";
+
+    // A marca de "arrastando" entra no quadro seguinte: se entrasse agora, a
+    // imagem que o navegador tira do card para seguir o mouse ja sairia
+    // apagada. So entra se o gesto ainda estiver acontecendo — num arrasto
+    // rapido (ou com a aba em segundo plano) o dragend pode chegar antes
+    // deste quadro, e a marca entraria depois de removida: o card ficaria
+    // apagado para sempre.
+    requestAnimationFrame(() => {
+      if (cardArrastado === card) card.classList.add("card--arrastando");
+    });
   });
 
   quadro.addEventListener("dragend", () => {
-    cardArrastado?.classList.remove("card--arrastando");
+    const card = cardArrastado;
+
+    if (!card) return;
+
+    card.classList.remove("card--arrastando");
     quadro.querySelectorAll(".fila--alvo")
       .forEach((coluna) => coluna.classList.remove("fila--alvo"));
-    cardArrastado = null;
     pararAutoScroll();
+
+    // Soltou fora de uma coluna, ou apertou Esc: o card volta pro lugar.
+    if (!soltou && origem) devolverParaOrigem(card, origem);
+
+    cardArrastado = null;
+    origem = null;
   });
 
   quadro.addEventListener("dragover", (evento) => {
@@ -804,45 +996,74 @@ function ligarArrastar() {
     evento.dataTransfer.dropEffect = "move";
     avaliarAutoScroll(evento.clientX);
 
-    const coluna = evento.target.closest(".fila");
+    const coluna = colunaNoPonto(evento);
 
     if (!coluna) return;
 
-    quadro.querySelectorAll(".fila--alvo")
-      .forEach((outra) => outra.classList.remove("fila--alvo"));
-    coluna.classList.add("fila--alvo");
+    if (!coluna.classList.contains("fila--alvo")) {
+      quadro.querySelectorAll(".fila--alvo")
+        .forEach((outra) => outra.classList.remove("fila--alvo"));
+      coluna.classList.add("fila--alvo");
+    }
+
+    //O CARD ANDA JUNTO COM O MOUSE: entra no lugar em que vai cair, e os
+    //outros deslizam abrindo espaco. E o proprio card (apagado) que marca o
+    //lugar — ao soltar, ele ja esta onde deveria.
+    const lista = coluna.querySelector(".fila__cards");
+    const antesDe = cardDepoisDoPonto(lista, evento.clientY);
+
+    // Ja esta nesse lugar: nada a fazer. O dragover dispara dezenas de vezes
+    // por segundo, e mexer no DOM sem necessidade faria os cards tremerem.
+    if (cardArrastado.parentElement === lista && proximoCardVisivel(cardArrastado) === antesDe) return;
+
+    const listaAnterior = cardArrastado.parentElement;
+
+    comAnimacaoFlip(cardsDas(listaAnterior, lista), () => {
+      lista.insertBefore(cardArrastado, antesDe);
+    });
+
+    if (listaAnterior !== lista) {
+      sincronizarColuna(listaAnterior.closest(".fila"));
+      sincronizarColuna(coluna);
+    }
   });
 
   quadro.addEventListener("drop", async (evento) => {
     pararAutoScroll();
 
-    const coluna = evento.target.closest(".fila");
+    const coluna = colunaNoPonto(evento);
 
     if (!coluna || !cardArrastado) return;
 
     evento.preventDefault();
+    soltou = true;
 
     const card = cardArrastado;
+    const deOnde = origem;
+    const lista = coluna.querySelector(".fila__cards");
+
+    // Normalmente o dragover ja deixou o card no lugar; isto cobre o caso de
+    // soltar rapido demais, antes de ele chegar.
+    if (card.parentElement !== lista) {
+      comAnimacaoFlip(cardsDas(card.parentElement, lista), () => {
+        lista.insertBefore(card, cardDepoisDoPonto(lista, evento.clientY));
+      });
+    }
+
     const filaDestino = coluna.dataset.fila;
     const filaOrigem = card.dataset.fila;
+    const colunaOrigem = quadro.querySelector(`.fila[data-fila="${filaOrigem}"]`);
 
+    guardarOrdemManual(coluna);
+    sincronizarColuna(coluna);
+    if (colunaOrigem && colunaOrigem !== coluna) sincronizarColuna(colunaOrigem);
+
+    // Mesma coluna: era so arrumar a ordem, e ela ja foi guardada.
     if (filaDestino === filaOrigem) return;
 
-    const colunaOrigem = quadro.querySelector(`.fila[data-fila="${filaOrigem}"]`);
-    const cardsAfetados = [
-      card,
-      ...coluna.querySelectorAll(".card"),
-      ...colunaOrigem.querySelectorAll(".card"),
-    ];
+    card.dataset.fila = filaDestino;
 
-    // Move na hora: a tela responde antes do banco confirmar.
-    comAnimacaoFlip(cardsAfetados, () => {
-      coluna.querySelector(".fila__cards").appendChild(card);
-      card.dataset.fila = filaDestino;
-    });
-    sincronizarColuna(coluna);
-    sincronizarColuna(colunaOrigem);
-
+    // Muda de fila na hora, na tela; o banco confirma em seguida.
     const { error } = await supabase
       .from("chamados")
       .update({ fila_id: filaDestino, fila_anterior_id: filaOrigem })
@@ -851,12 +1072,8 @@ function ligarArrastar() {
     if (!error) return;
 
     // Banco recusou: devolve o card para onde estava.
-    comAnimacaoFlip(cardsAfetados, () => {
-      colunaOrigem.querySelector(".fila__cards").appendChild(card);
-      card.dataset.fila = filaOrigem;
-    });
-    sincronizarColuna(coluna);
-    sincronizarColuna(colunaOrigem);
+    card.dataset.fila = filaOrigem;
+    if (deOnde) devolverParaOrigem(card, deOnde);
     mostrarErro("Não foi possível mover o chamado. Tente novamente.");
   });
 }

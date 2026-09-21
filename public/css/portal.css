@@ -864,7 +864,12 @@ body.portal-pagina {
   box-shadow: var(--sombra-card);
   cursor: grab;
   overflow: hidden;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  /*transform entra na lista para os cards DESLIZAREM ao abrir espaco no
+    arrastar (comAnimacaoFlip, portal.js). Sem ele o FLIP deslocava o card e
+    o devolvia na hora, sem transicao: o card pulava de lugar — era a "falta
+    de animacao" ao mudar de coluna. Mesma curva do FLIP das colunas.*/
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .card:hover {
@@ -872,8 +877,13 @@ body.portal-pagina {
   box-shadow: var(--sombra-card-alta);
 }
 
-/*CARD SENDO ARRASTADO: SAI DO CAMINHO VISUALMENTE*/
+/*CARD SENDO ARRASTADO: VIRA O "LUGAR RESERVADO". Ele anda pela coluna junto
+  com o mouse, entao e ele que mostra onde o card vai cair: apagado e com
+  borda tracejada, le como um espaco vazio, nao como um card de verdade.*/
 .card--arrastando {
+  border-style: dashed;
+  border-color: var(--laranja);
+  box-shadow: none;
   opacity: 0.45;
   cursor: grabbing;
 }
