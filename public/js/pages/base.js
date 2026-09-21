@@ -9,6 +9,7 @@
 import { supabase } from "../config/supabase-config.js";
 import { pintarFoto } from "../componentes/avatar.js";
 import { pintarImagemPrivada, urlStoragePrivado, abrirArquivoPrivado } from "../componentes/storage-privado.js";
+import { prepararArquivoParaUpload } from "../componentes/otimizar-upload.js";
 
 const contagemEl = document.getElementById("busca-contagem");
 const buscaInput = document.getElementById("busca-input");
@@ -451,13 +452,18 @@ async function carregarImagemBase64(url) {
     if (!resposta.ok) throw new Error(`Resposta ${resposta.status}`);
 
     const blob = await resposta.blob();
+    // Artigos antigos também entram no PDF com a versão otimizada, mesmo que
+    // tenham sido enviados antes da otimização automática.
+    const imagemOtimizada = await prepararArquivoParaUpload(
+      new File([blob], "imagem", { type: blob.type }),
+    );
 
     return await new Promise((resolve, reject) => {
       const leitor = new FileReader();
 
       leitor.onloadend = () => resolve(leitor.result);
       leitor.onerror = () => reject(new Error("Falha ao ler imagem"));
-      leitor.readAsDataURL(blob);
+      leitor.readAsDataURL(imagemOtimizada);
     });
   } catch (erro) {
     console.error("Não foi possível carregar imagem para o PDF:", url, erro);
