@@ -842,10 +842,11 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
   const botaoExcluir = document.querySelector("[data-pessoa-excluir]");
   const dicaEmail = document.querySelector("[data-pessoa-dica-email]");
   const campoSenhaCaixa = document.querySelector("[data-pessoa-campo-senha]");
-  const campoDestinoCaixa = document.querySelector("[data-pessoa-destino-caixa]");
-  const campoDestino = document.querySelector('[data-pessoa-campo="destino_id"]');
   const confirmacaoCaixa = document.querySelector("[data-pessoa-confirmacao]");
   const confirmacaoTexto = document.querySelector("[data-pessoa-confirmacao-texto]");
+  const confirmacaoBusca = document.querySelector("[data-pessoa-confirmacao-busca]");
+  const confirmacaoDestinos = document.querySelector("[data-pessoa-confirmacao-destinos]");
+  const confirmacaoSelecao = document.querySelector("[data-pessoa-confirmacao-selecao]");
   const confirmacaoCampo = document.querySelector("[data-pessoa-confirmacao-campo]");
   const confirmacaoCancelar = document.querySelector("[data-pessoa-confirmacao-cancelar]");
   const confirmacaoExcluir = document.querySelector("[data-pessoa-confirmacao-excluir]");
@@ -858,6 +859,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
   const fotoArquivo = document.querySelector("[data-pessoa-foto-arquivo]");
 
   let editando = null;
+  let destinoSelecionado = null;
   // A lista que abriu o dialog registra aqui como quer ser avisada quando
   // algo e salvo — assim o dialog nao precisa saber se veio de Contatos ou
   // de Administradores, so devolve o resultado pra quem chamou.
@@ -899,6 +901,55 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     botaoExcluir.focus();
   }
 
+  function destinosElegiveis() {
+    const destinoPrecisaSerEquipe = ["analista", "admin"].includes(editando?.perfil);
+    return pessoas
+      .filter((pessoa) => pessoa.id !== editando?.id && pessoa.ativo && pessoa.status_aprovacao === "aprovado")
+      .filter((pessoa) => !destinoPrecisaSerEquipe || ["analista", "admin"].includes(pessoa.perfil))
+      .sort((a, b) => (nomeCompleto(a) ?? "").localeCompare(nomeCompleto(b) ?? "", "pt-BR"));
+  }
+
+  function atualizarBotaoConfirmacao() {
+    confirmacaoExcluir.disabled = !destinoSelecionado || confirmacaoCampo.value !== "EXCLUIR";
+  }
+
+  function desenharDestinos(termo = "") {
+    const filtro = termo.trim().toLocaleLowerCase("pt-BR");
+    const destinos = destinosElegiveis().filter((pessoa) => [nomeCompleto(pessoa), pessoa.email]
+      .filter(Boolean).join(" ").toLocaleLowerCase("pt-BR").includes(filtro));
+    confirmacaoDestinos.replaceChildren();
+
+    if (!destinos.length) {
+      const vazio = document.createElement("p");
+      vazio.className = "pessoa__confirmacao-vazio";
+      vazio.textContent = "Nenhuma conta elegível encontrada.";
+      confirmacaoDestinos.appendChild(vazio);
+      return;
+    }
+
+    destinos.forEach((pessoa) => {
+      const opcao = document.createElement("button");
+      opcao.type = "button";
+      opcao.className = "pessoa__confirmacao-destino";
+      opcao.setAttribute("role", "option");
+      opcao.setAttribute("aria-selected", String(destinoSelecionado?.id === pessoa.id));
+      const nome = document.createElement("strong");
+      nome.textContent = nomeCompleto(pessoa) ?? "Sem nome";
+      const email = document.createElement("span");
+      email.className = "pessoa__confirmacao-destino-email";
+      email.textContent = pessoa.email ?? "sem e-mail";
+      opcao.append(nome, email);
+      opcao.addEventListener("click", () => {
+        destinoSelecionado = pessoa;
+        confirmacaoSelecao.textContent = `Histórico será transferido para ${nomeCompleto(pessoa) ?? "esta conta"}.`;
+        desenharDestinos(confirmacaoBusca.value);
+        atualizarBotaoConfirmacao();
+        confirmacaoCampo.focus();
+      });
+      confirmacaoDestinos.appendChild(opcao);
+    });
+  }
+
   //MODO CRIACAO OU EDICAO: campos que so existem num dos dois (senha,
   //botoes de foto) aparecem/somem daqui. editando null == criando.
   function aplicarModo() {
@@ -911,7 +962,6 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     // pessoa) — a foto de quem esta sendo criado entra depois, editando.
     fotoAcoes.hidden = criando;
     botaoExcluir.hidden = criando;
-    campoDestinoCaixa.hidden = criando;
 
     dicaEmail.textContent = criando
       ? "É o e-mail de login da pessoa — confira antes de salvar."
@@ -943,23 +993,6 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     formulario.querySelector('[data-pessoa-campo="status_aprovacao"]').value =
       pessoa.status_aprovacao ?? "pendente";
     formulario.querySelector('[data-pessoa-campo="ativo"]').checked = Boolean(pessoa.ativo);
-    campoDestino.replaceChildren();
-    const vazio = document.createElement("option");
-    vazio.value = "";
-    vazio.textContent = "Selecione a conta de destino";
-    campoDestino.appendChild(vazio);
-    const destinoPrecisaSerEquipe = ["analista", "admin"].includes(pessoa.perfil);
-    pessoas
-      .filter((outra) => outra.id !== pessoa.id && outra.ativo && outra.status_aprovacao === "aprovado")
-      .filter((outra) => !destinoPrecisaSerEquipe || ["analista", "admin"].includes(outra.perfil))
-      .sort((a, b) => (nomeCompleto(a) ?? "").localeCompare(nomeCompleto(b) ?? "", "pt-BR"))
-      .forEach((outra) => {
-        const opcao = document.createElement("option");
-        opcao.value = outra.id;
-        opcao.textContent = `${nomeCompleto(outra) ?? "Sem nome"} — ${outra.email ?? "sem e-mail"}`;
-        campoDestino.appendChild(opcao);
-      });
-
     janela.showModal();
   }
 
@@ -1086,7 +1119,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     botaoSalvar.disabled = true;
     avisar("Excluindo conta…");
     const { data, error } = await supabase.functions.invoke("excluir-usuario", {
-      body: { usuario_id: editando.id, destino_id: campoDestino.value },
+      body: { usuario_id: editando.id, destino_id: destinoSelecionado.id },
     });
 
     if (error || !data?.ok) {
@@ -1106,21 +1139,27 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
 
   botaoExcluir.addEventListener("click", () => {
     if (!editando) return;
-    if (!campoDestino.value) {
-      avisar("Selecione a conta que receberá o histórico.", true);
-      campoDestino.focus();
-      return;
-    }
-    const destino = campoDestino.selectedOptions[0]?.textContent ?? "a conta selecionada";
-    confirmacaoTexto.textContent = `A conta de ${nomeCompleto(editando) ?? "esta pessoa"} será excluída permanentemente. O histórico será transferido para ${destino}. Esta ação não pode ser desfeita.`;
+    destinoSelecionado = null;
+    confirmacaoTexto.textContent = `A conta de ${nomeCompleto(editando) ?? "esta pessoa"} será excluída permanentemente. Selecione abaixo quem receberá o histórico. Esta ação não pode ser desfeita.`;
+    confirmacaoBusca.value = "";
+    confirmacaoSelecao.textContent = "Nenhuma conta selecionada.";
     confirmacaoCampo.value = "";
     confirmacaoExcluir.disabled = true;
     confirmacaoCaixa.hidden = false;
-    confirmacaoCampo.focus();
+    desenharDestinos();
+    confirmacaoBusca.focus();
   });
 
   confirmacaoCampo.addEventListener("input", () => {
-    confirmacaoExcluir.disabled = confirmacaoCampo.value !== "EXCLUIR";
+    atualizarBotaoConfirmacao();
+  });
+  confirmacaoBusca.addEventListener("input", () => desenharDestinos(confirmacaoBusca.value));
+  confirmacaoBusca.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape") {
+      evento.preventDefault();
+      fecharConfirmacaoExclusao();
+    }
+    if (evento.key === "Enter") evento.preventDefault();
   });
   confirmacaoCampo.addEventListener("keydown", (evento) => {
     if (evento.key === "Escape") {
@@ -1137,6 +1176,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
 
   formulario.addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    if (!confirmacaoCaixa.hidden) return;
 
     if (editando) await salvarEdicao();
     else await salvarCriacao();

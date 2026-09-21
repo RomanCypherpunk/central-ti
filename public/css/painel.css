@@ -1369,6 +1369,46 @@ html[data-painel-sidebar="colapsada"] .painel {
   font: 400 0.8125rem/1.55 "Poppins", sans-serif;
 }
 
+.pessoa__confirmacao-destinos {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 150px;
+  margin-top: 0.55rem;
+  overflow-y: auto;
+}
+
+.pessoa__confirmacao-destino {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--superficie);
+  color: var(--texto);
+  font: 400 0.8125rem/1.3 "Poppins", sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pessoa__confirmacao-destino:hover,
+.pessoa__confirmacao-destino[aria-selected="true"] {
+  border-color: var(--laranja);
+  background: var(--realce);
+}
+
+.pessoa__confirmacao-destino-email,
+.pessoa__confirmacao-selecao,
+.pessoa__confirmacao-vazio {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--texto-3);
+  font: 400 0.71875rem/1.35 "Poppins", sans-serif;
+}
+
+.pessoa__confirmacao-selecao {
+  min-height: 1.35rem;
+  margin: 0.55rem 0 0;
+}
+
 .pessoa__confirmacao-acoes {
   display: flex;
   justify-content: flex-end;

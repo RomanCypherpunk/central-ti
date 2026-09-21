@@ -1404,11 +1404,6 @@
               <span>Conta ativa</span>
             </label>
 
-            <label class="pessoa__campo pessoa__campo--largo" data-pessoa-destino-caixa hidden>
-              <span class="pessoa__rotulo">Transferir histórico para</span>
-              <select class="pessoa__entrada" data-pessoa-campo="destino_id"></select>
-              <span class="pessoa__dica">Obrigatório ao excluir: chamados, atendimentos, comentários e soluções passam para esta conta.</span>
-            </label>
           </div>
 
           <footer class="pessoa__rodape">
@@ -1423,8 +1418,16 @@
           <section class="pessoa__confirmacao" data-pessoa-confirmacao hidden
                    role="alertdialog" aria-modal="true" aria-labelledby="pessoa-confirmacao-titulo">
             <div class="pessoa__confirmacao-caixa">
-              <h3 id="pessoa-confirmacao-titulo" class="pessoa__confirmacao-titulo">Excluir conta?</h3>
+              <h3 id="pessoa-confirmacao-titulo" class="pessoa__confirmacao-titulo">Confirmação de exclusão</h3>
               <p class="pessoa__confirmacao-texto" data-pessoa-confirmacao-texto></p>
+              <label class="pessoa__campo">
+                <span class="pessoa__rotulo">Transferir histórico para</span>
+                <input class="pessoa__entrada" type="search" data-pessoa-confirmacao-busca
+                       placeholder="Buscar por nome ou e-mail" autocomplete="off">
+              </label>
+              <div class="pessoa__confirmacao-destinos" data-pessoa-confirmacao-destinos
+                   role="listbox" aria-label="Contas para receber o histórico"></div>
+              <p class="pessoa__confirmacao-selecao" data-pessoa-confirmacao-selecao>Nenhuma conta selecionada.</p>
               <label class="pessoa__campo">
                 <span class="pessoa__rotulo">Digite EXCLUIR para confirmar</span>
                 <input class="pessoa__entrada" type="text" data-pessoa-confirmacao-campo
