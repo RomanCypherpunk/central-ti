@@ -1046,12 +1046,10 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
 
     // O .select devolve a linha gravada: sem ele, um update barrado pela RLS
     // volta sem erro e sem gravar, e a tela mostraria um dado que nao existe.
-    const { data: gravada, error } = await supabase
-      .from("usuarios")
-      .update(mudancas)
-      .eq("id", editando.id)
-      .select("id, nome, sobrenome, email, setor_id, unidade_id, perfil, ativo, status_aprovacao, foto_path")
-      .single();
+    const { data, error } = await supabase.functions.invoke("atualizar-usuario", {
+      body: { usuario_id: editando.id, ...mudancas },
+    });
+    const gravada = data?.usuario;
 
     botaoSalvar.disabled = false;
 
