@@ -1,0 +1,29 @@
+{
+  "at_utc": "2026-09-18T17:59:21.082220+00:00",
+  "samples": [
+    {
+      "bucket": "artigos",
+      "path_sha256": "84c29db73735c6094f39572d72eb3c23bec0407bdae11b3ee987e4c34f707ff1",
+      "status": 200,
+      "content_type": "image/png",
+      "content_length": "82886",
+      "credential": "none"
+    },
+    {
+      "bucket": "terceiros",
+      "path_sha256": "72d200320191e9ebdd085dce38d70ba56513b159fe917b6670780ad0c5e09cf8",
+      "status": 200,
+      "content_type": "image/jpeg",
+      "content_length": "14877",
+      "credential": "none"
+    },
+    {
+      "bucket": "avatares",
+      "path_sha256": "61768ea19be6616e72d54237c6fcb3f6823bd197ba2839056e0606e9459e9305",
+      "status": 200,
+      "content_type": "image/jpeg",
+      "content_length": "51723",
+      "credential": "none"
+    }
+  ]
+}

@@ -1,0 +1,339 @@
+{
+  "at_utc": "2026-09-18T17:57:21.040713+00:00",
+  "project_url": "https://pmwcfdxryjwsvwsmcufm.supabase.co",
+  "mode": "anonymous-read-only-and-empty-edge-payload",
+  "results": [
+    {
+      "path": "/rest/v1/chamados?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/usuarios?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/comentarios?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/anexos?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/chamado_membros?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/artigos?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/artigo_feedback?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/chamado_retorno_pendente?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/filas?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/setores?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 1,
+      "column_names": [
+        "ativo",
+        "id",
+        "nome"
+      ]
+    },
+    {
+      "path": "/rest/v1/unidades?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 1,
+      "column_names": [
+        "ativo",
+        "id",
+        "nome"
+      ]
+    },
+    {
+      "path": "/rest/v1/categorias?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/textos_rapidos?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/terceiros?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/push_subscriptions?select=*&limit=1",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/rpc/is_equipe_ti",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 200,
+      "scalar": false
+    },
+    {
+      "path": "/rest/v1/rpc/is_admin",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 200,
+      "scalar": false
+    },
+    {
+      "path": "/rest/v1/rpc/is_aprovado",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 200,
+      "scalar": false
+    },
+    {
+      "path": "/rest/v1/rpc/pode_escrever_artigo",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 200,
+      "scalar": false
+    },
+    {
+      "path": "/rest/v1/rpc/meu_setor_id",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 200,
+      "scalar": null
+    },
+    {
+      "path": "/rest/v1/rpc/minha_unidade_id",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 200,
+      "scalar": null
+    },
+    {
+      "path": "/storage/v1/object/list/anexos",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/storage/v1/object/list/artigos",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 1,
+      "column_names": [
+        "created_at",
+        "id",
+        "last_accessed_at",
+        "metadata",
+        "name",
+        "updated_at"
+      ]
+    },
+    {
+      "path": "/storage/v1/object/list/avatares",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 1,
+      "column_names": [
+        "created_at",
+        "id",
+        "last_accessed_at",
+        "metadata",
+        "name",
+        "updated_at"
+      ]
+    },
+    {
+      "path": "/storage/v1/object/list/fundos-portal",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/storage/v1/object/list/terceiros",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 1,
+      "column_names": [
+        "created_at",
+        "id",
+        "last_accessed_at",
+        "metadata",
+        "name",
+        "updated_at"
+      ]
+    },
+    {
+      "path": "/functions/v1/criar-usuario",
+      "method": "POST",
+      "credential": "none",
+      "status": 401,
+      "keys": [
+        "code",
+        "message"
+      ],
+      "error_code": "UNAUTHORIZED_NO_AUTH_HEADER",
+      "error_message": "Missing authorization header"
+    },
+    {
+      "path": "/functions/v1/criar-usuario",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 401,
+      "keys": [
+        "erro"
+      ],
+      "error_code": null,
+      "error_message": ""
+    },
+    {
+      "path": "/functions/v1/notificar-portal",
+      "method": "POST",
+      "credential": "none",
+      "status": 401,
+      "keys": [
+        "code",
+        "message"
+      ],
+      "error_code": "UNAUTHORIZED_NO_AUTH_HEADER",
+      "error_message": "Missing authorization header"
+    },
+    {
+      "path": "/functions/v1/notificar-portal",
+      "method": "POST",
+      "credential": "publishable",
+      "status": 200,
+      "keys": [
+        "ok"
+      ]
+    },
+    {
+      "path": "/storage/v1/bucket",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "rows_returned": 0
+    },
+    {
+      "path": "/rest/v1/",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 401,
+      "keys": [
+        "hint",
+        "message"
+      ],
+      "error_code": null,
+      "error_message": "Secret API key required"
+    },
+    {
+      "path": "/auth/v1/settings",
+      "method": "GET",
+      "credential": "publishable",
+      "status": 200,
+      "keys": [
+        "disable_signup",
+        "external",
+        "mailer_autoconfirm",
+        "passkeys_enabled",
+        "phone_autoconfirm",
+        "saml_enabled",
+        "saml_private_key_next_configured",
+        "sms_provider"
+      ],
+      "public_settings": {
+        "external": {
+          "anonymous_users": false,
+          "apple": false,
+          "azure": false,
+          "bitbucket": false,
+          "discord": false,
+          "facebook": false,
+          "snapchat": false,
+          "figma": false,
+          "fly": false,
+          "github": false,
+          "gitlab": false,
+          "google": false,
+          "keycloak": false,
+          "kakao": false,
+          "linkedin": false,
+          "linkedin_oidc": false,
+          "notion": false,
+          "spotify": false,
+          "slack": false,
+          "slack_oidc": false,
+          "workos": false,
+          "twitch": false,
+          "twitter": false,
+          "email": true,
+          "phone": false,
+          "zoom": false
+        },
+        "disable_signup": false,
+        "mailer_autoconfirm": true,
+        "phone_autoconfirm": false,
+        "sms_provider": "twilio",
+        "saml_enabled": false,
+        "saml_private_key_next_configured": true,
+        "passkeys_enabled": false
+      }
+    }
+  ]
+}
