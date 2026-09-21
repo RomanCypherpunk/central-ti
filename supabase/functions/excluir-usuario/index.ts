@@ -53,9 +53,9 @@ Deno.serve(async (request) => {
     return reply({ erro: "Corpo do pedido inválido." }, 400);
   }
   if (!body || typeof body !== "object" || Array.isArray(body)
-    || Object.keys(body).sort().join(",") !== "destino_id,usuario_id"
+    || !["usuario_id", "destino_id,usuario_id"].includes(Object.keys(body).sort().join(","))
     || typeof body.usuario_id !== "string" || !UUID.test(body.usuario_id)
-    || typeof body.destino_id !== "string" || !UUID.test(body.destino_id)) {
+    || (body.destino_id !== undefined && (typeof body.destino_id !== "string" || !UUID.test(body.destino_id)))) {
     return reply({ erro: "Usuário inválido." }, 400);
   }
   if (body.usuario_id === callerUser.id || body.usuario_id === body.destino_id) {
@@ -72,7 +72,7 @@ Deno.serve(async (request) => {
 
   const { data: transfer, error: transferError } = await admin.rpc(
     "transferir_historico_e_reservar_exclusao",
-    { p_ator_id: callerUser.id, p_usuario_id: body.usuario_id, p_destino_id: body.destino_id },
+    { p_ator_id: callerUser.id, p_usuario_id: body.usuario_id, p_destino_id: body.destino_id ?? null },
   );
   const result = transfer as { ok?: boolean; code?: string; foto_path?: string | null } | null;
   if (transferError) return reply({ erro: "Não foi possível transferir o histórico da conta." }, 500);

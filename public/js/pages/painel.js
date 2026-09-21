@@ -844,6 +844,9 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
   const campoSenhaCaixa = document.querySelector("[data-pessoa-campo-senha]");
   const confirmacaoCaixa = document.querySelector("[data-pessoa-confirmacao]");
   const confirmacaoTexto = document.querySelector("[data-pessoa-confirmacao-texto]");
+  const confirmacaoTransferir = document.querySelector("[data-pessoa-confirmacao-transferir]");
+  const confirmacaoTransferencia = document.querySelector("[data-pessoa-confirmacao-transferencia]");
+  const confirmacaoSemTransferencia = document.querySelector("[data-pessoa-confirmacao-sem-transferencia]");
   const confirmacaoBusca = document.querySelector("[data-pessoa-confirmacao-busca]");
   const confirmacaoDestinos = document.querySelector("[data-pessoa-confirmacao-destinos]");
   const confirmacaoSelecao = document.querySelector("[data-pessoa-confirmacao-selecao]");
@@ -860,6 +863,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
 
   let editando = null;
   let destinoSelecionado = null;
+  let transferirHistorico = false;
   // A lista que abriu o dialog registra aqui como quer ser avisada quando
   // algo e salvo — assim o dialog nao precisa saber se veio de Contatos ou
   // de Administradores, so devolve o resultado pra quem chamou.
@@ -910,7 +914,8 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
   }
 
   function atualizarBotaoConfirmacao() {
-    confirmacaoExcluir.disabled = !destinoSelecionado || confirmacaoCampo.value !== "EXCLUIR";
+    confirmacaoExcluir.disabled = (transferirHistorico && !destinoSelecionado)
+      || confirmacaoCampo.value !== "EXCLUIR";
   }
 
   function desenharDestinos(termo = "") {
@@ -1119,7 +1124,9 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     botaoSalvar.disabled = true;
     avisar("Excluindo conta…");
     const { data, error } = await supabase.functions.invoke("excluir-usuario", {
-      body: { usuario_id: editando.id, destino_id: destinoSelecionado.id },
+      body: transferirHistorico
+        ? { usuario_id: editando.id, destino_id: destinoSelecionado.id }
+        : { usuario_id: editando.id },
     });
 
     if (error || !data?.ok) {
@@ -1140,20 +1147,36 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
   botaoExcluir.addEventListener("click", () => {
     if (!editando) return;
     destinoSelecionado = null;
-    confirmacaoTexto.textContent = `A conta de ${nomeCompleto(editando) ?? "esta pessoa"} será excluída permanentemente. Selecione abaixo quem receberá o histórico. Esta ação não pode ser desfeita.`;
+    transferirHistorico = false;
+    confirmacaoTransferir.checked = false;
+    confirmacaoTransferencia.hidden = true;
+    confirmacaoSemTransferencia.hidden = false;
+    confirmacaoTexto.textContent = `A conta de ${nomeCompleto(editando) ?? "esta pessoa"} será excluída permanentemente. Você pode transferir o histórico ou mantê-lo sem autor e responsável. Esta ação não pode ser desfeita.`;
     confirmacaoBusca.value = "";
     confirmacaoSelecao.textContent = "Nenhuma conta selecionada.";
     confirmacaoCampo.value = "";
     confirmacaoExcluir.disabled = true;
     confirmacaoCaixa.hidden = false;
-    desenharDestinos();
-    confirmacaoBusca.focus();
+    confirmacaoCampo.focus();
   });
 
   confirmacaoCampo.addEventListener("input", () => {
     atualizarBotaoConfirmacao();
   });
   confirmacaoBusca.addEventListener("input", () => desenharDestinos(confirmacaoBusca.value));
+  confirmacaoTransferir.addEventListener("change", () => {
+    transferirHistorico = confirmacaoTransferir.checked;
+    destinoSelecionado = null;
+    confirmacaoBusca.value = "";
+    confirmacaoSelecao.textContent = "Nenhuma conta selecionada.";
+    confirmacaoTransferencia.hidden = !transferirHistorico;
+    confirmacaoSemTransferencia.hidden = transferirHistorico;
+    if (transferirHistorico) {
+      desenharDestinos();
+      confirmacaoBusca.focus();
+    }
+    atualizarBotaoConfirmacao();
+  });
   confirmacaoBusca.addEventListener("keydown", (evento) => {
     if (evento.key === "Escape") {
       evento.preventDefault();

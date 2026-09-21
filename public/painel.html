@@ -1420,14 +1420,23 @@
             <div class="pessoa__confirmacao-caixa">
               <h3 id="pessoa-confirmacao-titulo" class="pessoa__confirmacao-titulo">Confirmação de exclusão</h3>
               <p class="pessoa__confirmacao-texto" data-pessoa-confirmacao-texto></p>
-              <label class="pessoa__campo">
-                <span class="pessoa__rotulo">Transferir histórico para</span>
-                <input class="pessoa__entrada" type="search" data-pessoa-confirmacao-busca
-                       placeholder="Buscar por nome ou e-mail" autocomplete="off">
+              <label class="pessoa__caixa pessoa__confirmacao-transferir">
+                <input type="checkbox" data-pessoa-confirmacao-transferir>
+                <span>Transferir histórico para outra conta</span>
               </label>
-              <div class="pessoa__confirmacao-destinos" data-pessoa-confirmacao-destinos
-                   role="listbox" aria-label="Contas para receber o histórico"></div>
-              <p class="pessoa__confirmacao-selecao" data-pessoa-confirmacao-selecao>Nenhuma conta selecionada.</p>
+              <div data-pessoa-confirmacao-transferencia hidden>
+                <label class="pessoa__campo">
+                  <span class="pessoa__rotulo">Buscar conta de destino</span>
+                  <input class="pessoa__entrada" type="search" data-pessoa-confirmacao-busca
+                         placeholder="Buscar por nome ou e-mail" autocomplete="off">
+                </label>
+                <div class="pessoa__confirmacao-destinos" data-pessoa-confirmacao-destinos
+                     role="listbox" aria-label="Contas para receber o histórico"></div>
+                <p class="pessoa__confirmacao-selecao" data-pessoa-confirmacao-selecao>Nenhuma conta selecionada.</p>
+              </div>
+              <p class="pessoa__confirmacao-selecao" data-pessoa-confirmacao-sem-transferencia>
+                Sem transferência, o histórico será mantido sem autor ou responsável.
+              </p>
               <label class="pessoa__campo">
                 <span class="pessoa__rotulo">Digite EXCLUIR para confirmar</span>
                 <input class="pessoa__entrada" type="text" data-pessoa-confirmacao-campo
