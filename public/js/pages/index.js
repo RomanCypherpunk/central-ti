@@ -265,3 +265,6 @@ async function carregarChamados() {
 
 carregarSolucoes();
 carregarChamados();
+document.querySelectorAll(".equipe img").forEach((img) => {
+  img.addEventListener("error", () => { img.hidden = true; });
+});

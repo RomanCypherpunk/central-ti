@@ -3,6 +3,7 @@
 import { supabase } from "./config/supabase-config.js";
 import { pintarFoto, versaoDaMinhaFoto } from "./componentes/avatar.js";
 import { ligarNotificacoes } from "./componentes/notificacoes.js";
+import { limparPushNoLogout, reconciliarDonoPush } from "./componentes/push-sessao.js";
 
 //ENTRADA DA PAGINA: CARTOES E PAINEIS SOBEM COM FADE, EM SEQUENCIA.
 //So na primeira visita de cada pagina nesta sessao: repetida a cada troca de
@@ -267,8 +268,10 @@ async function preencherUsuario() {
 
   if (!user) {
     esquecerTopo();
+    await limparPushNoLogout(null).catch(() => {});
     return;
   }
+  await reconciliarDonoPush(user.id).catch(() => console.warn("Falha ao renovar notificações deste navegador."));
 
   const guardado = lerTopoGuardado();
   const guardadoValido = guardado?.id === user.id;
@@ -372,6 +375,7 @@ botaoSair?.addEventListener("click", async () => {
 
   // O proximo a entrar neste navegador nao pode ver o topo de quem saiu.
   esquecerTopo();
+  await limparPushNoLogout(supabase).catch(() => console.warn("Falha ao revogar notificações."));
   await supabase.auth.signOut();
   // O auth-guard escuta a queda da sessão e redireciona para o login.
 });
@@ -430,3 +434,6 @@ if (sidebarColapsarBtn) {
     aplicarColapso(novoEstado);
   });
 }
+supabase.auth.onAuthStateChange((event) => {
+  if (event === "SIGNED_OUT") void limparPushNoLogout(null).catch(() => {});
+});

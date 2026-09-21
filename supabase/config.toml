@@ -23,9 +23,19 @@ port = 54323
 enabled = true
 site_url = "http://localhost:3000"
 additional_redirect_urls = []
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+
+[auth.rate_limit]
+email_sent = 10
+token_refresh = 60
+sign_in_sign_ups = 10
+token_verifications = 10
 
 [auth.email]
-double_confirm_changes = false
+double_confirm_changes = true
+secure_password_change = true
 # Cadastro exige confirmar o e-mail com um código de 6 dígitos, igual à
 # recuperação de senha: garante que a pessoa tem acesso à caixa que informou.
 enable_confirmations = true
@@ -68,3 +78,9 @@ max_namespaces = 10
 
 [storage.image_transformation]
 enabled = true
+
+[functions.criar-usuario]
+verify_jwt = true
+
+[functions.notificar-portal]
+verify_jwt = true

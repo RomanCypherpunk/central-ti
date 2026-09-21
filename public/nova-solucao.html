@@ -8,11 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
   <link rel="icon" href="assets/img/favicon.ico">
-  <script>
-    // Antes da primeira pintura, senao o menu abre e fecha na frente do usuario.
-    document.documentElement.dataset.sidebar =
-      localStorage.getItem("sidebarColapsada") === "true" ? "colapsada" : "expandida";
-  </script>
+  <script src="js/head-preferences.js"></script>
   <link rel="stylesheet" href="css/nova-solucao.css">
 </head>
 <body style="visibility: hidden">
@@ -235,8 +231,7 @@
     </div>
   </main>
 
-  <script type="module" src="js/auth-guard.js"></script>
-  <script type="module" src="js/solucao-guard.js"></script>
+  <script type="module" src="js/guard.js"></script>
   <script type="module" src="js/main.js"></script>
   <script type="module" src="js/pages/nova-solucao.js"></script>
 </body>

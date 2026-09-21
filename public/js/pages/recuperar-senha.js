@@ -158,7 +158,7 @@ document.querySelector("[data-acao='voltar']")
   .addEventListener("click", () => mostrarEtapa(0, "tras"));
 
 //ETAPA 2: GRAVAR A NOVA SENHA
-const SENHA_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const SENHA_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,128}$/;
 
 const formulario = document.querySelector(".recuperar__formulario");
 const botaoSalvar = document.querySelector(".recuperar__botao[type='submit']");
@@ -167,7 +167,7 @@ formulario.addEventListener("submit", async (evento) => {
   evento.preventDefault();
 
   if (!SENHA_REGEX.test(campoSenha.value)) {
-    mostrarErro(erroEtapa2, "A senha precisa de no mínimo 8 caracteres, com maiúscula, número e símbolo.");
+    mostrarErro(erroEtapa2, "A senha precisa de 8 caracteres, com minúscula, maiúscula, número e símbolo.");
     return;
   }
   if (campoSenha.value !== campoConfirmar.value) {

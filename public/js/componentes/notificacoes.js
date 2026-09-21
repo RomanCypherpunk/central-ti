@@ -1,3 +1,5 @@
+import { inscreverPush, limparPushNoLogout } from "./push-sessao.js";
+
 // NOTIFICACOES DO NAVEGADOR (WEB PUSH DE VERDADE): interruptor
 // compartilhado por qualquer tela do lado do solicitante (Home, Base de
 // Soluções, Dados pessoais, Abrir chamado, Suas solicitações) — liga uma
@@ -51,41 +53,22 @@ export function ligarNotificacoes(supabase, idUsuario, ativasNoCadastro) {
   }
 
   async function inscrever() {
-    const registro = await navigator.serviceWorker.register("/sw.js");
-    const existente = await registro.pushManager.getSubscription();
-    const subscription = existente ?? await registro.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: chaveVapidParaUint8Array(VAPID_CHAVE_PUBLICA),
-    });
-
-    const json = subscription.toJSON();
-
-    await supabase.from("push_subscriptions").upsert({
-      usuario_id: idUsuario,
-      endpoint: json.endpoint,
-      p256dh: json.keys.p256dh,
-      auth: json.keys.auth,
-    }, { onConflict: "endpoint" });
+    await inscreverPush(supabase, idUsuario, chaveVapidParaUint8Array(VAPID_CHAVE_PUBLICA));
   }
 
   async function desinscrever() {
-    if (!("serviceWorker" in navigator)) return;
-
-    const registro = await navigator.serviceWorker.getRegistration("/sw.js");
-    const subscription = await registro?.pushManager.getSubscription();
-
-    if (!subscription) return;
-
-    await supabase.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
-    await subscription.unsubscribe();
+    await limparPushNoLogout(supabase);
   }
 
   item.addEventListener("click", async () => {
     if (ativas) {
       ativas = false;
       desenhar();
-      await supabase.from("usuarios").update({ notificacoes_ativas: false }).eq("id", idUsuario);
-      await desinscrever();
+      const { error: erroPreferencia } = await supabase.from("usuarios")
+        .update({ notificacoes_ativas: false }).eq("id", idUsuario);
+      let erroInscricao = null;
+      try { await desinscrever(); } catch (erro) { erroInscricao = erro; }
+      if (erroPreferencia || erroInscricao) alert("Notificações desativadas neste navegador; confirme a preferência ao reconectar.");
       return;
     }
 
@@ -111,9 +94,15 @@ export function ligarNotificacoes(supabase, idUsuario, ativasNoCadastro) {
       return;
     }
 
+    const { error: erroPreferencia } = await supabase.from("usuarios")
+      .update({ notificacoes_ativas: true }).eq("id", idUsuario);
+    if (erroPreferencia) {
+      await desinscrever().catch(() => {});
+      alert("Não foi possível salvar a preferência de notificações.");
+      return;
+    }
     ativas = true;
     desenhar();
-    await supabase.from("usuarios").update({ notificacoes_ativas: true }).eq("id", idUsuario);
   });
 
   // Preferencia ja estava ligada ao carregar a pagina (outra sessao, ou

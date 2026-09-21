@@ -1,179 +1,151 @@
-// WEB PUSH DE VERDADE PARA O PORTAL DE CHAMADOS.
-//
-// Chamada por 2 triggers (comentarios_notificar_portal,
-// chamados_notificar_portal, ver migration 20260917140000) via pg_net a
-// cada INSERT nessas tabelas. Roda no servidor — funciona com a aba do
-// Portal em segundo plano/minimizada, diferente da tentativa anterior
-// (Notification API pura no navegador, que so disparava com a aba em
-// primeiro plano porque o navegador suspende o WebSocket do tempo real em
-// abas em background).
-//
-// 3 gatilhos (o "fui adicionado como atendente" foi descartado a pedido
-// do usuario):
-//   1. Resposta do solicitante, em chamado onde a pessoa e atendente
-//      -> titulo do chamado / "{Nome do solicitante} respondeu"
-//      (Portal — pro atendente)
-//   2. Chamado novo, em qualquer fila (a categoria do formulario ja
-//      decide a fila de destino, nem todo chamado nasce no Inbox)
-//      -> titulo do chamado / "Novo ticket aberto"
-//      (Portal — pra equipe toda, analista/admin)
-//   3. Resposta de um atendente, em chamado de qualquer solicitante
-//      -> titulo do chamado / "{Nome do atendente} respondeu seu chamado"
-//      (Suas solicitações — pro dono do chamado)
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Candidato auditado: copiar para supabase/functions/notificar-portal/index.ts.
+// Aplicar push-hardening.sql antes do deploy. Manter verify_jwt = true.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.116.0";
 import webpush from "npm:web-push@3";
+import { timingSafeEqual } from "node:crypto";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!;
-const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
-const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT")!;
+const required = (name: string) => {
+  const value = Deno.env.get(name);
+  if (!value) throw new Error(`Configuração ausente: ${name}`);
+  return value;
+};
+const serviceKey = required("SUPABASE_SERVICE_ROLE_KEY");
+const db = createClient(required("SUPABASE_URL"), serviceKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+webpush.setVapidDetails(required("VAPID_SUBJECT"), required("VAPID_PUBLIC_KEY"), required("VAPID_PRIVATE_KEY"));
+const encoder = new TextEncoder();
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const providers = new Map([
+  ["fcm.googleapis.com", /^\/(fcm\/send|wp)\//],
+  ["updates.push.services.mozilla.com", /^\/wpush\//],
+  ["web.push.apple.com", /^\//],
+]);
 
-webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
-function tituloDoChamado(chamado: { titulo: string | null; numero: number; categoria_nome: string | null }) {
-  return chamado.titulo ?? `${chamado.categoria_nome ?? "Sem categoria"} | Ticket-${chamado.numero}`;
+function endpointPermitido(value: string) {
+  try {
+    if (typeof value !== "string" || value.length > 4096) return false;
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password && !url.port
+      && !url.hash && Boolean(providers.get(url.hostname)?.test(url.pathname));
+  } catch { return false; }
 }
 
-//MANDA O PUSH PARA TODAS AS INSCRICOES DE UM USUARIO. Se alguma
-//inscricao estiver morta (404/410 — navegador desinstalado, permissao
-//revogada, cache do navegador limpo), apaga a linha em vez de tentar de
-//novo depois.
-async function notificarUsuario(usuarioId: string, titulo: string, corpo: string) {
-  const { data: inscricoes } = await supabase
-    .from("push_subscriptions")
-    .select("id, endpoint, p256dh, auth")
-    .eq("usuario_id", usuarioId);
+function autorizado(request: Request) {
+  const received = encoder.encode(request.headers.get("authorization") ?? "");
+  const expected = encoder.encode(`Bearer ${serviceKey}`);
+  return received.length === expected.length && timingSafeEqual(received, expected);
+}
 
-  if (!inscricoes?.length) return;
+const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), {
+  status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+});
 
-  const payload = JSON.stringify({ titulo, corpo });
+// Limite real durante leitura: Content-Length sozinho pode estar ausente/forjado.
+async function readBody(request: Request) {
+  const reader = request.body?.getReader();
+  if (!reader) throw new Error("invalid-body");
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      length += value.length;
+      if (length > 2048) { await reader.cancel(); throw new Error("body-too-large"); }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  const joined = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) { joined.set(chunk, offset); offset += chunk.length; }
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(joined));
+}
 
-  await Promise.all(inscricoes.map(async (inscricao) => {
-    const subscription = {
-      endpoint: inscricao.endpoint,
-      keys: { p256dh: inscricao.p256dh, auth: inscricao.auth },
-    };
+async function row(table: string, fields: string, id: string) {
+  const result = await db.from(table).select(fields).eq("id", id).maybeSingle();
+  if (result.error) throw new Error("database-read-failed");
+  return result.data;
+}
 
+async function send(userId: string, teamOnly: boolean) {
+  // A inscrição existente não é autorização. Revalidar usuário e preferência agora.
+  const user = await row("usuarios", "ativo,status_aprovacao,perfil,notificacoes_ativas", userId);
+  if (!user?.ativo || user.status_aprovacao !== "aprovado" || !user.notificacoes_ativas) return;
+  if (teamOnly && !["analista", "admin"].includes(user.perfil)) return;
+  const { data: subscriptions, error } = await db.from("push_subscriptions")
+    .select("id,endpoint,p256dh,auth").eq("usuario_id", userId).limit(10);
+  if (error) throw new Error("subscription-read-failed");
+  for (const subscription of subscriptions ?? []) {
+    if (!endpointPermitido(subscription.endpoint)) continue;
     try {
-      await webpush.sendNotification(subscription, payload);
-    } catch (erro) {
-      const status = erro?.statusCode;
-
+      // Nunca transmitir título, nome ou número do chamado para tela bloqueada.
+      await webpush.sendNotification({ endpoint: subscription.endpoint,
+        keys: { p256dh: subscription.p256dh, auth: subscription.auth } },
+      JSON.stringify({ titulo: "Central de TI", corpo: "Há uma atualização. Entre para consultar." }),
+      { timeout: 5000, TTL: 60 });
+    } catch (error) {
+      const status = (error as { statusCode?: number }).statusCode;
       if (status === 404 || status === 410) {
-        await supabase.from("push_subscriptions").delete().eq("id", inscricao.id);
+        const removed = await db.from("push_subscriptions").delete().eq("id", subscription.id);
+        if (removed.error) console.error("push-remove-failed");
       } else {
-        console.error("Falha ao enviar push:", usuarioId, status, erro?.body ?? erro);
+        // Sem endpoint, corpo de resposta externo, chave ou dados pessoais no log.
+        console.error("push-delivery-failed", { status: status ?? null });
       }
     }
-  }));
-}
-
-//GATILHO 1 (e o novo 3): comentario novo. So interessa resposta publica
-//de gente de verdade (nao nota interna, nao mensagem de sistema). Dois
-//sentidos, mutuamente exclusivos — quem escreveu decide quem e avisado:
-//  - Autor e o SOLICITANTE -> avisa os atendentes do chamado (gatilho 1
-//    original: "{Nome} respondeu seu chamado", pro atendente).
-//  - Autor e ATENDENTE (alguem diferente do solicitante) -> avisa o
-//    SOLICITANTE (gatilho novo, pedido do usuario pra tela de
-//    solicitacoes.html: "{Nome do atendente} respondeu seu chamado").
-async function tratarComentarioNovo(comentario: {
-  id: string; chamado_id: string; autor_id: string; tipo: string; visibilidade: string;
-}) {
-  if (comentario.tipo !== "humano" || comentario.visibilidade !== "publico") return;
-
-  const { data: chamado, error } = await supabase
-    .from("chamados")
-    .select("id, numero, titulo, solicitante_id, categorias(nome), chamado_membros(usuario_id)")
-    .eq("id", comentario.chamado_id)
-    .maybeSingle();
-
-  if (error || !chamado) {
-    console.error("notificar-portal: chamado não encontrado para comentário", comentario.id, error);
-    return;
-  }
-
-  const { data: autor } = await supabase
-    .from("usuarios")
-    .select("nome")
-    .eq("id", comentario.autor_id)
-    .maybeSingle();
-
-  const rotulo = tituloDoChamado({
-    titulo: chamado.titulo,
-    numero: chamado.numero,
-    categoria_nome: (chamado.categorias as { nome: string } | null)?.nome ?? null,
-  });
-
-  if (comentario.autor_id === chamado.solicitante_id) {
-    // Solicitante respondeu: avisa quem atende o chamado.
-    const corpo = `${autor?.nome ?? "O solicitante"} respondeu`;
-    const membros = (chamado.chamado_membros ?? []) as { usuario_id: string }[];
-
-    await Promise.all(membros.map((membro) => notificarUsuario(membro.usuario_id, rotulo, corpo)));
-  } else {
-    // Atendente respondeu: avisa o dono do chamado.
-    const corpo = `${autor?.nome ?? "Um atendente"} respondeu seu chamado`;
-
-    await notificarUsuario(chamado.solicitante_id, rotulo, corpo);
   }
 }
 
-//GATILHO 2: chamado novo, em QUALQUER fila. A categoria escolhida no
-//formulário público já decide a fila de destino (nem todo chamado nasce
-//no Inbox — cair direto em "Internet, Conexão e Telefonia" por causa da
-//categoria é normal, não só triagem/equipe redirecionando manualmente),
-//então restringir à fila de menor `ordem` deixava passar chamados novos
-//de verdade sem avisar ninguém.
-async function tratarChamadoNovo(chamado: {
-  id: string; numero: number; titulo: string | null; fila_id: string; categorias?: unknown;
-}) {
-  const { data: categoria } = await supabase
-    .from("chamados")
-    .select("categorias(nome)")
-    .eq("id", chamado.id)
-    .maybeSingle();
-
-  const rotulo = tituloDoChamado({
-    titulo: chamado.titulo,
-    numero: chamado.numero,
-    categoria_nome: (categoria?.categorias as { nome: string } | null)?.nome ?? null,
-  });
-
-  // Chamado acabou de nascer: ainda ninguem e atendente dele. "Novo
-  // ticket aberto" avisa toda a equipe que pode atender (analista/admin),
-  // nao so quem ja esta no chamado (que ainda e ninguem).
-  const { data: equipe } = await supabase
-    .from("usuarios")
-    .select("id")
-    .in("perfil", ["analista", "admin"])
-    .eq("ativo", true);
-
-  await Promise.all((equipe ?? []).map((pessoa) => notificarUsuario(pessoa.id, rotulo, "Novo ticket aberto")));
-}
-
-Deno.serve(async (req) => {
+Deno.serve(async (request) => {
+  if (request.method !== "POST") return reply(405, { error: "method-not-allowed" });
+  if (!autorizado(request)) return reply(401, { error: "unauthorized" });
+  if (request.headers.get("content-type")?.split(";", 1)[0].trim() !== "application/json") {
+    return reply(415, { error: "unsupported-content-type" });
+  }
+  let event: { table: string; id: string };
   try {
-    const payload = await req.json();
-    const tabela = payload.table as string;
-    const linha = payload.record;
-
-    if (tabela === "comentarios") {
-      await tratarComentarioNovo(linha);
-    } else if (tabela === "chamados") {
-      await tratarChamadoNovo(linha);
+    const body = await readBody(request);
+    if (!body || typeof body !== "object" || Array.isArray(body)
+      || Object.keys(body).sort().join(",") !== "id,table"
+      || !["comentarios", "chamados"].includes(body.table)
+      || typeof body.id !== "string" || !uuid.test(body.id)) return reply(400, { error: "invalid-event" });
+    event = body;
+  } catch { return reply(400, { error: "invalid-body" }); }
+  try {
+    const recipients = new Map<string, boolean>();
+    if (event.table === "comentarios") {
+      const comment = await row("comentarios", "chamado_id,autor_id,tipo,visibilidade", event.id);
+      if (!comment || comment.tipo !== "humano" || comment.visibilidade !== "publico") {
+        return reply(200, { ok: true, ignored: true });
+      }
+      const ticket = await row("chamados", "solicitante_id,chamado_membros(usuario_id)", comment.chamado_id);
+      if (!ticket) return reply(200, { ok: true, ignored: true });
+      const author = await row("usuarios", "ativo,status_aprovacao,perfil", comment.autor_id);
+      if (!author?.ativo || author.status_aprovacao !== "aprovado") return reply(200, { ok: true, ignored: true });
+      if (comment.autor_id === ticket.solicitante_id) {
+        for (const member of ticket.chamado_membros ?? []) recipients.set(member.usuario_id, true);
+      } else if (["analista", "admin"].includes(author.perfil)) {
+        recipients.set(ticket.solicitante_id, false);
+      }
+    } else {
+      const ticket = await row("chamados", "id", event.id);
+      if (!ticket) return reply(404, { error: "event-not-found" });
+      const { data: team, error } = await db.from("usuarios").select("id")
+        .in("perfil", ["analista", "admin"]).eq("ativo", true).eq("status_aprovacao", "aprovado")
+        .eq("notificacoes_ativas", true);
+      if (error) throw new Error("team-read-failed");
+      for (const user of team ?? []) recipients.set(user.id, true);
     }
-
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (erro) {
-    console.error("notificar-portal: erro inesperado", erro);
-    return new Response(JSON.stringify({ ok: false, erro: String(erro) }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    // PK garante deduplicação também entre duas instâncias concorrentes.
+    const claim = await db.from("push_eventos_processados").insert({ tabela: event.table, registro_id: event.id });
+    if (claim.error?.code === "23505") return reply(200, { ok: true, duplicate: true });
+    if (claim.error) throw new Error("event-claim-failed");
+    // Sem Promise.all ilimitado sobre dispositivos/usuários controlados pelo cliente.
+    for (const [userId, teamOnly] of recipients) await send(userId, teamOnly);
+    return reply(200, { ok: true });
+  } catch {
+    console.error("push-processing-failed");
+    return reply(500, { error: "internal-error" });
   }
 });

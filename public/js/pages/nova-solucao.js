@@ -8,6 +8,7 @@
 //     nível de risco ficaram de fora.
 
 import { supabase } from "../config/supabase-config.js";
+import { pintarImagemPrivada } from "../componentes/storage-privado.js";
 
 const BUCKET = "artigos";
 const MAX_IMAGENS_POR_PASSO = 3;
@@ -225,10 +226,6 @@ function renumerarPassos() {
   });
 }
 
-function urlDaImagem(item) {
-  return item instanceof File ? URL.createObjectURL(item) : item.url;
-}
-
 function atualizarImagensDoPasso(card) {
   const imagensArea = card.querySelector(".passo-card__imagens");
   const anexarBtn = card.querySelector(".passo-card__anexar");
@@ -242,7 +239,14 @@ function atualizarImagensDoPasso(card) {
     item.className = "passo-card__imagem-item";
 
     const img = document.createElement("img");
-    img.src = urlDaImagem(arquivo);
+    if (arquivo instanceof File) {
+      const previa = URL.createObjectURL(arquivo);
+      img.addEventListener("load", () => URL.revokeObjectURL(previa), { once: true });
+      img.addEventListener("error", () => URL.revokeObjectURL(previa), { once: true });
+      img.src = previa;
+    } else {
+      pintarImagemPrivada(img, "artigos", arquivo.url);
+    }
     img.alt = `Imagem ${indice + 1} do passo`;
 
     const remover = document.createElement("button");
@@ -781,9 +785,7 @@ async function enviarArquivo(artigoId, nomeArquivo, arquivo) {
 
   if (error) throw error;
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(caminho);
-
-  return data.publicUrl;
+  return caminho;
 }
 
 async function coletarPassos(artigoId) {

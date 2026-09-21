@@ -1,6 +1,8 @@
 // Portal de Chamados: quadro kanban da equipe de TI — Fase 4.
 
 import { supabase } from "../config/supabase-config.js";
+import { pintarImagemPrivada } from "../componentes/storage-privado.js";
+import { inscreverPush, limparPushNoLogout } from "../componentes/push-sessao.js";
 // Peças que o Painel também usa: moram em componentes/ para as duas telas
 // mostrarem status, nome e avatar pela mesma regra.
 import {
@@ -39,9 +41,9 @@ function montarAvatarTerceiro(fornecedor, classe) {
   elemento.className = classe;
 
   if (fornecedor.foto_path) {
-    const { data } = supabase.storage.from("terceiros").getPublicUrl(fornecedor.foto_path);
     const img = document.createElement("img");
-    img.src = data.publicUrl;
+    pintarImagemPrivada(img, "terceiros", fornecedor.foto_path,
+      () => { elemento.innerHTML = ICONE_TERCEIRO_SVG; });
     img.alt = "";
     img.decoding = "async";
     // Foto removida do Storage depois de carregada na tela: volta pro icone
@@ -3983,41 +3985,22 @@ function ligarNotificacoes(atendente, ativasNoCadastro) {
   }
 
   async function inscrever() {
-    const registro = await navigator.serviceWorker.register("/sw.js");
-    const existente = await registro.pushManager.getSubscription();
-    const subscription = existente ?? await registro.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: chaveVapidParaUint8Array(VAPID_CHAVE_PUBLICA),
-    });
-
-    const json = subscription.toJSON();
-
-    await supabase.from("push_subscriptions").upsert({
-      usuario_id: atendente,
-      endpoint: json.endpoint,
-      p256dh: json.keys.p256dh,
-      auth: json.keys.auth,
-    }, { onConflict: "endpoint" });
+    await inscreverPush(supabase, atendente, chaveVapidParaUint8Array(VAPID_CHAVE_PUBLICA));
   }
 
   async function desinscrever() {
-    if (!("serviceWorker" in navigator)) return;
-
-    const registro = await navigator.serviceWorker.getRegistration("/sw.js");
-    const subscription = await registro?.pushManager.getSubscription();
-
-    if (!subscription) return;
-
-    await supabase.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
-    await subscription.unsubscribe();
+    await limparPushNoLogout(supabase);
   }
 
   item.addEventListener("click", async () => {
     if (ativas) {
       ativas = false;
       desenhar();
-      await supabase.from("usuarios").update({ notificacoes_ativas: false }).eq("id", atendente);
-      await desinscrever();
+      const { error: erroPreferencia } = await supabase.from("usuarios")
+        .update({ notificacoes_ativas: false }).eq("id", atendente);
+      let erroInscricao = null;
+      try { await desinscrever(); } catch (erro) { erroInscricao = erro; }
+      if (erroPreferencia || erroInscricao) alert("Notificações desativadas neste navegador; confirme a preferência ao reconectar.");
       return;
     }
 
@@ -4043,9 +4026,15 @@ function ligarNotificacoes(atendente, ativasNoCadastro) {
       return;
     }
 
+    const { error: erroPreferencia } = await supabase.from("usuarios")
+      .update({ notificacoes_ativas: true }).eq("id", atendente);
+    if (erroPreferencia) {
+      await desinscrever().catch(() => {});
+      alert("Não foi possível salvar a preferência de notificações.");
+      return;
+    }
     ativas = true;
     desenhar();
-    await supabase.from("usuarios").update({ notificacoes_ativas: true }).eq("id", atendente);
   });
 
   // Preferencia ja estava ligada ao carregar a pagina (outra sessao, ou

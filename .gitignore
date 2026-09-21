@@ -9,6 +9,16 @@ supabase/.temp
 npm-debug.log*
 yarn-debug.log*
 
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+supabase/.env
+supabase/.env.*
+*.key
+*.p12
+*.pfx
+
 # os / editor
 .DS_Store
 Thumbs.db
