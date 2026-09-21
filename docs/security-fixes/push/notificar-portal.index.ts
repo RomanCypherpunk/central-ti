@@ -1,8 +1,7 @@
 // Candidato auditado: copiar para supabase/functions/notificar-portal/index.ts.
 // Aplicar push-hardening.sql antes do deploy. Manter verify_jwt = true.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.116.0";
 import webpush from "npm:web-push@3";
-import { timingSafeEqual } from "node:crypto";
 
 const required = (name: string) => {
   const value = Deno.env.get(name);
@@ -10,11 +9,12 @@ const required = (name: string) => {
   return value;
 };
 const serviceKey = required("SUPABASE_SERVICE_ROLE_KEY");
-const db = createClient(required("SUPABASE_URL"), serviceKey, {
+const supabaseUrl = required("SUPABASE_URL");
+const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+const db = createClient(supabaseUrl, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 webpush.setVapidDetails(required("VAPID_SUBJECT"), required("VAPID_PUBLIC_KEY"), required("VAPID_PRIVATE_KEY"));
-const encoder = new TextEncoder();
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const providers = new Map([
   ["fcm.googleapis.com", /^\/(fcm\/send|wp)\//],
@@ -32,9 +32,20 @@ function endpointPermitido(value: string) {
 }
 
 function autorizado(request: Request) {
-  const received = encoder.encode(request.headers.get("authorization") ?? "");
-  const expected = encoder.encode(`Bearer ${serviceKey}`);
-  return received.length === expected.length && timingSafeEqual(received, expected);
+  // verify_jwt=true valida a assinatura antes desta função; restringir a
+  // chamada à claim assinada do papel de serviço evita depender de cópias de chave.
+  const token = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!token) return false;
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return false;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = atob(normalized + "=".repeat((4 - normalized.length % 4) % 4));
+    const claims = JSON.parse(json);
+    return claims.role === "service_role" && claims.ref === projectRef;
+  } catch {
+    return false;
+  }
 }
 
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), {

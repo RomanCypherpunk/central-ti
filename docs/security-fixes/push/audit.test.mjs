@@ -9,6 +9,9 @@ import assert from 'node:assert/strict';
 const ticketId = '00000000-0000-4000-8000-000000000001';
 const userId = '00000000-0000-4000-8000-000000000002';
 const commentId = '00000000-0000-4000-8000-000000000003';
+const projectRef = 'pmwcfdxryjwsvwsmcufm';
+const jwt = claims => `${Buffer.from(JSON.stringify({ alg: 'HS256' })).toString('base64url')}.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.signature`;
+const serviceAuth = `Bearer ${jwt({ role: 'service_role', ref: projectRef })}`;
 function loadEdge(file, overrides = {}) {
   const sent = [], queries = [], claims = new Set();
   const rows = {
@@ -47,9 +50,10 @@ function loadEdge(file, overrides = {}) {
   const source = readFileSync(file, 'utf8').replace(/^import .*;\r?\n/gm, '');
   const context = { createClient: () => client, webpush: { setVapidDetails() {},
     async sendNotification(subscription, payload) { sent.push({ subscription, payload: JSON.parse(payload) }); } },
-    Deno: { env: { get: name => name === 'SUPABASE_SERVICE_ROLE_KEY' ? 'server-only-key' : 'test' },
+    Deno: { env: { get: name => name === 'SUPABASE_SERVICE_ROLE_KEY' ? 'server-only-key'
+      : name === 'SUPABASE_URL' ? `https://${projectRef}.supabase.co` : 'test' },
       serve(fn) { handler = fn; } }, console: { error() {}, warn() {} },
-    Response, Request, URL, TextEncoder, TextDecoder, Uint8Array, timingSafeEqual };
+    Response, Request, URL, TextEncoder, TextDecoder, Uint8Array, atob };
   vm.runInNewContext(stripTypeScriptTypes(source), context, { filename: file });
   const request = (body, auth, method = 'POST') => handler(new Request('https://local.test', {
     method, headers: { 'content-type': 'application/json', ...(auth ? { authorization: auth } : {}) },
@@ -95,7 +99,7 @@ test('Candidato: sem credencial/credencial comum não consulta banco', async () 
 });
 test('Candidato: descarta payload arbitrário, método errado e comentário interno real', async () => {
   const app = loadEdge(candidate);
-  const auth = 'Bearer server-only-key';
+  const auth = serviceAuth;
   assert.equal((await app.request({ table: 'chamados', id: ticketId, record: {} }, auth)).status, 400);
   assert.equal((await app.request({ table: 'chamados', id: ticketId }, auth, 'PUT')).status, 405);
   assert.equal((await app.request({ table: 'comentarios', id: commentId }, auth)).status, 200);
@@ -104,7 +108,7 @@ test('Candidato: descarta payload arbitrário, método errado e comentário inte
 test('Candidato: evento legítimo envia genérico uma vez, inclusive replay concorrente', async () => {
   const app = loadEdge(candidate);
   const results = await Promise.all(Array.from({ length: 3 }, () => app.request(
-    { table: 'chamados', id: ticketId }, 'Bearer server-only-key')));
+    { table: 'chamados', id: ticketId }, serviceAuth)));
   assert.ok(results.every(result => result.status === 200));
   assert.equal(app.sent.length, 1);
   assert.equal(app.sent[0].payload.titulo, 'Central de TI');
@@ -116,7 +120,7 @@ test('Candidato: não envia para desativado/rejeitado/opt-out nem endpoint exter
     { endpoint: 'https://fcm.googleapis.com.evil.invalid/fcm/send/test' },
     { endpoint: 'https://fcm.googleapis.com:8443/fcm/send/test' }]) {
     const app = loadEdge(candidate, override);
-    await app.request({ table: 'chamados', id: ticketId }, 'Bearer server-only-key');
+    await app.request({ table: 'chamados', id: ticketId }, serviceAuth);
     assert.equal(app.sent.length, 0);
   }
 });
