@@ -844,6 +844,11 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
   const campoSenhaCaixa = document.querySelector("[data-pessoa-campo-senha]");
   const campoDestinoCaixa = document.querySelector("[data-pessoa-destino-caixa]");
   const campoDestino = document.querySelector('[data-pessoa-campo="destino_id"]');
+  const confirmacaoCaixa = document.querySelector("[data-pessoa-confirmacao]");
+  const confirmacaoTexto = document.querySelector("[data-pessoa-confirmacao-texto]");
+  const confirmacaoCampo = document.querySelector("[data-pessoa-confirmacao-campo]");
+  const confirmacaoCancelar = document.querySelector("[data-pessoa-confirmacao-cancelar]");
+  const confirmacaoExcluir = document.querySelector("[data-pessoa-confirmacao-excluir]");
 
   //FOTO: caixa com os dois botoes (trocar/remover) + o input de arquivo
   //escondido atras do botao "Trocar foto", igual ao "Dados pessoais".
@@ -887,6 +892,13 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     if (!ehErro && texto) setTimeout(() => { aviso.textContent = ""; }, 2500);
   }
 
+  function fecharConfirmacaoExclusao() {
+    confirmacaoCaixa.hidden = true;
+    confirmacaoCampo.value = "";
+    confirmacaoExcluir.disabled = true;
+    botaoExcluir.focus();
+  }
+
   //MODO CRIACAO OU EDICAO: campos que so existem num dos dois (senha,
   //botoes de foto) aparecem/somem daqui. editando null == criando.
   function aplicarModo() {
@@ -913,6 +925,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
   function abrir(pessoa, quandoSalvar) {
     editando = pessoa;
     aoSalvar = quandoSalvar;
+    confirmacaoCaixa.hidden = true;
     aplicarModo();
 
     pintarAvatar(avatarJanela, pessoa);
@@ -956,6 +969,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
   function criarNovo(quandoSalvar) {
     editando = null;
     aoSalvar = quandoSalvar;
+    confirmacaoCaixa.hidden = true;
     aplicarModo();
 
     avatarJanela.textContent = "";
@@ -1064,22 +1078,11 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     janela.close();
   }
 
-  botaoExcluir.addEventListener("click", async () => {
+  async function excluirConta() {
     if (!editando) return;
 
-    if (!campoDestino.value) {
-      avisar("Selecione a conta que receberá o histórico.", true);
-      campoDestino.focus();
-      return;
-    }
-
-    const confirmacao = window.prompt(
-      `Excluir permanentemente a conta de ${nomeCompleto(editando) ?? "esta pessoa"}?\n\n`
-      + "Esta ação não pode ser desfeita. Digite EXCLUIR para confirmar.",
-    );
-    if (confirmacao !== "EXCLUIR") return;
-
     botaoExcluir.disabled = true;
+    confirmacaoExcluir.disabled = true;
     botaoSalvar.disabled = true;
     avisar("Excluindo conta…");
     const { data, error } = await supabase.functions.invoke("excluir-usuario", {
@@ -1091,6 +1094,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
       avisar(data?.erro ?? "Não foi possível excluir a conta.", true);
       botaoExcluir.disabled = false;
       botaoSalvar.disabled = false;
+      confirmacaoExcluir.disabled = false;
       return;
     }
 
@@ -1098,7 +1102,38 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
       detail: { id: editando.id },
     }));
     janela.close();
+  }
+
+  botaoExcluir.addEventListener("click", () => {
+    if (!editando) return;
+    if (!campoDestino.value) {
+      avisar("Selecione a conta que receberá o histórico.", true);
+      campoDestino.focus();
+      return;
+    }
+    const destino = campoDestino.selectedOptions[0]?.textContent ?? "a conta selecionada";
+    confirmacaoTexto.textContent = `A conta de ${nomeCompleto(editando) ?? "esta pessoa"} será excluída permanentemente. O histórico será transferido para ${destino}. Esta ação não pode ser desfeita.`;
+    confirmacaoCampo.value = "";
+    confirmacaoExcluir.disabled = true;
+    confirmacaoCaixa.hidden = false;
+    confirmacaoCampo.focus();
   });
+
+  confirmacaoCampo.addEventListener("input", () => {
+    confirmacaoExcluir.disabled = confirmacaoCampo.value !== "EXCLUIR";
+  });
+  confirmacaoCampo.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape") {
+      evento.preventDefault();
+      fecharConfirmacaoExclusao();
+    }
+    if (evento.key === "Enter" && !confirmacaoExcluir.disabled) {
+      evento.preventDefault();
+      excluirConta();
+    }
+  });
+  confirmacaoCancelar.addEventListener("click", fecharConfirmacaoExclusao);
+  confirmacaoExcluir.addEventListener("click", excluirConta);
 
   formulario.addEventListener("submit", async (evento) => {
     evento.preventDefault();

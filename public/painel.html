@@ -1419,6 +1419,24 @@
               <button class="pessoa__botao pessoa__botao--principal" type="submit" data-pessoa-salvar>Salvar</button>
             </div>
           </footer>
+
+          <section class="pessoa__confirmacao" data-pessoa-confirmacao hidden
+                   role="alertdialog" aria-modal="true" aria-labelledby="pessoa-confirmacao-titulo">
+            <div class="pessoa__confirmacao-caixa">
+              <h3 id="pessoa-confirmacao-titulo" class="pessoa__confirmacao-titulo">Excluir conta?</h3>
+              <p class="pessoa__confirmacao-texto" data-pessoa-confirmacao-texto></p>
+              <label class="pessoa__campo">
+                <span class="pessoa__rotulo">Digite EXCLUIR para confirmar</span>
+                <input class="pessoa__entrada" type="text" data-pessoa-confirmacao-campo
+                       autocomplete="off" spellcheck="false">
+              </label>
+              <div class="pessoa__confirmacao-acoes">
+                <button class="pessoa__botao" type="button" data-pessoa-confirmacao-cancelar>Cancelar</button>
+                <button class="pessoa__botao pessoa__botao--perigo" type="button"
+                        data-pessoa-confirmacao-excluir disabled>Excluir permanentemente</button>
+              </div>
+            </div>
+          </section>
         </form>
       </dialog>
 
