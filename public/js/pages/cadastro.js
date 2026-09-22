@@ -267,6 +267,11 @@ formulario.addEventListener("submit", async (evento) => {
 //ETAPA 3: CONFERIR O CODIGO QUE CHEGOU NO E-MAIL
 const campoCodigo = document.getElementById("codigo");
 const botaoConfirmar = document.querySelector("[data-acao='confirmar']");
+const orientacaoCodigo = document.querySelector("[data-orientacao-codigo]");
+
+function informarNovoCodigo() {
+  orientacaoCodigo.textContent = "Novo código solicitado. Aguarde o e-mail e use somente o código mais recente.";
+}
 
 botaoConfirmar.addEventListener("click", async () => {
   const codigo = campoCodigo.value.trim();
@@ -292,7 +297,16 @@ botaoConfirmar.addEventListener("click", async () => {
   botaoConfirmar.textContent = "Confirmar e-mail";
 
   if (error) {
-    mostrarErro(erroEtapa3, "Código inválido ou expirado. Confira o e-mail ou peça outro.");
+    const codigoRejeitado = error.code === "otp_expired"
+      || /token has expired or is invalid/i.test(error.message ?? "");
+
+    if (codigoRejeitado) {
+      campoCodigo.value = "";
+      mostrarErro(erroEtapa3, "Este código não é mais o código válido. Clique em “Enviar de novo” e use apenas o próximo código recebido.");
+      campoCodigo.focus();
+    } else {
+      mostrarErro(erroEtapa3, "Não foi possível confirmar o código agora. Tente novamente em alguns instantes.");
+    }
     return;
   }
 
@@ -320,6 +334,7 @@ botaoReenviar.addEventListener("click", async () => {
     return;
   }
 
+  informarNovoCodigo();
   mostrarErro(erroEtapa3, "Código reenviado. Confira o e-mail.");
   // Espera antes de liberar outro envio: o Supabase limita a frequência
   // (max_frequency = 1m no config.toml).
