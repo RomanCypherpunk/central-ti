@@ -102,6 +102,40 @@ const campoConfirmar = document.getElementById("confirmar");
 // Guardado no envio: a etapa 3 precisa do e-mail para conferir o código, e
 // ler o campo de novo daria a chance de a pessoa ter editado depois.
 let emailCadastrado = "";
+const CHAVE_CADASTRO_PENDENTE = "central-ti:cadastro-pendente";
+let protecaoDeHistoricoAtiva = false;
+
+function temCadastroPendente() {
+  return Boolean(emailCadastrado);
+}
+
+function guardarCadastroPendente(email) {
+  emailCadastrado = email.trim();
+  sessionStorage.setItem(CHAVE_CADASTRO_PENDENTE, emailCadastrado);
+}
+
+function limparCadastroPendente() {
+  emailCadastrado = "";
+  sessionStorage.removeItem(CHAVE_CADASTRO_PENDENTE);
+}
+
+function abrirConfirmacaoDeCadastro(email, retomado = false) {
+  guardarCadastroPendente(email);
+  document.querySelector("[data-email-destino]").textContent = emailCadastrado;
+  mostrarEtapa(2, "frente");
+
+  // Deixa o botão Voltar do navegador nesta mesma tela. Não é possível (nem
+  // desejável) impedir que alguém feche a aba, mas ao voltar ou recarregar o
+  // cadastro pendente continua recuperável — nunca vira uma conta sem saída.
+  if (!protecaoDeHistoricoAtiva) {
+    history.pushState({ cadastroPendente: true }, "", window.location.href);
+    protecaoDeHistoricoAtiva = true;
+  }
+
+  if (retomado) {
+    mostrarErro(erroEtapa3, "Retome a confirmação do e-mail. Se necessário, envie um novo código.");
+  }
+}
 
 //POPULAR SETOR E UNIDADE A PARTIR DO SUPABASE
 async function popularSelect(select, tabela) {
@@ -227,9 +261,7 @@ formulario.addEventListener("submit", async (evento) => {
   // mandar o código de 6 dígitos. Só depois de conferir é que ela serve
   // para entrar — e é nesse momento que o chamado de Aprovação de Acesso
   // nasce (trigger on_auth_user_email_confirmed no banco).
-  emailCadastrado = campoEmail.value.trim();
-  document.querySelector("[data-email-destino]").textContent = emailCadastrado;
-  mostrarEtapa(2, "frente");
+  abrirConfirmacaoDeCadastro(campoEmail.value.trim());
 });
 
 //ETAPA 3: CONFERIR O CODIGO QUE CHEGOU NO E-MAIL
@@ -264,6 +296,7 @@ botaoConfirmar.addEventListener("click", async () => {
     return;
   }
 
+  limparCadastroPendente();
   window.location.href = "index.html";
 });
 
@@ -291,4 +324,33 @@ botaoReenviar.addEventListener("click", async () => {
   // Espera antes de liberar outro envio: o Supabase limita a frequência
   // (max_frequency = 1m no config.toml).
   setTimeout(() => { botaoReenviar.disabled = false; }, 60000);
+});
+
+// Se a página recarregar durante a confirmação, reabre exatamente na etapa
+// do código. sessionStorage é limitado à mesma aba: nenhum e-mail é guardado
+// em URL, banco ou histórico compartilhado.
+const cadastroPendenteSalvo = sessionStorage.getItem(CHAVE_CADASTRO_PENDENTE);
+if (cadastroPendenteSalvo) {
+  abrirConfirmacaoDeCadastro(cadastroPendenteSalvo, true);
+}
+
+// Logo, links "Entrar" e qualquer outro link interno não abandonam uma conta
+// que ainda depende do OTP. A pessoa continua na etapa em que pode confirmar
+// ou reenviar o código.
+document.addEventListener("click", (evento) => {
+  const link = evento.target.closest("a[href]");
+  if (!link || !temCadastroPendente()) return;
+
+  evento.preventDefault();
+  mostrarErro(erroEtapa3, "Conclua a confirmação do e-mail ou peça um novo código antes de sair.");
+  campoCodigo.focus();
+});
+
+window.addEventListener("popstate", () => {
+  if (!temCadastroPendente()) return;
+
+  history.pushState({ cadastroPendente: true }, "", window.location.href);
+  protecaoDeHistoricoAtiva = true;
+  mostrarErro(erroEtapa3, "Conclua a confirmação do e-mail ou peça um novo código antes de sair.");
+  campoCodigo.focus();
 });
