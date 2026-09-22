@@ -969,6 +969,11 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     fotoAcoes.hidden = criando;
     botaoExcluir.hidden = criando;
 
+    // Toda ficha abre com os botoes liberados: uma acao anterior que parou
+    // no meio (rede caiu, erro do servidor) nao trava a ficha seguinte.
+    botaoExcluir.disabled = false;
+    botaoSalvar.disabled = false;
+
     dicaEmail.textContent = criando
       ? "É o e-mail de login da pessoa — confira antes de salvar."
       : "Muda só o cadastro interno — o e-mail de login continua o mesmo.";
@@ -1128,12 +1133,17 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
         : { usuario_id: editando.id },
     });
 
+    // OS BOTOES VOLTAM SEMPRE, inclusive quando deu certo. O dialog de
+    // pessoa e um so na pagina (ligarPessoaDialog roda uma vez): sair daqui
+    // com eles desabilitados travava a exclusao seguinte — a proxima conta
+    // so podia ser excluida depois de um F5.
+    botaoExcluir.disabled = false;
+    botaoSalvar.disabled = false;
+    atualizarBotaoConfirmacao();
+
     if (error || !data?.ok) {
       console.error("Erro ao excluir conta:", error);
       avisar(data?.erro ?? "Não foi possível excluir a conta.", true);
-      botaoExcluir.disabled = false;
-      botaoSalvar.disabled = false;
-      confirmacaoExcluir.disabled = false;
       return;
     }
 

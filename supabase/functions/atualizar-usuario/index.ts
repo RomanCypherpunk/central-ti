@@ -6,8 +6,16 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PROFILES = ["solicitante", "contribuinte", "analista", "admin"];
 const STATUSES = ["pendente", "aprovado", "rejeitado"];
+// ORIGEM PERMITIDA: por padrao "*", como era. Definindo o segredo
+// ALLOWED_ORIGIN (ex.: https://ti-gasometromadeiras.vercel.app) o navegador
+// passa a recusar chamadas vindas de outro site. Nao e a protecao principal
+// — quem protege e o token no cabecalho Authorization, que outro site nao
+// tem —, e sim uma tranca a mais.
+const ORIGEM_PERMITIDA = Deno.env.get("ALLOWED_ORIGIN")?.trim() || "*";
+
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ORIGEM_PERMITIDA,
+  "Vary": "Origin",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Max-Age": "600",

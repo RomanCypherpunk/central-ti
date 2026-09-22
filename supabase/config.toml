@@ -26,6 +26,17 @@ additional_redirect_urls = []
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
+# SENHA FORTE TAMBEM NO SERVIDOR. A regra "8+ caracteres, com maiuscula,
+# numero e simbolo" existia so no JavaScript do cadastro (SENHA_REGEX em
+# cadastro.js) — quem chamasse a API de signup direto criava conta com o
+# padrao do Supabase: 6 caracteres, sem exigencia nenhuma. Estes dois valem
+# para cadastro, troca e recuperacao de senha.
+# ATENCAO: este arquivo so vale para o ambiente local ou quando aplicado com
+# `supabase config push`. Em producao, conferir o mesmo em Dashboard >
+# Authentication > Providers > Email (Minimum password length / Password
+# requirements).
+minimum_password_length = 8
+password_requirements = "lower_upper_letters_digits_symbols"
 
 [auth.rate_limit]
 email_sent = 10

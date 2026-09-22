@@ -3543,6 +3543,14 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
       ? `Cadastro já ${solicitante.status_aprovacao === "aprovado" ? "aprovado" : "rejeitado"} — pode alterar se precisar.`
       : "";
     avisoAprovacao.classList.toggle("aprovacao__aviso--feito", Boolean(jaDecidido));
+    // Erro de uma tentativa anterior nao pode pintar de vermelho a ficha da
+    // proxima pessoa: o aviso e o mesmo elemento para todos os chamados.
+    avisoAprovacao.classList.remove("aprovacao__aviso--erro");
+
+    // Cada ficha comeca com os dois botoes liberados, aconteca o que
+    // acontecer na decisao anterior.
+    botaoAprovar.disabled = false;
+    botaoRejeitar.disabled = false;
 
     //SO ADMIN DECIDE ACESSO. O analista abre o chamado e ve os dados (ele
     //atende no Portal), mas quem libera conta e define perfil e o admin —
@@ -3564,13 +3572,22 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
 
   //APROVAR/REJEITAR: grava em usuarios (nao em chamados) — o trigger do
   //banco (notificar_aprovacao_cadastro) reage a mudanca de status_aprovacao
-  //e cuida do resto: mensagem automatica pro solicitante, o analista vira
-  //membro do chamado, e aprovar fecha o chamado. Aqui so falta recarregar
-  //a tela pra refletir o que o trigger ja fez no banco.
+  //e manda a mensagem automatica pro solicitante.
+  //
+  //O QUE ACONTECE COM O TICKET E FEITO AQUI, e nao deixado so por conta do
+  //trigger + tempo real: decidiu (aprovando ou recusando), quem decidiu
+  //vira membro — e a etiqueta dele aparece no card e no detalhe — e o
+  //chamado e finalizado na hora. Esperar o evento de tempo real deixava a
+  //tela como estava, parecendo que o clique nao tinha feito nada. As duas
+  //operacoes sao idempotentes: se o trigger ja fez, nada muda.
   async function decidirAprovacao(aprovar) {
     const solicitante = aberto.usuarios;
 
     if (!solicitante?.id) return;
+
+    // Preso antes do primeiro await: a janela fecha no fim e `aberto` ja
+    // pode estar apontando para outro chamado quando isto terminar.
+    const chamado = aberto;
 
     botaoAprovar.disabled = true;
     botaoRejeitar.disabled = true;
@@ -3597,18 +3614,35 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
 
     const { error } = await supabase.from("usuarios").update(mudancas).eq("id", solicitante.id);
 
+    // OS BOTOES VOLTAM SEMPRE, inclusive no caminho de sucesso. O dialog e
+    // um so na pagina, reaproveitado a cada chamado aberto: deixa-los
+    // desabilitados depois de decidir travava a proxima aprovacao ate
+    // recarregar a pagina no F5.
+    botaoAprovar.disabled = false;
+    botaoRejeitar.disabled = false;
+
     if (error) {
       avisoAprovacao.textContent = "Não foi possível salvar. Tente de novo.";
       avisoAprovacao.classList.add("aprovacao__aviso--erro");
-      botaoAprovar.disabled = false;
-      botaoRejeitar.disabled = false;
       return;
     }
 
+    // A ficha em memoria acompanha o que foi gravado: reabrir o chamado
+    // mostra "Aprovado"/"Rejeitado", e nao o estado de antes.
+    Object.assign(solicitante, mudancas);
+
+    // Quem decide assume o chamado, igual a quem responde (vincularComoMembro
+    // trata a chave duplicada quando o trigger do banco chegou antes).
+    await vincularComoMembro(chamado);
+
+    // Decidido e decidido: recusar tambem encerra a analise, entao o ticket
+    // sai do quadro e vai para Tickets finalizados nos dois casos.
+    if (!chamado.fechamento_em) await definirFechamento(chamado, true);
+
     avisarNoSite(
       aprovar
-        ? `Cadastro de ${nomeCompleto(solicitante)} aprovado.`
-        : `Cadastro de ${nomeCompleto(solicitante)} rejeitado.`,
+        ? `Cadastro de ${nomeCompleto(solicitante)} aprovado e chamado finalizado.`
+        : `Cadastro de ${nomeCompleto(solicitante)} rejeitado e chamado finalizado.`,
       { tipo: "sucesso" },
     );
 

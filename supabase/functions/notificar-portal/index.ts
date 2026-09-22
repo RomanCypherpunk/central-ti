@@ -1,7 +1,9 @@
 // Candidato auditado: copiar para supabase/functions/notificar-portal/index.ts.
 // Aplicar push-hardening.sql antes do deploy. Manter verify_jwt = true.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.116.0";
-import webpush from "npm:web-push@3";
+// Versao exata: "npm:web-push@3" aceitaria qualquer 3.x publicada depois,
+// inclusive uma versao comprometida — esta function roda com a chave mestra.
+import webpush from "npm:web-push@3.6.7";
 
 const required = (name: string) => {
   const value = Deno.env.get(name);

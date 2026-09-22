@@ -153,6 +153,10 @@ function validarEtapa1() {
 const SENHA_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,128}$/;
 
 function validarEtapa2() {
+  // QUALQUER DOMINIO SERVE, de propósito: parceiros e terceiros (Movelex,
+  // Gmail, Hotmail) também abrem chamado. Quem controla o acesso não é o
+  // domínio do e-mail — é a aprovação do TI (status_aprovacao) somada à
+  // confirmação por código, que prova que a caixa existe e é da pessoa.
   if (!/^\S+@\S+\.\S+$/.test(campoEmail.value.trim())) {
     mostrarErro(erroEtapa2, "Informe um e-mail válido.");
     return false;
