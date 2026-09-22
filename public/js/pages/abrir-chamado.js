@@ -21,6 +21,7 @@
 
 import { supabase } from "../config/supabase-config.js";
 import { prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/otimizar-upload.js";
+import { pintarImagemPrivada, abrirArquivoPrivado } from "../componentes/storage-privado.js";
 
 const passoTipo = document.querySelector("[data-passo-tipo]");
 const formulario = document.querySelector("[data-formulario]");
@@ -770,9 +771,9 @@ function montarPassos(passos) {
     (passo.imagens ?? []).forEach((imagem) => {
       const foto = document.createElement("img");
       foto.className = "triagem__passo-imagem";
-      foto.src = imagem.url ?? imagem;
       foto.alt = imagem.nome ?? "";
       foto.loading = "lazy";
+      pintarImagemPrivada(foto, "artigos", imagem.url ?? imagem, () => foto.remove());
       item.appendChild(foto);
     });
 
@@ -815,10 +816,12 @@ function montarDetalhe(artigo) {
       const item = document.createElement("li");
       const link = document.createElement("a");
 
-      link.href = anexo.url;
-      link.target = "_blank";
-      link.rel = "noopener";
+      link.href = "#";
       link.textContent = anexo.nome ?? "Anexo";
+      link.addEventListener("click", (evento) => {
+        evento.preventDefault();
+        abrirArquivoPrivado("artigos", anexo.url ?? anexo);
+      });
       item.appendChild(link);
       anexos.appendChild(item);
     });
