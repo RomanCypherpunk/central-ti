@@ -4355,9 +4355,11 @@ body.portal-pagina {
   min-width: 0;
 }
 
-.barra-portal .topo__logo {
-  width: 7.25rem;
-}
+/*A LOGO NAO TEM TAMANHO PROPRIO AQUI. O Portal e o Painel ja carregam o
+  index.css antes deste arquivo, entao herdam a medida unica de
+  .topo__logo (8.25rem) — a mesma da Home, da Base, do Abrir chamado e das
+  demais telas. Havia uma excecao de 7.25rem sem motivo declarado, e era
+  a unica logo diferente do site.*/
 
 .barra-portal .topo__divisor {
   flex-shrink: 0;
