@@ -12,8 +12,18 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js" integrity="sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="js/head-preferences.js"></script>
   <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/transicao-lateral.css">
+  <!--No <head> e sem type=module de proposito: precisa rodar antes da
+      primeira pintura, senao a pagina entra ja no lugar certo.-->
+  <script src="js/head-transicao.js"></script>
 </head>
-<body style="visibility: hidden">
+<!--data-conteudo-adiado: a grade de solucoes so existe depois da consulta
+    ao banco (base.js). O atributo avisa a transicao entre paginas para ela
+    esperar o "central-ti:conteudo-pronto" antes de animar a entrada —
+    senao a grade entraria vazia e os cartoes apareceriam de estalo depois.
+    Esta no HTML, e nao no JS, porque precisa valer ja na primeira
+    pintura.-->
+<body style="visibility: hidden" data-conteudo-adiado>
   <nav class="sidebar">
     <div class="sidebar__topo">
       <a class="sidebar__logo-link" href="index.html"><img class="sidebar__logo" src="assets/img/logo-claro.svg" alt="Gasometro"></a>

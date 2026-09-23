@@ -8,11 +8,22 @@
 
 const CHAVE = "transicao-lateral";
 
-// Os blocos de conteudo das telas, na ordem em que aparecem. E quase a
-// mesma lista da animacao de entrada do main.js (ELEMENTOS_ENTRADA), com
-// a faixa da equipe a mais — sao os mesmos pedacos que ja sobem com fade
-// na primeira visita.
-const BLOCOS = ".saudacao, .porta, .coluna, .equipe";
+// Os blocos de conteudo das telas, na ordem em que aparecem.
+//
+// Home e Abrir chamado: saudacao, portas, colunas e a faixa da equipe —
+// quase a mesma lista da animacao de entrada do main.js
+// (ELEMENTOS_ENTRADA). Base de Solucoes: a barra lateral, a barra de
+// busca, os filtros e a grade de solucoes.
+//
+// O topo NAO entra: ele e igual nas duas telas, e anima-lo faria a pagina
+// inteira piscar em vez de parecer que so o conteudo foi trocado. A barra
+// lateral da Base entra justamente por NAO ser assim — a home nao tem
+// barra nenhuma, entao ela nao existe do outro lado e aparecia de estalo.
+//
+// ATENCAO: esta lista precisa acompanhar a regra que apaga os blocos em
+// css/transicao-lateral.css — la ela existe escrita por extenso porque
+// precisa valer antes de qualquer JS rodar.
+const BLOCOS = ".sidebar, .saudacao, .porta, .coluna, .equipe, .busca-linha, .filtros-barra, .solucoes-grade";
 
 // Precisam bater com o CSS. Se mudar la, mude aqui: o JS usa estes numeros
 // para saber quando a coreografia acabou (e navegar, ou limpar a tela).
@@ -35,8 +46,16 @@ function querMenosMovimento() {
 // So o que esta realmente na tela. Blocos com [hidden] (as portas de
 // colaborador, por exemplo) gastariam um lugar na fila e abririam um
 // buraco no meio da sequencia.
+//
+// O teste e getClientRects, e NAO offsetParent: offsetParent e sempre
+// nulo para position:fixed, e a barra lateral da Base e fixa — ela seria
+// descartada da fila justamente por estar na tela. getClientRects devolve
+// vazio so para o que nao ocupa espaco (display:none, [hidden]), que e a
+// pergunta certa aqui. Continua valendo com o corpo invisivel, porque
+// visibility nao tira o elemento do layout.
 function blocosVisiveis() {
-  return [...document.querySelectorAll(BLOCOS)].filter((bloco) => bloco.offsetParent !== null);
+  return [...document.querySelectorAll(BLOCOS)]
+    .filter((bloco) => bloco.getClientRects().length > 0);
 }
 
 function marcarBlocos(passo) {
@@ -134,7 +153,14 @@ function ligarSaida() {
       }
 
       const quantidade = marcarBlocos(PASSO_SAIR);
-      const faixa = criarFaixaQueCresce();
+
+      // A faixa laranja crescendo so faz sentido indo para uma tela que
+      // TERMINA laranja (Abrir chamado). A Base de Solucoes e branca: o
+      // laranja tomaria a tela e a pagina seguinte apareceria clara, um
+      // solavanco de cor. Por isso cada link diz se quer a faixa.
+      const faixa = gatilho.hasAttribute("data-transicao-faixa")
+        ? criarFaixaQueCresce()
+        : null;
 
       document.documentElement.classList.add("transicao-em-curso");
       document.body.classList.add("transicao-saindo");

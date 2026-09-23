@@ -870,6 +870,16 @@ function atualizarContagem() {
 }
 
 //CARGA INICIAL
+// A GRADE JA ESTA DESENHADA. A transicao entre paginas espera por este
+// aviso para so entao animar a entrada: sem ele, ela comecava com a grade
+// ainda vazia e os cartoes apareciam de estalo depois, fora da
+// coreografia. O dataset serve para quem chegar tarde (o aviso ja passou)
+// — ver componentes/transicao-lateral.js.
+function avisarConteudoPronto() {
+  document.documentElement.dataset.conteudoPronto = "";
+  document.dispatchEvent(new CustomEvent("central-ti:conteudo-pronto"));
+}
+
 async function carregarArtigos() {
   // `setores` é uuid[]: não dá junção direta, então os nomes vêm à parte.
   const [{ data, error }, { data: setores }] = await Promise.all([
@@ -888,6 +898,9 @@ async function carregarArtigos() {
     console.error("Erro ao carregar soluções:", error);
     vazioEl.textContent = "Não foi possível carregar as soluções.";
     vazioEl.hidden = false;
+    // Tambem no erro: a tela ficou como vai ficar, e a transicao nao pode
+    // seguir esperando um aviso que nao viria mais.
+    avisarConteudoPronto();
     return;
   }
 
@@ -902,6 +915,7 @@ async function carregarArtigos() {
   preencherSelect(filtroAutor, artigosTodos.map(nomeDoAutor));
   preencherSelect(filtroSetor, artigosTodos.flatMap((a) => a.setoresNomes));
   renderizarLista();
+  avisarConteudoPronto();
 
   // Link direto para uma solução abre o painel dela.
   const idNaUrl = new URLSearchParams(window.location.search).get("id");

@@ -128,10 +128,14 @@ html.transicao-em-curso {
    quando o JS rodava, e bastava o guard.js liberar o corpo primeiro para a
    pagina piscar com o conteudo parado antes de a animacao comecar — uma
    corrida que o JS perdia as vezes. */
+html[data-transicao="entrando"] .sidebar,
 html[data-transicao="entrando"] .saudacao,
 html[data-transicao="entrando"] .porta,
 html[data-transicao="entrando"] .coluna,
-html[data-transicao="entrando"] .equipe {
+html[data-transicao="entrando"] .equipe,
+html[data-transicao="entrando"] .busca-linha,
+html[data-transicao="entrando"] .filtros-barra,
+html[data-transicao="entrando"] .solucoes-grade {
   opacity: 0;
 }
 
@@ -176,6 +180,40 @@ html[data-transicao="entrando"] .transicao-entrando [data-transicao-bloco] {
 
   to {
     transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* A BARRA LATERAL DA BASE ENTRA PELO OUTRO LADO. Ela mora na borda
+   esquerda da tela — vir da direita, junto com o conteudo, seria o painel
+   atravessando a pagina inteira para estacionar do lado oposto.
+   Tambem sem escala: um painel de altura inteira crescendo parece defeito,
+   nao movimento.
+
+   Vem depois da regra generica de proposito: troca so o keyframe e herda
+   duracao, atraso e fill dela. Trocar a animacao aqui tira, durante a
+   entrada, o degrade que respira da barra (base.css) — sao 16s de deriva
+   lenta do fundo, imperceptivel nesse intervalo, e ele volta sozinho
+   quando a transicao termina. */
+html[data-transicao="entrando"] .transicao-entrando .sidebar[data-transicao-bloco] {
+  animation-name: transicao-bloco-entra-esquerda;
+}
+
+@keyframes transicao-bloco-entra-esquerda {
+  from {
+    transform: translateX(calc(var(--transicao-desloc-entrar) * -1));
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.45, 0, 1, 1);
+  }
+
+  45% {
+    transform: translateX(calc(var(--transicao-desloc-entrar) * -0.42));
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0, 0, 0.35, 1);
+  }
+
+  to {
+    transform: translateX(0);
     opacity: 1;
   }
 }
