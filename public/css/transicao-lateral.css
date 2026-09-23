@@ -135,7 +135,10 @@ html[data-transicao="entrando"] .coluna,
 html[data-transicao="entrando"] .equipe,
 html[data-transicao="entrando"] .busca-linha,
 html[data-transicao="entrando"] .filtros-barra,
-html[data-transicao="entrando"] .solucoes-grade {
+html[data-transicao="entrando"] .solucoes-grade,
+html[data-transicao="entrando"] .solicitacoes__cabecalho,
+html[data-transicao="entrando"] .filtros,
+html[data-transicao="entrando"] .chamados {
   opacity: 0;
 }
 

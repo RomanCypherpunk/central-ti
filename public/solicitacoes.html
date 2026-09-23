@@ -10,8 +10,18 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/index.css">
   <link rel="stylesheet" href="css/solicitacoes.css">
+  <link rel="stylesheet" href="css/transicao-lateral.css">
+  <!--No <head> e sem type=module de proposito: precisa rodar antes da
+      primeira pintura, senao a pagina entra ja no lugar certo.-->
+  <script src="js/head-transicao.js"></script>
 </head>
-<body style="visibility: hidden">
+<!--data-conteudo-adiado: a lista de chamados so existe depois da consulta
+    ao banco (solicitacoes.js). O atributo avisa a transicao entre paginas
+    para ela esperar o "central-ti:conteudo-pronto" antes de animar a
+    entrada — senao a lista entraria vazia e os cartoes apareceriam de
+    estalo depois. Esta no HTML, e nao no JS, porque precisa valer ja na
+    primeira pintura.-->
+<body style="visibility: hidden" data-conteudo-adiado>
 
   <header class="topo">
 

@@ -16,6 +16,7 @@ const campoSetor = document.querySelector("[data-setor-campo]");
 const botaoSalvar = document.querySelector("[data-salvar]");
 const botaoSenha = document.querySelector("[data-trocar-senha]");
 const aviso = document.querySelector("[data-aviso]");
+const linkVoltar = document.querySelector("[data-voltar]");
 
 const TAMANHO_MAXIMO = 2 * 1024 * 1024;
 
@@ -42,6 +43,39 @@ function iniciais(nome, sobrenome) {
 function avisarTopo(detalhe) {
   window.dispatchEvent(new CustomEvent("perfil:atualizado", { detail: detalhe }));
 }
+
+//VOLTAR PARA ONDE A PESSOA ESTAVA. "Dados pessoais" e aberto do menu de
+//varias telas (Início, Base, Portal, Painel…), entao nao ha uma so pagina
+//"anterior" fixa para linkar — o historico do navegador e que sabe qual foi.
+//
+//So volta se o registro anterior for realmente daqui: history.back() sem
+//essa checagem levaria para fora do site (ou para nada) em quem abriu a
+//tela direto por um link salvo, favorito ou aba nova. Nesses casos cai no
+//destino de reserva do proprio link (index.html).
+function podeVoltarNoHistorico() {
+  if (window.history.length <= 1) return false;
+
+  try {
+    return new URL(document.referrer).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+function voltar() {
+  if (podeVoltarNoHistorico()) window.history.back();
+  else window.location.href = linkVoltar.href;
+}
+
+linkVoltar.addEventListener("click", (evento) => {
+  // Ctrl/Cmd/Shift/Alt ou botao do meio: a pessoa escolheu abrir em outra
+  // aba ou janela. O href="index.html" ja resolve isso sozinho.
+  if (evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.altKey) return;
+  if (evento.button !== 0) return;
+
+  evento.preventDefault();
+  voltar();
+});
 
 function desenharFoto() {
   foto.querySelector("img")?.remove();
@@ -209,12 +243,16 @@ botaoSalvar.addEventListener("click", async () => {
 
   eu.nome = nome;
   eu.sobrenome = sobrenome;
-  fotoIniciais.textContent = iniciais(nome, sobrenome);
-  // O topo da pagina mostra so o primeiro nome; sem isso ele so mudaria ao recarregar.
-  document.querySelector("[data-nome]").textContent = nome;
-  // As iniciais passam pelo main.js: escrever direto no avatar apagaria a foto.
+  // As iniciais passam pelo main.js: escrever direto no avatar apagaria a
+  // foto. Ainda assim atualiza aqui, porque a proxima tela (Início, Base,
+  // Portal…) le o topo guardado antes do main.js confirmar com o banco —
+  // ver CHAVE_TOPO em main.js.
   avisarTopo({ iniciais: iniciais(nome, sobrenome), nome });
-  avisar("Nome atualizado");
+
+  // Salvou: volta para onde a pessoa estava, igual ao salvar uma solucao
+  // (nova-solucao.js) — sem toast de "Nome atualizado" no meio do caminho,
+  // porque a pagina muda antes de dar tempo de ler.
+  voltar();
 });
 
 //SENHA: REAPROVEITA O FLUXO DE RECUPERACAO QUE JA EXISTE

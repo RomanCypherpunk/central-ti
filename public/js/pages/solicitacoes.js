@@ -657,10 +657,23 @@ function abrirChamadoDaUrl() {
   if (chamado) abrirDetalhe(chamado);
 }
 
+// A LISTA JA ESTA DESENHADA. A transicao entre paginas espera por este
+// aviso para so entao animar a entrada: sem ele, ela comecava com a lista
+// ainda vazia e os cartoes apareciam de estalo depois, fora da
+// coreografia. O dataset serve para quem chegar tarde (o aviso ja passou)
+// — ver componentes/transicao-lateral.js.
+function avisarConteudoPronto() {
+  document.documentElement.dataset.conteudoPronto = "";
+  document.dispatchEvent(new CustomEvent("central-ti:conteudo-pronto"));
+}
+
 async function carregar() {
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) return;
+  if (!user) {
+    avisarConteudoPronto();
+    return;
+  }
 
   usuarioId = user.id;
 
@@ -675,6 +688,9 @@ async function carregar() {
   if (error) {
     resumoEl.textContent = "";
     mostrarErro("Não foi possível carregar suas solicitações. Recarregue a página.");
+    // Tambem no erro: a tela ficou como vai ficar, e a transicao nao pode
+    // seguir esperando um aviso que nao viria mais.
+    avisarConteudoPronto();
     return;
   }
 
@@ -682,6 +698,7 @@ async function carregar() {
 
   atualizarResumo();
   desenharLista();
+  avisarConteudoPronto();
 
   abrirChamadoDaUrl();
 

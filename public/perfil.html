@@ -113,8 +113,21 @@
     <div class="perfil__cartao">
 
       <div class="perfil__cabecalho">
-        <h1 class="perfil__titulo">Dados pessoais</h1>
-        <p class="perfil__subtitulo">Sua foto e seu nome aparecem nos chamados que você acompanha.</p>
+        <!--VOLTAR: leva para onde a pessoa estava. O href="index.html" e so
+            o destino de reserva (sem JS, ou chegando aqui direto por um
+            link/favorito, sem pagina anterior do site) — o clique normal e
+            interceptado no perfil.js e usa o historico do navegador.-->
+        <a class="perfil__voltar" href="index.html" data-voltar aria-label="Voltar">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d="M14.5 6.5 8 13l6.5 6.5" fill="none" stroke="currentColor" stroke-width="1.8"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+
+        <div>
+          <h1 class="perfil__titulo">Dados pessoais</h1>
+          <p class="perfil__subtitulo">Sua foto e seu nome aparecem nos chamados que você acompanha.</p>
+        </div>
       </div>
 
       <p class="perfil__aviso" data-aviso role="status"></p>

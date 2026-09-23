@@ -13,7 +13,8 @@ const CHAVE = "transicao-lateral";
 // Home e Abrir chamado: saudacao, portas, colunas e a faixa da equipe —
 // quase a mesma lista da animacao de entrada do main.js
 // (ELEMENTOS_ENTRADA). Base de Solucoes: a barra lateral, a barra de
-// busca, os filtros e a grade de solucoes.
+// busca, os filtros e a grade de solucoes. Solicitacoes: cabecalho (titulo
+// + busca), filtros de status e a lista de chamados.
 //
 // O topo NAO entra: ele e igual nas duas telas, e anima-lo faria a pagina
 // inteira piscar em vez de parecer que so o conteudo foi trocado. A barra
@@ -23,7 +24,7 @@ const CHAVE = "transicao-lateral";
 // ATENCAO: esta lista precisa acompanhar a regra que apaga os blocos em
 // css/transicao-lateral.css — la ela existe escrita por extenso porque
 // precisa valer antes de qualquer JS rodar.
-const BLOCOS = ".sidebar, .saudacao, .porta, .coluna, .equipe, .busca-linha, .filtros-barra, .solucoes-grade";
+const BLOCOS = ".sidebar, .saudacao, .porta, .coluna, .equipe, .busca-linha, .filtros-barra, .solucoes-grade, .solicitacoes__cabecalho, .filtros, .chamados";
 
 // Precisam bater com o CSS. Se mudar la, mude aqui: o JS usa estes numeros
 // para saber quando a coreografia acabou (e navegar, ou limpar a tela).

@@ -23,7 +23,32 @@
 }
 
 .perfil__cabecalho {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
+}
+
+/*SETA DE VOLTAR: mesmo tamanho e vocabulario dos outros botoes so-icone do
+  site (fundo neutro no hover, sem borda). Um pouco descida (margin-top)
+  para alinhar visualmente com a linha de base do titulo, e nao com o bloco
+  titulo+subtitulo inteiro.*/
+.perfil__voltar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin-top: 0.125rem;
+  border-radius: 8px;
+  color: #8a8a8a;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.perfil__voltar:hover {
+  background-color: #f5f5f5;
+  color: #1a1a1a;
 }
 
 .perfil__titulo {
@@ -279,7 +304,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .perfil__botao,
-  .perfil__input {
+  .perfil__input,
+  .perfil__voltar {
     transition: none;
   }
 
