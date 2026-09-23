@@ -4,6 +4,7 @@ import { supabase } from "./config/supabase-config.js";
 import { pintarFoto, versaoDaMinhaFoto } from "./componentes/avatar.js";
 import { ligarNotificacoes } from "./componentes/notificacoes.js";
 import { limparPushNoLogout, reconciliarDonoPush } from "./componentes/push-sessao.js";
+import { ligarTransicaoLateral } from "./componentes/transicao-lateral.js";
 
 //ENTRADA DA PAGINA: CARTOES E PAINEIS SOBEM COM FADE, EM SEQUENCIA.
 //So na primeira visita de cada pagina nesta sessao: repetida a cada troca de
@@ -28,7 +29,12 @@ function entradaJaVista() {
   return false;
 }
 
-if (!entradaJaVista()) {
+//Chegando pela transicao entre paginas, quem anima a entrada e a propria
+//transicao (componentes/transicao-lateral.js). As duas juntas fariam os
+//blocos subirem com fade e entrarem pelo lado ao mesmo tempo.
+const chegouPelaTransicao = document.documentElement.dataset.transicao === "entrando";
+
+if (!entradaJaVista() && !chegouPelaTransicao) {
   document.querySelectorAll(ELEMENTOS_ENTRADA.join(",")).forEach((elemento, indice) => {
     elemento.classList.add("entrada");
     elemento.style.setProperty("--entrada-atraso", `${indice * 70}ms`);
@@ -437,3 +443,7 @@ if (sidebarColapsarBtn) {
 supabase.auth.onAuthStateChange((event) => {
   if (event === "SIGNED_OUT") void limparPushNoLogout(null).catch(() => {});
 });
+
+//TRANSICAO LATERAL: inerte nas paginas sem gatilho [data-transicao-lateral]
+//e sem a marca de chegada no <html>. Por enquanto so o "Novo chamado".
+ligarTransicaoLateral();

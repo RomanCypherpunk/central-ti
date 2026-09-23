@@ -1,0 +1,133 @@
+/* ==========================================================================
+   TRANSICAO ENTRE PAGINAS: OS BLOCOS SAEM E ENTRAM EM SEQUENCIA
+   ==========================================================================
+
+   Nao e a tela inteira que anda. Cada bloco de conteudo (a saudacao, cada
+   porta, cada coluna) escorrega para a esquerda e apaga, um atras do
+   outro; na pagina seguinte eles entram pela direita na mesma cadencia.
+
+   O topo e o fundo ficam parados de proposito: eles sao a moldura, iguais
+   nas duas telas. Animar a moldura junto faria a pagina inteira piscar em
+   vez de dar a impressao de que so o conteudo foi trocado.
+
+   Como o site tem paginas de verdade (nao e SPA), a coreografia e cortada
+   em duas metades:
+
+     1. .transicao-saindo    — na pagina que SAI, antes de navegar.
+     2. .transicao-entrando  — na pagina que CHEGA.
+
+   A pagina que chega precisa ja NASCER com os blocos apagados, senao eles
+   aparecem no lugar por um quadro e so entao a animacao comeca. Por isso o
+   js/head-transicao.js marca o <html> no <head>, antes da primeira
+   pintura, e a regra abaixo pega essa marca.
+
+   O atraso de cada bloco (--transicao-atraso) e escrito pelo JS, na ordem
+   em que eles aparecem na tela. */
+
+:root {
+  /* O quanto cada bloco anda. A entrada percorre mais que a saida: quem
+     chega e o que a pessoa fica olhando, entao o movimento precisa ter
+     onde acontecer. */
+  --transicao-desloc: 3.5rem;
+  --transicao-desloc-entrar: 5rem;
+
+  /* Duracao de CADA bloco — nao do conjunto. O tempo total e esta duracao
+     mais o atraso do ultimo bloco (ver os passos abaixo). */
+  --transicao-sair: 220ms;
+  --transicao-entrar: 420ms;
+
+  /* Distancia entre um bloco e o proximo. Saida mais curta que a entrada:
+     quem esta indo embora nao precisa ser admirado. */
+  --transicao-sair-passo: 50ms;
+  --transicao-entrar-passo: 80ms;
+}
+
+/* O deslocamento lateral criaria barra de rolagem horizontal. So enquanto
+   a transicao acontece. */
+html[data-transicao],
+html.transicao-em-curso {
+  overflow-x: hidden;
+}
+
+/* SAINDO: acelera para fora, sem frear no fim. O fill "forwards" segura o
+   bloco fora da tela ate a navegacao; antes do atraso vencer ele fica
+   parado no lugar, visivel, que e o que da a cadencia. */
+.transicao-saindo [data-transicao-bloco] {
+  animation: transicao-bloco-sai var(--transicao-sair) cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation-delay: var(--transicao-atraso, 0ms);
+}
+
+@keyframes transicao-bloco-sai {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translateX(calc(var(--transicao-desloc) * -1));
+    opacity: 0;
+  }
+}
+
+/* CHEGANDO: parados e apagados, esperando o JS soltar. */
+html[data-transicao="entrando"] [data-transicao-bloco] {
+  opacity: 0;
+}
+
+/* A curva aqui NAO e a da saida nem a desaceleracao pura que estava antes.
+   Com cubic-bezier(0, 0, 0.2, 1) o bloco cobria 84% do caminho na metade
+   do tempo e passava o resto se arrastando — parecia que nao havia
+   animacao nenhuma. Esta gasta mais tempo no meio do percurso, que e onde
+   o olho ve movimento.
+
+   O fill "both" e obrigatorio: sem ele o bloco apareceria no lugar final
+   durante o proprio atraso, e a sequencia iria por agua abaixo. */
+html[data-transicao="entrando"] .transicao-entrando [data-transicao-bloco] {
+  animation: transicao-bloco-entra var(--transicao-entrar) cubic-bezier(0.45, 0, 0.35, 1) both;
+  animation-delay: var(--transicao-atraso, 0ms);
+}
+
+/* A OPACIDADE TERMINA ANTES DO MOVIMENTO, de proposito. Quando as duas
+   andavam juntas, o bloco so ficava visivel ja quase no lugar — e nao se
+   ve deslizar o que ainda esta transparente. Agora ele aparece cedo e a
+   pessoa acompanha o resto do caminho.
+
+   O deslocamento do quadro do meio nao e um valor qualquer: e onde a curva
+   acima ja teria levado o bloco nesse instante. Chutar outro numero criaria
+   um solavanco no meio da animacao. */
+@keyframes transicao-bloco-entra {
+  from {
+    transform: translateX(var(--transicao-desloc-entrar));
+    opacity: 0;
+    /* Cada trecho tem a propria curva. Este sai do repouso e chega ao
+       quadro do meio EM VELOCIDADE (sem frear no fim). */
+    animation-timing-function: cubic-bezier(0.45, 0, 1, 1);
+  }
+
+  45% {
+    transform: translateX(calc(var(--transicao-desloc-entrar) * 0.42));
+    opacity: 1;
+    /* E este pega o movimento na velocidade em que ele chegou (sem
+       acelerar de novo) e freia ate o lugar. Sem esse par de curvas o
+       bloco quase parava no meio do caminho, por 50ms — um soluco. */
+    animation-timing-function: cubic-bezier(0, 0, 0.35, 1);
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Quem pediu menos movimento no sistema navega direto: o JS tambem nao
+   intercepta o clique nesse caso. */
+@media (prefers-reduced-motion: reduce) {
+  .transicao-saindo [data-transicao-bloco],
+  html[data-transicao="entrando"] .transicao-entrando [data-transicao-bloco] {
+    animation: none;
+  }
+
+  html[data-transicao="entrando"] [data-transicao-bloco] {
+    opacity: 1;
+  }
+}
