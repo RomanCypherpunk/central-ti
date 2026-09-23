@@ -263,8 +263,153 @@ async function carregarChamados() {
   resumoEl.textContent = partes.join(" · ");
 }
 
+/* ==========================================================================
+   FALAR COM A EQUIPE DE TI: ABRE O WEBMAIL JA NA TELA DE ESCREVER
+   ==========================================================================
+
+   O cartao de cada pessoa apontava para mailto:, que depende de haver um
+   programa de e-mail configurado na maquina — em computador compartilhado
+   isso costuma abrir a coisa errada, ou nada. Agora leva para o Outlook Web
+   da empresa, numa aba nova, com o destinatario ja preenchido.
+
+   Sai do site, entao pergunta antes: o aviso mostra para onde vai. */
+
+//O CAMINHO DE "MENSAGEM NOVA" DO OUTLOOK WEB. Se um dia o endereco do
+//webmail mudar, ou a versao do Exchange usar outro formato de link, e esta
+//constante que muda — nada mais no arquivo sabe como a URL e montada.
+const WEBMAIL = "https://webmail.exchangecorp.com.br/owa/?path=/mail/action/compose&to=";
+
+function enderecoDoWebmail(email) {
+  return WEBMAIL + encodeURIComponent(email);
+}
+
+//CONFIRMACAO DO SITE, no lugar do confirm() do navegador. Devolve uma
+//promessa que diz se a pessoa confirmou.
+//
+//A resposta vem do CLIQUE em cada botao, e nao so do evento "close" do
+//<dialog>: os tres caminhos estao ligados, o que chegar primeiro responde
+//e desliga o resto. Clique nos botoes, clique no fundo escurecido (fora do
+//cartao) e o "close" que cobre so o Esc, que fecha a janela sem passar por
+//nenhum dos outros dois.
+function confirmarNoSite({ pessoa, texto, destino }) {
+  const janela = document.querySelector("[data-confirmacao]");
+  const botaoConfirmar = document.querySelector("[data-confirmacao-confirmar]");
+  const botaoCancelar = document.querySelector("[data-confirmacao-cancelar]");
+  const foto = document.querySelector("[data-confirmacao-foto]");
+
+  document.querySelector("[data-confirmacao-nome]").textContent = pessoa.nome;
+  document.querySelector("[data-confirmacao-cargo]").textContent = pessoa.cargo;
+  document.querySelector("[data-confirmacao-texto]").textContent = texto;
+  // O e-mail cabe numa linha so nos nomes de hoje, mas um endereco mais
+  // longo quebraria em qualquer letra ("...com.b" / "r"). O <wbr> antes do
+  // arroba oferece um ponto de quebra decente: o nome numa linha, o
+  // dominio na outra.
+  const caixaDestino = document.querySelector("[data-confirmacao-destino]");
+  const [conta, ...dominio] = destino.split("@");
+
+  caixaDestino.replaceChildren(document.createTextNode(conta));
+
+  if (dominio.length) {
+    caixaDestino.appendChild(document.createElement("wbr"));
+    caixaDestino.appendChild(document.createTextNode(`@${dominio.join("@")}`));
+  }
+
+  // A MESMA FOTO DO CARTAO, e nao um segundo carregamento: cloneNode traz a
+  // imagem ja baixada e tambem o [hidden] que o onerror pos nela, entao uma
+  // foto quebrada continua quebrada aqui e as iniciais aparecem no lugar.
+  foto.dataset.iniciais = pessoa.iniciais;
+  foto.replaceChildren();
+  if (pessoa.imagem) foto.appendChild(pessoa.imagem.cloneNode(true));
+
+  janela.returnValue = "";
+  // O foco cai no primeiro botao (Cancelar): Enter sem querer nao leva
+  // ninguem para fora do site.
+  janela.showModal();
+
+  return new Promise((resolver) => {
+    let respondido = false;
+
+    function responder(confirmou) {
+      if (respondido) return;
+
+      respondido = true;
+      botaoConfirmar.removeEventListener("click", aoConfirmar);
+      botaoCancelar.removeEventListener("click", aoCancelar);
+      janela.removeEventListener("click", aoCliqueFora);
+      janela.removeEventListener("close", aoFechar);
+
+      if (janela.open) janela.close();
+
+      resolver(confirmou);
+    }
+
+    function aoConfirmar() { responder(true); }
+    function aoCancelar() { responder(false); }
+    function aoFechar() { responder(janela.returnValue === "confirmar"); }
+
+    // O <dialog> preenche a tela toda com o ::backdrop; clicar nele conta
+    // como clique no proprio <dialog>, e nao no <form> de dentro — por
+    // isso o teste e o target ser exatamente a janela, e nao closest().
+    // Clicar no cartao (no <form>) nunca bate aqui.
+    function aoCliqueFora(evento) {
+      if (evento.target === janela) responder(false);
+    }
+
+    botaoConfirmar.addEventListener("click", aoConfirmar);
+    botaoCancelar.addEventListener("click", aoCancelar);
+    janela.addEventListener("click", aoCliqueFora);
+    janela.addEventListener("close", aoFechar);
+  });
+}
+
+function ligarContatoDaEquipe() {
+  document.querySelectorAll(".equipe__link").forEach((link) => {
+    // O e-mail ja esta no cartao, no botao de copiar ao lado.
+    const email = link.closest(".equipe__pessoa")?.querySelector("[data-email]")?.dataset.email;
+
+    if (!email) return;
+
+    const fotoDoCartao = link.querySelector(".equipe__foto");
+    const pessoa = {
+      nome: link.querySelector(".equipe__nome")?.textContent.trim() ?? "Equipe de TI",
+      cargo: link.querySelector(".equipe__cargo")?.textContent.trim() ?? "",
+      iniciais: fotoDoCartao?.dataset.iniciais ?? "",
+      imagem: fotoDoCartao?.querySelector("img") ?? null,
+    };
+    const destino = enderecoDoWebmail(email);
+
+    // O href deixa de ser mailto: assim o navegador mostra o destino real
+    // ao passar o mouse, e Ctrl+clique ou o botao do meio abrem o webmail
+    // direto, como em qualquer link.
+    link.href = destino;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+
+    link.addEventListener("click", async (evento) => {
+      // Ctrl/Cmd/Shift/Alt ou botao do meio: a pessoa ja disse como quer
+      // abrir. Perguntar de novo so atrapalharia.
+      if (evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.altKey) return;
+      if (evento.button !== 0) return;
+
+      evento.preventDefault();
+
+      const confirmou = await confirmarNoSite({
+        pessoa,
+        texto: "O webmail abre numa aba nova, com a mensagem já endereçada para:",
+        destino: email,
+      });
+
+      if (!confirmou) return;
+
+      // noopener: a aba nova nao ganha acesso a esta pela window.opener.
+      window.open(destino, "_blank", "noopener");
+    });
+  });
+}
+
 carregarSolucoes();
 carregarChamados();
+ligarContatoDaEquipe();
 document.querySelectorAll(".equipe img").forEach((img) => {
   img.addEventListener("error", () => { img.hidden = true; });
 });

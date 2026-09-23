@@ -399,6 +399,48 @@
     </section>
   </main>
 
+  <!--AVISO ANTES DE SAIR DO SITE: clicar num membro da equipe abre o webmail
+      numa aba nova, e o aviso da a chance de conferir o endereco antes.
+      method="dialog" fecha o <dialog> com o value do botao clicado; Esc e
+      clique fora contam como cancelar. Mesma estrutura da confirmacao do
+      Portal, para o site ter um jeito so de perguntar as coisas.-->
+  <dialog class="contato" data-confirmacao>
+    <form class="contato__conteudo" method="dialog">
+
+      <!--QUEM VAI RECEBER: a foto e o cargo vem do proprio cartao da equipe,
+          copiados pelo index.js. E o que tira a cara de caixa generica —
+          a pessoa ve para quem esta escrevendo, nao so um endereco.-->
+      <div class="contato__pessoa">
+        <span class="contato__foto" data-confirmacao-foto></span>
+        <span class="contato__identificacao">
+          <strong class="contato__nome" data-confirmacao-nome></strong>
+          <span class="contato__cargo" data-confirmacao-cargo></span>
+        </span>
+      </div>
+
+      <p class="contato__texto" data-confirmacao-texto></p>
+
+      <p class="contato__destino">
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+          <rect x="3" y="5.5" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+          <path d="m3.8 7 8.2 6 8.2-6" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span data-confirmacao-destino></span>
+      </p>
+
+      <div class="contato__acoes">
+        <button class="contato__cancelar" type="submit" value="cancelar"
+                data-confirmacao-cancelar>Cancelar</button>
+        <button class="botao contato__confirmar" type="submit" value="confirmar"
+                data-confirmacao-confirmar>
+          Escrever
+          <span aria-hidden="true">→</span>
+        </button>
+      </div>
+    </form>
+  </dialog>
+
   <script type="module" src="js/guard.js"></script>
   <script type="module" src="js/main.js"></script>
   <script type="module" src="js/pages/index.js"></script>

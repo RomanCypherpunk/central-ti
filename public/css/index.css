@@ -1193,3 +1193,164 @@ body {
   }
 }
 
+
+/* ==========================================================================
+   AVISO DE CONTATO COM A EQUIPE (antes de abrir o webmail)
+   ==========================================================================
+
+   Nao e uma caixa de confirmacao qualquer: ela mostra PARA QUEM a mensagem
+   vai, com a mesma foto e o mesmo cargo do cartao da equipe. O desenho
+   segue o dos cartoes do site — canto de 15px e borda na cor da marca (a
+   mesma da .porta--base). */
+
+/*26rem e medida, nao chute: o maior e-mail da equipe hoje pede 291px de
+  texto, e com 24rem sobravam 289px — ele quebrava no meio da palavra por
+  2px. Esta largura deixa ~28px de folga, o bastante para um nome alguns
+  caracteres maior aparecer na equipe sem quebrar nada.*/
+.contato {
+  width: min(26rem, 92vw);
+  padding: 0;
+  border: 1px solid #f0b394;
+  border-radius: 15px;
+  background-color: #fff;
+  box-shadow: 0 24px 60px rgba(94, 20, 29, 0.22);
+  overflow: hidden;
+}
+
+.contato::backdrop {
+  background-color: rgba(26, 12, 8, 0.5);
+}
+
+/*A FAIXA DA MARCA: mesmo degrade das faixas laranja das telas.*/
+.contato__conteudo {
+  margin: 0;
+  padding: 1.5rem 1.5rem 1.25rem;
+}
+
+.contato__pessoa {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+/*MESMA MOLDURA DA FOTO NO CARTAO DA EQUIPE, so que menor. As iniciais
+  aparecem por baixo quando a foto nao carrega (o index.js copia o
+  data-iniciais junto).*/
+.contato__foto {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  background-color: #f0dcce;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #a8794f;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(26, 26, 26, 0.06);
+}
+
+.contato__foto::before {
+  content: attr(data-iniciais);
+}
+
+.contato__foto img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.contato__foto img[hidden] {
+  display: none;
+}
+
+.contato__identificacao {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.contato__nome {
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.contato__cargo {
+  margin-top: 0.125rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: #8a8a8a;
+}
+
+.contato__texto {
+  margin: 1.125rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #8a8a8a;
+}
+
+/*O ENDERECO COMO ETIQUETA, e nao como texto corrido: e a informacao que
+  justifica o aviso, entao precisa ser conferivel de relance.*/
+.contato__destino {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.625rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background-color: #fdf4ee;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #a8794f;
+  overflow-wrap: anywhere;
+}
+
+.contato__destino svg {
+  flex-shrink: 0;
+}
+
+.contato__acoes {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+/*CANCELAR E SO TEXTO: o peso visual fica todo na acao principal.*/
+.contato__cancelar {
+  padding: 0.5rem 0.25rem;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #8a8a8a;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.contato__cancelar:hover {
+  color: #1a1a1a;
+}
+
+/*A ACAO PRINCIPAL REUSA O .botao DO SITE (Sora, laranja, brilho no hover);
+  aqui so o espacamento muda, porque dentro do aviso ele nao fecha coluna.*/
+.contato__confirmar {
+  margin-top: 0;
+  padding: 0.75rem 1.25rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contato__cancelar {
+    transition: none;
+  }
+}
