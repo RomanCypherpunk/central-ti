@@ -1091,6 +1091,14 @@ async function carregar() {
   document.querySelector(".portas--tres")
     ?.classList.toggle("portas--unica", !gerenciaGente);
 
+  // AS PORTAS JA ESTAO DECIDIDAS. A transicao entre paginas espera por
+  // este aviso para so entao animar a entrada: sem ele, ela comecava com
+  // as portas de colaborador ainda escondidas e elas apareciam de estalo
+  // depois, fora da coreografia. O dataset serve para quem chegar tarde
+  // (o aviso ja passou) — ver componentes/transicao-lateral.js.
+  document.documentElement.dataset.conteudoPronto = "";
+  document.dispatchEvent(new CustomEvent("central-ti:conteudo-pronto"));
+
   //QUEM ESTA ABRINDO: do cadastro, sem poder mudar.
   solicitante = {
     nome: [perfil.data.nome, perfil.data.sobrenome].filter(Boolean).join(" "),

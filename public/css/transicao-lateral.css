@@ -40,6 +40,15 @@
      quem esta indo embora nao precisa ser admirado. */
   --transicao-sair-passo: 50ms;
   --transicao-entrar-passo: 80ms;
+
+  /* A faixa laranja crescendo por cima do branco. A janela dela acompanha
+     a dos blocos de proposito: comeca logo depois do primeiro sair (60ms)
+     e termina junto com o ultimo (60 + 330 = 390ms, contra os 370ms da
+     coreografia). Antes ela cabia numa janela mais curta e chegava ao fim
+     com os blocos ainda saindo — parecia que o laranja tinha corrido na
+     frente. */
+  --transicao-faixa: 330ms;
+  --transicao-faixa-atraso: 60ms;
 }
 
 /* O deslocamento lateral criaria barra de rolagem horizontal. So enquanto
@@ -55,6 +64,46 @@ html.transicao-em-curso {
 .transicao-saindo [data-transicao-bloco] {
   animation: transicao-bloco-sai var(--transicao-sair) cubic-bezier(0.4, 0, 1, 1) forwards;
   animation-delay: var(--transicao-atraso, 0ms);
+  /* Acima da faixa que cresce (z-index 5), senao o bloco seria coberto de
+     laranja e sumiria de uma vez em vez de sair deslizando. O relative sem
+     deslocamento nao muda layout nenhum — so liga o z-index. */
+  position: relative;
+  z-index: 6;
+}
+
+/* A FAIXA LARANJA COMENDO O BRANCO.
+   Na home a faixa em degrade e so o topo da pagina; em Abrir chamado ela
+   ocupa tudo abaixo do cabecalho. E o mesmo elemento nas duas telas, entao
+   a transicao mostra ele crescendo ate o tamanho que tera do outro lado —
+   e a pagina que chega ja nasce daquele jeito.
+
+   Nao e a propria faixa que cresce (mexer na altura dela empurraria o
+   conteudo da pagina). E uma copia em tela cheia, revelada de cima para
+   baixo pelo clip-path: assim o degrade fica parado enquanto a borda de
+   baixo desce, que e o que faz parecer que o laranja esta avancando.
+
+   z-index 5: acima do conteudo branco, abaixo do cabecalho (que e 10). */
+.transicao-faixa {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  /* Curva simetrica: metade do caminho na metade do tempo. A anterior
+     (0.4, 0, 0.2, 1) comia 78% do branco na primeira metade e arrastava o
+     resto — o laranja disparava e os blocos ficavam para tras. Esta avanca
+     no mesmo ritmo da coreografia. */
+  animation: transicao-faixa-come var(--transicao-faixa) cubic-bezier(0.4, 0, 0.6, 1) both;
+  animation-delay: var(--transicao-faixa-atraso);
+}
+
+@keyframes transicao-faixa-come {
+  from {
+    clip-path: inset(var(--faixa-topo) 0 var(--faixa-base) 0);
+  }
+
+  to {
+    clip-path: inset(var(--faixa-topo) 0 0 0);
+  }
 }
 
 @keyframes transicao-bloco-sai {
@@ -69,8 +118,20 @@ html.transicao-em-curso {
   }
 }
 
-/* CHEGANDO: parados e apagados, esperando o JS soltar. */
-html[data-transicao="entrando"] [data-transicao-bloco] {
+/* CHEGANDO: parados e apagados, esperando o JS soltar.
+   ATENCAO: esta lista precisa acompanhar a constante BLOCOS de
+   componentes/transicao-lateral.js.
+
+   Ela existe justamente por NAO depender do [data-transicao-bloco], que so
+   o JS poe. Quem chega e marcado no <html> ainda no <head>, entao esta
+   regra vale desde a primeira pintura. Antes, os blocos so eram escondidos
+   quando o JS rodava, e bastava o guard.js liberar o corpo primeiro para a
+   pagina piscar com o conteudo parado antes de a animacao comecar — uma
+   corrida que o JS perdia as vezes. */
+html[data-transicao="entrando"] .saudacao,
+html[data-transicao="entrando"] .porta,
+html[data-transicao="entrando"] .coluna,
+html[data-transicao="entrando"] .equipe {
   opacity: 0;
 }
 
@@ -97,7 +158,7 @@ html[data-transicao="entrando"] .transicao-entrando [data-transicao-bloco] {
    um solavanco no meio da animacao. */
 @keyframes transicao-bloco-entra {
   from {
-    transform: translateX(var(--transicao-desloc-entrar));
+    transform: translateX(var(--transicao-desloc-entrar)) scale(0.94);
     opacity: 0;
     /* Cada trecho tem a propria curva. Este sai do repouso e chega ao
        quadro do meio EM VELOCIDADE (sem frear no fim). */
@@ -105,7 +166,7 @@ html[data-transicao="entrando"] .transicao-entrando [data-transicao-bloco] {
   }
 
   45% {
-    transform: translateX(calc(var(--transicao-desloc-entrar) * 0.42));
+    transform: translateX(calc(var(--transicao-desloc-entrar) * 0.42)) scale(0.975);
     opacity: 1;
     /* E este pega o movimento na velocidade em que ele chegou (sem
        acelerar de novo) e freia ate o lugar. Sem esse par de curvas o
@@ -114,7 +175,7 @@ html[data-transicao="entrando"] .transicao-entrando [data-transicao-bloco] {
   }
 
   to {
-    transform: translateX(0);
+    transform: translateX(0) scale(1);
     opacity: 1;
   }
 }
@@ -123,7 +184,8 @@ html[data-transicao="entrando"] .transicao-entrando [data-transicao-bloco] {
    intercepta o clique nesse caso. */
 @media (prefers-reduced-motion: reduce) {
   .transicao-saindo [data-transicao-bloco],
-  html[data-transicao="entrando"] .transicao-entrando [data-transicao-bloco] {
+  html[data-transicao="entrando"] .transicao-entrando [data-transicao-bloco],
+  .transicao-faixa {
     animation: none;
   }
 

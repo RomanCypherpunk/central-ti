@@ -15,7 +15,14 @@
       primeira pintura, senao a pagina entra ja no lugar certo.-->
   <script src="js/head-transicao.js"></script>
 </head>
-<body style="visibility: hidden">
+<!--data-conteudo-adiado: as portas de Cadastro e Desligamento so sao
+    decididas depois de consultar o perfil de quem entrou (abrir-chamado.js).
+    O atributo avisa a transicao entre paginas para ela esperar o
+    "central-ti:conteudo-pronto" antes de animar a entrada — senao a
+    coreografia rodaria sem essas duas portas e elas apareceriam de estalo
+    depois. Esta no HTML, e nao no JS, porque precisa valer ja na primeira
+    pintura.-->
+<body style="visibility: hidden" data-conteudo-adiado>
 
   <!--ABRIR CHAMADO. Por enquanto o "Novo chamado" da home vem direto para
       ca; o caminho certo, quando a triagem existir, e passar por ela antes

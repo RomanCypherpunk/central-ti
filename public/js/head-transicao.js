@@ -19,6 +19,18 @@ try {
 
     if (recente && querAnimacao) {
       document.documentElement.dataset.transicao = "entrando";
+
+      // REDE DE SEGURANCA. Esta marca faz o CSS apagar os blocos da pagina,
+      // e quem os traz de volta e a animacao de entrada. Se ela nunca
+      // rodar — o modulo nao carregou, deu erro, a rede caiu no meio — a
+      // tela ficaria sem conteudo para sempre. O teto abaixo e folgado de
+      // proposito: a espera mais longa possivel do modulo (corpo 2s +
+      // conteudo 0,9s) mais a propria animacao cabe bem antes dele.
+      setTimeout(function () {
+        if (document.body && document.body.classList.contains("transicao-entrando")) return;
+
+        delete document.documentElement.dataset.transicao;
+      }, 5000);
     }
   }
 } catch {
