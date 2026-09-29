@@ -9,6 +9,8 @@
 
 import { supabase } from "../config/supabase-config.js";
 import { pintarFoto } from "../componentes/avatar.js";
+import { prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/otimizar-upload.js";
+import { abrirArquivoPrivado } from "../componentes/storage-privado.js";
 
 const lista = document.querySelector("[data-lista]");
 const vazioEl = document.querySelector("[data-vazio]");
@@ -24,6 +26,9 @@ const detalheMeta = document.querySelector("[data-detalhe-meta]");
 const conversaEl = document.querySelector("[data-conversa]");
 const formResponder = document.querySelector("[data-responder]");
 const campoResposta = document.querySelector("[data-responder-campo]");
+const campoArquivos = document.querySelector("[data-responder-arquivos]");
+const botaoAnexar = document.querySelector("[data-responder-anexar]");
+const listaPendentes = document.querySelector("[data-responder-pendentes]");
 const avisoResposta = document.querySelector("[data-responder-aviso]");
 const avisoFechado = document.querySelector("[data-detalhe-fechado]");
 const botaoReabrir = document.querySelector("[data-detalhe-reabrir]");
@@ -40,6 +45,8 @@ let chamados = [];
 let usuarioId = null;
 let filtroAtivo = "";
 let aberto = null;
+let arquivosPendentes = [];
+const TAMANHO_MAXIMO = 10 * 1024 * 1024;
 
 //MESMA CONSULTA NA CARGA E NO TEMPO REAL: um caminho só para montar o
 //chamado, igual o Portal faz com CAMPOS_CHAMADO.
@@ -47,7 +54,8 @@ const CAMPOS_CHAMADO = `
   id, numero, titulo, descricao, abertura_em, fechamento_em, solicitante_id,
   categorias(nome),
   comentarios(id, autor_id, texto, visibilidade, tipo, criado_em, artigo_id,
-              artigos(titulo, ativo), usuarios(nome, sobrenome, foto_path))
+              artigos(titulo, ativo), usuarios(nome, sobrenome, foto_path)),
+  anexos(id, comentario_id, nome_arquivo, storage_path, criado_em)
 `;
 
 function mostrarErro(texto) {
@@ -427,6 +435,9 @@ function montarMensagem(comentario) {
     balao.appendChild(texto);
   }
 
+  const anexos = (aberto.anexos ?? []).filter((anexo) => anexo.comentario_id === comentario.id);
+  if (anexos.length) balao.appendChild(montarAnexos(anexos));
+
   const quando = document.createElement("time");
   quando.className = "mensagem__quando";
   quando.dateTime = comentario.criado_em;
@@ -446,6 +457,23 @@ function montarMensagem(comentario) {
   else bloco.append(avatar, balao, quando);
 
   return bloco;
+}
+
+function montarAnexos(anexos) {
+  const listaAnexos = document.createElement("div");
+  listaAnexos.className = "mensagem__anexos";
+
+  anexos.forEach((anexo) => {
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "mensagem__anexo";
+    link.textContent = `📎 ${anexo.nome_arquivo}`;
+    link.title = `Abrir ${anexo.nome_arquivo}`;
+    link.addEventListener("click", () => abrirArquivoPrivado("anexos", anexo.storage_path));
+    listaAnexos.appendChild(link);
+  });
+
+  return listaAnexos;
 }
 
 //CARD DE SOLUCAO NO CHAT: mesma logica do Portal (chamado-comum não é
@@ -492,7 +520,17 @@ function desenharConversa() {
 
   conversaEl.replaceChildren();
 
-  if (!mensagens.length) {
+  const anexosDaAbertura = (aberto.anexos ?? []).filter((anexo) => !anexo.comentario_id);
+  if (anexosDaAbertura.length) {
+    const abertura = document.createElement("div");
+    abertura.className = "conversa__anexos-iniciais";
+    const titulo = document.createElement("span");
+    titulo.textContent = "Anexos da abertura";
+    abertura.append(titulo, montarAnexos(anexosDaAbertura));
+    conversaEl.appendChild(abertura);
+  }
+
+  if (!mensagens.length && !anexosDaAbertura.length) {
     const vazia = document.createElement("p");
     vazia.className = "conversa__vazia";
     vazia.textContent = "Ainda não há mensagens neste chamado.";
@@ -503,6 +541,77 @@ function desenharConversa() {
   mensagens.forEach((c) => conversaEl.appendChild(montarMensagem(c)));
   conversaEl.scrollTop = conversaEl.scrollHeight;
 }
+
+function mostrarAvisoResposta(texto, erro = false) {
+  avisoResposta.textContent = texto;
+  avisoResposta.classList.toggle("responder__aviso--erro", erro);
+}
+
+function desenharPendentes() {
+  listaPendentes.replaceChildren();
+  listaPendentes.hidden = !arquivosPendentes.length;
+
+  arquivosPendentes.forEach((arquivo, indice) => {
+    const item = document.createElement("span");
+    item.className = "responder__pendente";
+
+    const nome = document.createElement("span");
+    nome.className = "responder__pendente-nome";
+    nome.textContent = arquivo.name;
+    nome.title = arquivo.name;
+
+    const remover = document.createElement("button");
+    remover.type = "button";
+    remover.className = "responder__pendente-remover";
+    remover.textContent = "×";
+    remover.setAttribute("aria-label", `Remover ${arquivo.name}`);
+    remover.addEventListener("click", () => {
+      arquivosPendentes.splice(indice, 1);
+      desenharPendentes();
+    });
+
+    item.append(nome, remover);
+    listaPendentes.appendChild(item);
+  });
+}
+
+function limparPendentes() {
+  arquivosPendentes = [];
+  campoArquivos.value = "";
+  desenharPendentes();
+}
+
+function nomeSeguro(nome) {
+  return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w.-]+/g, "_").replace(/_+/g, "_");
+}
+
+campoArquivos.addEventListener("change", () => {
+  const recusados = [];
+
+  [...campoArquivos.files].forEach((arquivo) => {
+    const aceito = arquivo.type.startsWith("image/") || arquivo.type === "application/pdf";
+    try {
+      validarArquivoParaUpload(arquivo);
+    } catch (erro) {
+      recusados.push(erro.message);
+      return;
+    }
+
+    if (!aceito || arquivo.size > TAMANHO_MAXIMO) {
+      recusados.push(`${arquivo.name}: somente imagens ou PDF de até 10 MB`);
+      return;
+    }
+
+    arquivosPendentes.push(arquivo);
+  });
+
+  campoArquivos.value = "";
+  mostrarAvisoResposta(recusados.join(". "), Boolean(recusados.length));
+  desenharPendentes();
+});
+
+botaoAnexar.addEventListener("click", () => campoArquivos.click());
 
 function abrirDetalhe(chamado) {
   aberto = chamado;
@@ -515,8 +624,8 @@ function abrirDetalhe(chamado) {
     `${status.rotulo} · Aberto em ${formatarData(chamado.abertura_em)}`;
 
   campoResposta.value = "";
-  avisoResposta.textContent = "";
-  avisoResposta.classList.remove("responder__aviso--erro");
+  limparPendentes();
+  mostrarAvisoResposta("");
 
   // Chamado fechado não recebe resposta: o campo sai e uma linha explica.
   const fechado = Boolean(chamado.fechamento_em);
@@ -530,6 +639,7 @@ function abrirDetalhe(chamado) {
 function fecharDetalhe() {
   janela.close();
   aberto = null;
+  limparPendentes();
 }
 
 /* ==========================================================================
@@ -540,23 +650,30 @@ formResponder.addEventListener("submit", async (evento) => {
   evento.preventDefault();
 
   const texto = campoResposta.value.trim();
+  const arquivos = [...arquivosPendentes];
 
-  if (!texto || !aberto) return;
+  if ((!texto && !arquivos.length) || !aberto) return;
 
   const botao = formResponder.querySelector(".responder__enviar");
+  const chamadoId = aberto.id;
+  const textoPadrao = arquivos.length === 1
+    ? `Enviou o anexo ${arquivos[0].name}`
+    : `Enviou ${arquivos.length} anexos`;
 
   botao.disabled = true;
-  avisoResposta.textContent = "";
-  avisoResposta.classList.remove("responder__aviso--erro");
+  campoArquivos.disabled = true;
+  botaoAnexar.disabled = true;
+  botao.textContent = arquivos.length ? "Enviando anexos…" : "Enviando…";
+  mostrarAvisoResposta("");
 
   // visibilidade 'publico' e tipo 'humano' são exigidos pela policy do
   // solicitante — e é o que faz o status virar "Em andamento" na hora.
   const { data, error } = await supabase
     .from("comentarios")
     .insert({
-      chamado_id: aberto.id,
+      chamado_id: chamadoId,
       autor_id: usuarioId,
-      texto,
+      texto: texto || textoPadrao,
       visibilidade: "publico",
       tipo: "humano",
     })
@@ -564,17 +681,71 @@ formResponder.addEventListener("submit", async (evento) => {
              usuarios(nome, sobrenome, foto_path)`)
     .single();
 
-  botao.disabled = false;
-
   if (error) {
-    avisoResposta.textContent = "Não foi possível enviar. Tente de novo.";
-    avisoResposta.classList.add("responder__aviso--erro");
+    botao.disabled = false;
+    campoArquivos.disabled = false;
+    botaoAnexar.disabled = false;
+    botao.textContent = "Enviar";
+    mostrarAvisoResposta("Não foi possível enviar. Tente de novo.", true);
     return;
   }
 
-  aberto.comentarios.push(data);
+  if (aberto?.id === chamadoId && !aberto.comentarios.some((comentario) => comentario.id === data.id)) {
+    aberto.comentarios.push(data);
+  }
+
+  let falharam = [];
+  let gravados = [];
+  if (arquivos.length) {
+    const inicio = Date.now();
+    const enviados = await Promise.all(arquivos.map(async (arquivo, indice) => {
+      try {
+        const otimizado = await prepararArquivoParaUpload(arquivo);
+        const caminho = `${chamadoId}/${inicio}-${indice + 1}-${nomeSeguro(otimizado.name)}`;
+        const { error: erroUpload } = await supabase.storage.from("anexos")
+          .upload(caminho, otimizado, { contentType: otimizado.type, cacheControl: "31536000" });
+        if (erroUpload) throw erroUpload;
+        return {
+          chamado_id: chamadoId,
+          comentario_id: data.id,
+          usuario_id: usuarioId,
+          storage_path: caminho,
+          nome_arquivo: arquivo.name,
+        };
+      } catch (erroUpload) {
+        console.error("Falha ao enviar anexo:", arquivo.name, erroUpload);
+        return null;
+      }
+    }));
+
+    const linhas = enviados.filter(Boolean);
+    if (linhas.length) {
+      const { data: anexosGravados, error: erroRegistro } = await supabase.from("anexos")
+        .insert(linhas)
+        .select("id, comentario_id, nome_arquivo, storage_path, criado_em");
+      if (erroRegistro) console.error("Falha ao registrar anexos:", erroRegistro);
+      gravados = anexosGravados ?? [];
+    }
+
+    const caminhosGravados = new Set(gravados.map((anexo) => anexo.storage_path));
+    falharam = arquivos.filter((_, indice) => !caminhosGravados.has(enviados[indice]?.storage_path));
+  }
+
+  botao.disabled = false;
+  campoArquivos.disabled = false;
+  botaoAnexar.disabled = false;
+  botao.textContent = "Enviar";
+
+  if (aberto?.id !== chamadoId) return;
+
+  const anexosExistentes = new Set((aberto.anexos ?? []).map((anexo) => anexo.id));
+  aberto.anexos = [...(aberto.anexos ?? []), ...gravados.filter((anexo) => !anexosExistentes.has(anexo.id))];
   campoResposta.value = "";
-  avisoResposta.textContent = "Resposta enviada";
+  arquivosPendentes = falharam;
+  desenharPendentes();
+  mostrarAvisoResposta(falharam.length
+    ? `Mensagem enviada, mas ${falharam.length} ${falharam.length === 1 ? "anexo falhou" : "anexos falharam"}. Tente enviar novamente.`
+    : "Resposta enviada", Boolean(falharam.length));
 
   desenharConversa();
   // O status do cartão muda junto: a bola passou para a equipe.
