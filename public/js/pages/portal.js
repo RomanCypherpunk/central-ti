@@ -623,6 +623,16 @@ function montarMenuDaLista(fila) {
   return menu;
 }
 
+//NOME DE UMA LISTA, SEMPRE O ATUAL. Busca, detalhe, exportar e Tickets
+//finalizados guardavam cada um um Map montado na abertura da pagina — uma
+//foto. Lista criada ou renomeada depois (por outra pessoa, pelo tempo
+//real, ou ate pela propria pessoa) aparecia como "Sem fila" ate o F5.
+//Este leitor consulta o mesmo array `filas` que o resto do Portal
+//compartilha, entao enxerga cada mudanca na hora. So `.get` e usado.
+function leitorDeNomeDaFila(filas) {
+  return { get: (id) => filas.find((fila) => fila.id === id)?.nome };
+}
+
 function montarFila(fila, chamados) {
   const coluna = document.createElement("section");
   coluna.className = "fila";
@@ -1334,6 +1344,10 @@ function ligarArrastarLista(filas, chamados) {
       }
 
       coluna?.remove();
+      // Fica no array (o nome ainda serve aos chamados antigos), marcada:
+      // o tempo real e o resumo do topo contam so as ativas.
+      if (fila) fila.ativo = false;
+      atualizarResumo(chamados, filas.filter((outra) => outra.ativo !== false).length);
       window.dispatchEvent(new Event("resize")); // a barra de rolagem propria recalcula
       avisarNoSite(`"${fila?.nome ?? "Lista"}" foi arquivada.`, { tipo: "sucesso" });
     }
@@ -1486,7 +1500,7 @@ function ligarBarra() {
 function ligarBusca(chamados, filas, detalhe) {
   const campo = document.querySelector("[data-busca]");
   const painel = document.querySelector("[data-resultados]");
-  const nomeDaFila = new Map(filas.map((fila) => [fila.id, fila.nome]));
+  const nomeDaFila = leitorDeNomeDaFila(filas);
 
   function fechar() {
     painel.hidden = true;
@@ -1705,7 +1719,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     aoMudarFechamento = () => {},
     // Sem o resumo do quadro na tela (Painel), nao ha o que recontar aqui:
     // quem mostra o total e a propria tela, pelo aoContarChamados dela.
-    aoContarChamados = () => { if (resumo) atualizarResumo(chamados, filas.length); },
+    aoContarChamados = () => { if (resumo) atualizarResumo(chamados, filas.filter((fila) => fila.ativo !== false).length); },
   } = quadroApi;
 
   const janela = document.querySelector("[data-detalhe]");
@@ -1724,7 +1738,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
   const botaoEnviar = document.querySelector("[data-conversa-enviar]");
   const aviso = document.querySelector("[data-detalhe-aviso]");
   const botaoFecharChamado = document.querySelector("[data-detalhe-fechar-chamado]");
-  const nomeDaFila = new Map(filas.map((fila) => [fila.id, fila.nome]));
+  const nomeDaFila = leitorDeNomeDaFila(filas);
 
   //APROVACAO DE ACESSO: elementos do painel alternativo (ver comentario
   //no HTML). So existe para o chamado nascido do cadastro.
@@ -3668,6 +3682,15 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     // sai do quadro e vai para Tickets finalizados nos dois casos.
     if (!chamado.fechamento_em) await definirFechamento(chamado, true);
 
+    // No Painel, as listas de Contatos e Administradores mostram o status de
+    // cada pessoa. Sem este aviso elas continuavam em "Pendente" ate o F5 —
+    // so a ficha de pessoa avisava quando salvava. No Portal ninguem escuta,
+    // e tudo bem. Vai antes da exclusao: se ela falhar, a lista ja mostra
+    // "Rejeitado", que e o que esta gravado.
+    document.dispatchEvent(new CustomEvent("central-ti:pessoa-atualizada", {
+      detail: { id: solicitante.id, campos: { ...mudancas } },
+    }));
+
     if (aprovar) {
       avisarNoSite(`Cadastro de ${nomeCompleto(solicitante)} aprovado e chamado finalizado.`, { tipo: "sucesso" });
       janela.close();
@@ -3703,6 +3726,12 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     // pode oferecer Aprovar/Rejeitar para uma conta que nao existe mais.
     chamado.solicitante_id = null;
     chamado.usuarios = null;
+
+    // Mesmo aviso do botao "Excluir conta" do Painel: as listas de Contatos
+    // e Administradores tiram a pessoa da tabela na hora.
+    document.dispatchEvent(new CustomEvent("central-ti:pessoa-excluida", {
+      detail: { id: solicitante.id },
+    }));
 
     avisarNoSite(`Cadastro de ${nomeCompleto(solicitante)} rejeitado e conta excluída.`, { tipo: "sucesso" });
     janela.close();
@@ -3940,7 +3969,7 @@ function ligarFiltros(chamados, equipe, filas) {
     });
 
     quadro.querySelectorAll(".fila").forEach(sincronizarColuna);
-    atualizarResumo(chamados, filas.length);
+    atualizarResumo(chamados, filas.filter((fila) => fila.ativo !== false).length);
 
     const total = totalDeFiltros();
 
@@ -4380,7 +4409,7 @@ function ligarExportar(chamados, filas, carregarFechados) {
   const resumoPeriodo = document.querySelector("[data-exportar-resumo]");
   const botaoBaixar = document.querySelector("[data-exportar-baixar]");
   const atalhos = document.querySelectorAll("[data-periodo]");
-  const nomeDaFila = new Map(filas.map((fila) => [fila.id, fila.nome]));
+  const nomeDaFila = leitorDeNomeDaFila(filas);
 
   const ROTULOS_PRIORIDADE = { urgente: "Urgente", prioridade: "Prioridade", normal: "Normal" };
 
@@ -4612,7 +4641,7 @@ function ligarExportar(chamados, filas, carregarFechados) {
 function ligarFinalizados(chamados, filas, detalhe, carregarFechados) {
   const janela = document.querySelector("[data-finalizados]");
   const lista = document.querySelector("[data-finalizados-lista]");
-  const nomeDaFila = new Map(filas.map((fila) => [fila.id, fila.nome]));
+  const nomeDaFila = leitorDeNomeDaFila(filas);
 
   function desenhar() {
     const fechados = chamados
@@ -5076,6 +5105,12 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
   let esperaRessincronizar = null;
   let jaConectou = false;
 
+  //ULTIMA VERSAO DE CADA CHAMADO QUE VEIO DO BANCO (JSON). A conferencia
+  //periodica (mais abaixo) busca todos os chamados abertos de novo; sem
+  //esta comparacao, cada conferencia redesenharia o quadro inteiro — cards
+  //piscando a cada minuto sem nada ter mudado.
+  const ultimoDoBanco = new Map();
+
   function aplicarCores(chamado) {
     chamado.chamado_membros.forEach((membro) => {
       if (membro.usuarios) membro.usuarios.cor_destaque = corDe.get(membro.usuario_id) ?? null;
@@ -5119,8 +5154,18 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
     atual?.remove();
     if (colunaAntiga) sincronizarColuna(colunaAntiga);
 
-    // Fila que nao esta no quadro (inativa): o chamado fica so em memoria.
-    if (!colunaNova) return;
+    // Fila que nao esta no quadro: o chamado fica so em memoria. Mas se a
+    // tela nao conhece a fila como ATIVA, o mais provavel e uma lista que
+    // outra pessoa acabou de criar — ou reativou pelo Painel depois de
+    // arquivada — e cujo evento ainda nao chegou, ou se perdeu. Em vez de o
+    // card simplesmente sumir ate o F5, busca as listas de novo: a coluna
+    // nasce ja com este chamado dentro.
+    if (!colunaNova) {
+      const filaAtivaConhecida = filas.some((fila) => fila.id === chamado.fila_id && fila.ativo !== false);
+
+      if (!filaAtivaConhecida) recarregarFilas();
+      return;
+    }
 
     // A carga ordena do mais novo para o mais antigo; quem chega entra na
     // posicao que teria se a pagina fosse recarregada.
@@ -5141,6 +5186,7 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
     if (indice === -1) return;
 
     chamados.splice(indice, 1);
+    ultimoDoBanco.delete(id);
 
     const card = quadro.querySelector(`.card[data-chamado="${id}"]`);
     const coluna = card?.closest(".fila");
@@ -5160,9 +5206,16 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
   //o WebSocket do tempo real com a aba em segundo plano e a versao
   //client-side so avisava quando a pessoa ja tinha voltado pra aba.
   function guardarChamado(dados) {
+    // Antes de aplicarCores, que mexe no objeto: a comparacao e contra o que
+    // o banco mandou, e nao contra o que a tela acrescentou depois.
+    const assinatura = JSON.stringify(dados);
+    const existente = chamados.find((chamado) => chamado.id === dados.id);
+
+    if (existente && ultimoDoBanco.get(dados.id) === assinatura) return;
+
+    ultimoDoBanco.set(dados.id, assinatura);
     aplicarCores(dados);
 
-    const existente = chamados.find((chamado) => chamado.id === dados.id);
     const chamado = existente ? Object.assign(existente, dados) : dados;
 
     if (!existente) chamados.unshift(chamado);
@@ -5171,8 +5224,14 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
     detalhe.atualizarSeAberto(chamado);
   }
 
+  // Listas arquivadas continuam no array (os nomes delas servem aos chamados
+  // antigos); o resumo do topo conta so as que estao no quadro.
+  function totalDeFilasAtivas() {
+    return filas.filter((fila) => fila.ativo !== false).length;
+  }
+
   function depoisDeMudar() {
-    atualizarResumo(chamados, filas.length);
+    atualizarResumo(chamados, totalDeFilasAtivas());
     finalizados.atualizar();
   }
 
@@ -5330,42 +5389,263 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
     });
   }
 
-  const canal = supabase.channel("portal-chamados");
+  /* ------------------------------------------------------------------------
+     LISTAS (filas) AO VIVO: criada, renomeada, reordenada ou arquivada por
+     outra pessoa aparece na hora. Os eventos da propria pessoa tambem
+     chegam aqui — tudo e idempotente: se a tela ja esta daquele jeito,
+     nada muda.
+     ------------------------------------------------------------------------ */
 
-  ["chamados", "comentarios", "chamado_membros", "chamado_terceiros", "anexos"].forEach((tabela) => {
-    canal.on("postgres_changes", { event: "*", schema: "public", table: tabela }, (payload) => {
-      const id = chamadoDoEvento(tabela, payload);
+  let esperaReposicao = null;
+  let esperaFilas = null;
 
-      if (id) agendar(id); else ressincronizar();
-    });
-  });
+  // Uma reordenacao de listas feita por outra pessoa chega como varios
+  // UPDATEs, um por lista. Esperar um instante evita as colunas pularem de
+  // lugar a cada evento intermediario.
+  function agendarReposicao(espera = 200) {
+    clearTimeout(esperaReposicao);
+    esperaReposicao = setTimeout(reposicionarColunas, espera);
+  }
 
-  canal.on("postgres_changes", { event: "UPDATE", schema: "public", table: "terceiros" }, (payload) => {
-    atualizarTerceiro(payload.new);
-  });
-
-  canal.on("postgres_changes", { event: "UPDATE", schema: "public", table: "usuarios" }, (payload) => {
-    atualizarPessoa(payload.new);
-  });
-
-  canal.subscribe((status, erroCanal) => {
-    if (status === "SUBSCRIBED") {
-      // Na primeira vez a carga acabou de acontecer. Numa reconexao (rede
-      // caiu, computador dormiu), o que mudou nesse meio tempo nao chegou.
-      if (jaConectou) ressincronizar();
-      jaConectou = true;
+  function reposicionarColunas() {
+    // Coluna sendo arrastada pela propria pessoa: mexer agora cancelaria o
+    // gesto. Tenta de novo quando ela soltar.
+    if (quadro.querySelector(".fila--arrastando")) {
+      agendarReposicao(600);
       return;
     }
 
-    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-      console.warn("Tempo real desconectado; o Supabase tenta reconectar sozinho.", status, erroCanal);
+    const desejada = filas
+      .filter((fila) => fila.ativo !== false && colunaDaFila(fila.id))
+      .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+      .map((fila) => colunaDaFila(fila.id));
+    const atual = [...quadro.querySelectorAll(".fila")];
+
+    if (desejada.every((coluna, indice) => coluna === atual[indice])) return;
+
+    const botaoNovaLista = document.querySelector("[data-fila-nova]");
+
+    comAnimacaoFlip(atual, () => {
+      desejada.forEach((coluna) => quadro.insertBefore(coluna, botaoNovaLista));
+    });
+  }
+
+  function aplicarFila(dados) {
+    let fila = filas.find((outra) => outra.id === dados.id);
+
+    if (fila) {
+      Object.assign(fila, { nome: dados.nome, ordem: dados.ordem, ativo: dados.ativo });
+    } else {
+      fila = { id: dados.id, nome: dados.nome, ordem: dados.ordem, ativo: dados.ativo };
+      filas.push(fila);
     }
-  });
+
+    let coluna = colunaDaFila(fila.id);
+
+    // Arquivada: sai do quadro, mas continua no array — Tickets finalizados
+    // e a busca ainda precisam do nome dela para os chamados antigos.
+    if (fila.ativo === false) {
+      if (coluna) {
+        coluna.remove();
+        window.dispatchEvent(new Event("resize")); // a barra de rolagem propria recalcula
+        atualizarResumo(chamados, totalDeFilasAtivas());
+      }
+      return;
+    }
+
+    if (!coluna) {
+      // Nasce ja com os chamados que estao nela — inclusive os que chegaram
+      // pelo tempo real antes da propria lista e ficaram so em memoria.
+      const daFila = chamados.filter((chamado) => chamado.fila_id === fila.id && !chamado.fechamento_em);
+
+      coluna = montarFila(fila, daFila);
+      quadro.insertBefore(coluna, document.querySelector("[data-fila-nova]"));
+      window.dispatchEvent(new Event("resize"));
+      atualizarResumo(chamados, totalDeFilasAtivas());
+    } else {
+      coluna.querySelector(".fila__nome").textContent = fila.nome;
+      coluna.querySelector("[data-fila-menu-abrir]")
+        ?.setAttribute("aria-label", `Opções da lista ${fila.nome}`);
+    }
+
+    agendarReposicao();
+  }
+
+  function aoMudarFila(payload) {
+    if (payload.eventType === "DELETE") {
+      if (payload.old?.id) aplicarFila({ ...(filas.find((fila) => fila.id === payload.old.id) ?? payload.old), ativo: false });
+      return;
+    }
+
+    if (payload.new?.id) aplicarFila(payload.new);
+  }
+
+  // A LISTA COMPLETA DE NOVO: numa reconexao, na conferencia periodica, ou
+  // quando chega um chamado apontando para uma lista que a tela nao conhece.
+  function recarregarFilas() {
+    clearTimeout(esperaFilas);
+
+    esperaFilas = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from("filas")
+        .select("id, nome, ordem, ativo")
+        .eq("ativo", true)
+        .order("ordem");
+
+      if (error) {
+        console.warn("Tempo real: não foi possível atualizar as listas", error);
+        return;
+      }
+
+      const ativas = new Set(data.map((fila) => fila.id));
+
+      data.forEach(aplicarFila);
+      filas
+        .filter((fila) => fila.ativo !== false && !ativas.has(fila.id))
+        .forEach((fila) => aplicarFila({ ...fila, ativo: false }));
+    }, 300);
+  }
+
+  /* ------------------------------------------------------------------------
+     O CANAL, COM RECONEXAO DE VERDADE.
+
+     Antes o canal era aberto uma vez so, e se caisse com erro a tela so
+     escrevia um aviso no console — ficava surda ate o F5. Com o Portal
+     aberto o dia inteiro isso acontece: rede que oscila, notebook que
+     suspende, e principalmente o token de acesso (1h) vencendo com a aba
+     em segundo plano, quando o Supabase para de renova-lo e o servidor
+     derruba a assinatura.
+
+     Agora canal que cai e descartado e refeito do zero, com o token
+     renovado antes, esperando 1s, 2s, 4s… ate 30s entre as tentativas.
+     Cada canal novo recebe um nome proprio, e os avisos de um canal antigo
+     sao ignorados — sem isso o aviso de "fechado" do canal que acabamos de
+     descartar dispararia outra reconexao.
+     ------------------------------------------------------------------------ */
+
+  let canal = null;
+  let geracaoDoCanal = 0;
+  let tentativasDeReconexao = 0;
+  let esperaReconexao = null;
+
+  function assinar() {
+    geracaoDoCanal += 1;
+
+    const esteCanal = supabase.channel(`portal-chamados-${geracaoDoCanal}`);
+
+    canal = esteCanal;
+
+    ["chamados", "comentarios", "chamado_membros", "chamado_terceiros", "anexos"].forEach((tabela) => {
+      esteCanal.on("postgres_changes", { event: "*", schema: "public", table: tabela }, (payload) => {
+        const id = chamadoDoEvento(tabela, payload);
+
+        if (id) agendar(id); else ressincronizar();
+      });
+    });
+
+    esteCanal.on("postgres_changes", { event: "*", schema: "public", table: "filas" }, aoMudarFila);
+
+    esteCanal.on("postgres_changes", { event: "UPDATE", schema: "public", table: "terceiros" }, (payload) => {
+      atualizarTerceiro(payload.new);
+    });
+
+    esteCanal.on("postgres_changes", { event: "UPDATE", schema: "public", table: "usuarios" }, (payload) => {
+      atualizarPessoa(payload.new);
+    });
+
+    esteCanal.subscribe((status, erroCanal) => {
+      // Aviso de um canal ja substituido: nao e com este aqui.
+      if (esteCanal !== canal) return;
+
+      if (status === "SUBSCRIBED") {
+        const eraReconexao = jaConectou;
+
+        jaConectou = true;
+        tentativasDeReconexao = 0;
+
+        // Na primeira vez a carga acabou de acontecer. Numa reconexao, o
+        // que mudou enquanto a tela estava surda nao chegou por evento.
+        if (eraReconexao) {
+          ressincronizar();
+          recarregarFilas();
+        }
+        return;
+      }
+
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+        console.warn("Tempo real caiu; reconectando.", status, erroCanal);
+        reconectar();
+      }
+    });
+  }
+
+  function reconectar() {
+    if (esperaReconexao) return;
+
+    const velho = canal;
+
+    // Primeiro solta a referencia: o "CLOSED" que o removeChannel dispara no
+    // canal velho cai no filtro esteCanal !== canal e e ignorado.
+    canal = null;
+    if (velho) supabase.removeChannel(velho);
+
+    const espera = Math.min(30000, 1000 * 2 ** tentativasDeReconexao);
+
+    tentativasDeReconexao += 1;
+
+    esperaReconexao = setTimeout(async () => {
+      esperaReconexao = null;
+
+      // getSession renova o token se ele venceu — o motivo mais comum de o
+      // canal cair com a aba parada — e o setAuth entrega o novo ao Realtime.
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) supabase.realtime.setAuth(session.access_token);
+
+      assinar();
+    }, espera);
+  }
+
+  // Canal que morreu sem avisar (o navegador dormiu no meio de um erro, por
+  // exemplo): o estado dele diz a verdade mesmo sem evento nenhum.
+  function conferirCanal() {
+    if (esperaReconexao) return;
+    if (!canal || !["joined", "joining"].includes(canal.state)) reconectar();
+  }
+
+  assinar();
+
+  /* ------------------------------------------------------------------------
+     REDE DE SEGURANCA: evento perdido nao pode exigir F5.
+
+     O tempo real e o caminho normal e instantaneo. Mas qualquer evento que
+     se perca — por um motivo que ninguem previu — deixaria a tela errada
+     para sempre. A cada minuto, com a aba visivel, o quadro confere com o
+     banco. So o que mudou e redesenhado (ver ultimoDoBanco), entao na
+     pratica a conferencia nao aparece na tela.
+     ------------------------------------------------------------------------ */
+
+  const INTERVALO_CONFERENCIA = 60 * 1000;
+
+  function conferirTudo() {
+    ressincronizar();
+    recarregarFilas();
+    conferirCanal();
+  }
+
+  setInterval(() => {
+    if (document.visibilityState === "visible") conferirTudo();
+  }, INTERVALO_CONFERENCIA);
 
   // Aba que volta a ficar visivel: o navegador pode ter pausado a conexao
   // enquanto ela estava escondida. Confere se nada ficou para tras.
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && jaConectou) ressincronizar();
+    if (document.visibilityState === "visible" && jaConectou) conferirTudo();
+  });
+
+  // Rede que voltou: mesma coisa, sem esperar o proximo minuto.
+  window.addEventListener("online", () => {
+    if (jaConectou) conferirTudo();
   });
 }
 

@@ -1084,6 +1084,12 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
 
     Object.assign(editando, gravada);
 
+    // A outra lista (Contatos x Administradores) tambem se atualiza — e se
+    // o perfil mudou, a pessoa entra ou sai de Administradores.
+    document.dispatchEvent(new CustomEvent("central-ti:pessoa-atualizada", {
+      detail: { id: editando.id, campos: { ...gravada } },
+    }));
+
     if (!rejeitando) {
       botaoSalvar.disabled = false;
       aoSalvar(editando, false);
@@ -1384,7 +1390,12 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
    (todo mundo x so quem atende chamado) e os seletores data-* do prefixo.
    ========================================================================== */
 
-function ligarListaDePessoas({ prefixo, pessoas, setores, unidades, dialog, rotuloResumo }) {
+//origem/deveConter: so para listas que sao um recorte de outra (a de
+//Administradores e a equipe de TI tirada de todas as pessoas). Quando uma
+//mudanca faz alguem passar a pertencer ao recorte — aprovado como admin,
+//por exemplo — a pessoa e buscada na origem e entra; quando deixa de
+//pertencer, sai.
+function ligarListaDePessoas({ prefixo, pessoas, setores, unidades, dialog, rotuloResumo, origem = null, deveConter = null }) {
   const corpo = document.querySelector(`[data-${prefixo}-corpo]`);
   const campoBusca = document.querySelector(`[data-${prefixo}-busca]`);
   const resumo = document.querySelector(`[data-${prefixo}-resumo]`);
@@ -1528,6 +1539,34 @@ function ligarListaDePessoas({ prefixo, pessoas, setores, unidades, dialog, rotu
     const indice = pessoas.findIndex((pessoa) => pessoa.id === id);
     if (indice < 0) return;
     pessoas.splice(indice, 1);
+    desenhar();
+  });
+
+  //PESSOA MUDOU FORA DESTA LISTA: aprovada ou rejeitada pelo chamado de
+  //Aprovação de Acesso, ou salva na ficha aberta pela outra aba (Contatos x
+  //Administradores). Os objetos de pessoa sao os mesmos nas duas listas,
+  //entao aplicar os campos uma vez vale para as duas — cada uma so precisa
+  //se redesenhar e, se for um recorte, conferir quem entra e quem sai.
+  document.addEventListener("central-ti:pessoa-atualizada", (evento) => {
+    const { id, campos } = evento.detail ?? {};
+
+    if (!id) return;
+
+    const daqui = pessoas.find((pessoa) => pessoa.id === id);
+    const pessoa = daqui ?? origem?.find((outra) => outra.id === id);
+
+    if (!pessoa) return;
+
+    Object.assign(pessoa, campos);
+
+    if (deveConter) {
+      const pertence = deveConter(pessoa);
+
+      if (pertence && !daqui) pessoas.push(pessoa);
+      if (!pertence && daqui) pessoas.splice(pessoas.indexOf(daqui), 1);
+      if (!pertence && !daqui) return;
+    }
+
     desenhar();
   });
 
@@ -5191,13 +5230,19 @@ async function montarPainel() {
   });
 
   //ADMINISTRADORES: mesma tabela usuarios, so que ja filtrada em quem
-  //atende chamado — um array PROPRIO (nao o mesmo de Contatos), entao criar
-  //ou editar aqui nao reflete em Contatos ate recarregar (e vice-versa).
+  //atende chamado — um array PROPRIO (nao o mesmo de Contatos), mas com os
+  //MESMOS objetos de pessoa dentro. Edicoes e aprovacoes chegam as duas
+  //listas pelo aviso "central-ti:pessoa-atualizada"; origem/deveConter
+  //fazem alguem promovido a analista/admin entrar aqui (e sair, se voltar
+  //a solicitante). Conta criada do zero ainda so aparece na aba onde foi
+  //criada ate recarregar.
   const equipeDeTi = (pessoas.data ?? []).filter((pessoa) => pessoa.perfil !== "solicitante");
 
   ligarListaDePessoas({
     prefixo: "administradores",
     pessoas: equipeDeTi,
+    origem: pessoas.data ?? [],
+    deveConter: (pessoa) => pessoa.perfil !== "solicitante",
     setores: setores.data ?? [],
     unidades: unidades.data ?? [],
     dialog: dialogPessoa,
