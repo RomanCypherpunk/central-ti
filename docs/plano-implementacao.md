@@ -364,19 +364,15 @@ nome, foto/iniciais + nome + cargo + e-mail, cada card no padrão shadcn.
   `min-height` reservando duas linhas, então todos os cards ficam com a
   mesma altura mesmo com cargos de comprimento diferente.
 - **Fotos**: `public/assets/img/time-ti/<nome-sobrenome>.jpg`, um arquivo
-  por pessoa — as sete já existem. Se alguma faltar,
+  por pessoa — as seis já existem. Se alguma faltar,
   `onerror="this.hidden=true"` no `<img>` esconde a imagem quebrada e as
   iniciais em `.equipe__foto::before` (via `content: attr(data-iniciais)`)
   aparecem no lugar.
-- **Layout**: duas listas `<ul>` separadas — a primeira com 4 pessoas
-  (grid de 4 colunas), a segunda com 3 (grid de 3 colunas), ambas com a
-  mesma largura de coluna e `justify-content: center`. São listas
-  separadas de propósito: numa grade única de 4 colunas, `grid-column`
-  não consegue centralizar 3 itens, porque isso exigiria deslocar meia
-  coluna e o grid só trabalha com colunas inteiras. Em telas ≤860px as
-  duas caem para 2 colunas.
-- **Time atual**: Bruno Nucci (Coordenador de Projetos de TI), Daniel
-  Oliveira (Coordenador de TI), Enzo Xavier (Analista de TI), Fábio Paiva
+- **Layout**: duas listas `<ul>` de 3 pessoas cada, ambas em grid de 3
+  colunas com a mesma largura de coluna e `justify-content: center`
+  (eram 4 + 3 até a saída do Bruno Nucci). Em telas ≤860px as duas caem
+  para 2 colunas.
+- **Time atual**: Daniel Oliveira (Coordenador de TI), Enzo Xavier (Analista de TI), Fábio Paiva
   (Gerente de Marketing e Inovação), João Gabriel (Analista de TI), João
   Paulo (Analista de TI), Paulo Silva (Analista de TI) — e-mails no
   padrão `nome.sobrenome@madeirasgasometro.com.br`, exceto Paulo Silva

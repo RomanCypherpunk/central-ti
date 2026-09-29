@@ -763,7 +763,7 @@ body {
 
 .equipe__lista {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 14rem));
+  grid-template-columns: repeat(3, minmax(0, 14rem));
   justify-content: center;
   align-items: stretch;
   gap: 1.25rem;
@@ -772,11 +772,8 @@ body {
   list-style: none;
 }
 
-/*SEGUNDA LINHA (3 PESSOAS): LISTA PROPRIA COM SO 3 COLUNAS, CENTRALIZADA
-  DE FORMA INDEPENDENTE — SO ASSIM O CENTRO DELA BATE COM O CENTRO DA
-  LINHA DE 4, O QUE grid-column NUMA GRADE UNICA NAO CONSEGUE FAZER.*/
+/*SEGUNDA LINHA: MESMA GRADE DE 3 COLUNAS, SO COM ESPACO ACIMA*/
 .equipe__lista--linha2 {
-  grid-template-columns: repeat(3, minmax(0, 14rem));
   margin-top: 1.25rem;
 }
 
