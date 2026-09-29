@@ -782,6 +782,18 @@ function comAnimacaoFlip(elementos, mudarDom) {
   });
 }
 
+// A primeira lista do quadro e a fila de entrada, mesmo se for renomeada.
+// Conta todos os cards dela: um filtro visual nao muda os pendentes na aba.
+function atualizarTituloInbox() {
+  if (!quadro) return;
+
+  const primeiraLista = quadro.querySelector(".fila .fila__cards");
+  const quantidade = primeiraLista?.querySelectorAll(":scope > .card").length ?? 0;
+  document.title = quantidade
+    ? `(${quantidade}) Portal de Chamados - TI`
+    : "Portal de Chamados - TI";
+}
+
 //ATUALIZA O CONTADOR E O AVISO DE VAZIO DE UMA COLUNA DEPOIS DE MOVER UM
 //CARD. Conta so o que esta aparecendo: com filtro ligado, o numero bate com
 //os cards que a pessoa ve.
@@ -792,6 +804,7 @@ function sincronizarColuna(coluna) {
   const vazia = lista.querySelector(".fila__vazia");
 
   coluna.querySelector(".fila__contador").textContent = visiveis.length;
+  atualizarTituloInbox();
 
   if (visiveis.length) {
     vazia?.remove();
@@ -1242,6 +1255,7 @@ function ligarArrastarLista(filas, chamados) {
       comAnimacaoFlip(todasAsColunas, () => {
         colunaAlvo.insertAdjacentElement(antes ? "afterend" : "beforebegin", colunaArrastada);
       });
+      atualizarTituloInbox();
     }
 
     // `ordem` vira o indice, de 10 em 10: deixa espaco pra alguem soltar
@@ -5076,6 +5090,7 @@ function ligarFundo() {
 //RESUMO NO CABECALHO: SO CONTA O QUE ESTA ABERTO. Chamado fechado nao
 //esta escondido por engano — foi fechado por decisao de quem atende.
 function atualizarResumo(chamados, totalFilas) {
+  atualizarTituloInbox();
   const abertos = chamados.filter((chamado) => !chamado.fechamento_em);
   const texto =
     `${abertos.length} ${abertos.length === 1 ? "chamado aberto" : "chamados abertos"} em ${totalFilas} filas`;
@@ -5428,6 +5443,7 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
     comAnimacaoFlip(atual, () => {
       desejada.forEach((coluna) => quadro.insertBefore(coluna, botaoNovaLista));
     });
+    atualizarTituloInbox();
   }
 
   function aplicarFila(dados) {
