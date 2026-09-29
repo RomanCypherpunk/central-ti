@@ -78,7 +78,6 @@ function mostrarEtapa(indice, direcao) {
 //MENSAGENS DE ERRO
 const erroEtapa1 = document.querySelector("[data-erro='etapa1']");
 const erroEtapa2 = document.querySelector("[data-erro='etapa2']");
-const erroEtapa3 = document.querySelector("[data-erro='etapa3']");
 
 function mostrarErro(elemento, mensagem) {
   elemento.textContent = mensagem;
@@ -99,43 +98,12 @@ const campoEmail = document.getElementById("email");
 const campoSenha = document.getElementById("senha");
 const campoConfirmar = document.getElementById("confirmar");
 
-// Guardado no envio: a etapa 3 precisa do e-mail para conferir o código, e
-// ler o campo de novo daria a chance de a pessoa ter editado depois.
-let emailCadastrado = "";
-const CHAVE_CADASTRO_PENDENTE = "central-ti:cadastro-pendente";
-let protecaoDeHistoricoAtiva = false;
-
-function temCadastroPendente() {
-  return Boolean(emailCadastrado);
-}
-
-function guardarCadastroPendente(email) {
-  emailCadastrado = email.trim();
-  sessionStorage.setItem(CHAVE_CADASTRO_PENDENTE, emailCadastrado);
-}
-
-function limparCadastroPendente() {
-  emailCadastrado = "";
-  sessionStorage.removeItem(CHAVE_CADASTRO_PENDENTE);
-}
-
-function abrirConfirmacaoDeCadastro(email, retomado = false) {
-  guardarCadastroPendente(email);
-  document.querySelector("[data-email-destino]").textContent = emailCadastrado;
-  mostrarEtapa(2, "frente");
-
-  // Deixa o botão Voltar do navegador nesta mesma tela. Não é possível (nem
-  // desejável) impedir que alguém feche a aba, mas ao voltar ou recarregar o
-  // cadastro pendente continua recuperável — nunca vira uma conta sem saída.
-  if (!protecaoDeHistoricoAtiva) {
-    history.pushState({ cadastroPendente: true }, "", window.location.href);
-    protecaoDeHistoricoAtiva = true;
-  }
-
-  if (retomado) {
-    mostrarErro(erroEtapa3, "Retome a confirmação do e-mail. Se necessário, envie um novo código.");
-  }
-}
+// RESTO DA ANTIGA ETAPA DE CODIGO. Quando o cadastro exigia confirmar o
+// e-mail, esta chave guardava o e-mail pendente na aba para reabrir a tela
+// do codigo ao recarregar. A etapa nao existe mais, mas quem estava no meio
+// de um cadastro na hora da troca ainda pode ter a chave na aba — apagar
+// aqui evita qualquer resto de estado antigo.
+sessionStorage.removeItem("central-ti:cadastro-pendente");
 
 //POPULAR SETOR E UNIDADE A PARTIR DO SUPABASE
 async function popularSelect(select, tabela) {
@@ -189,8 +157,7 @@ const SENHA_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,128}$/
 function validarEtapa2() {
   // QUALQUER DOMINIO SERVE, de propósito: parceiros e terceiros (Movelex,
   // Gmail, Hotmail) também abrem chamado. Quem controla o acesso não é o
-  // domínio do e-mail — é a aprovação do TI (status_aprovacao) somada à
-  // confirmação por código, que prova que a caixa existe e é da pessoa.
+  // domínio do e-mail — é a aprovação do TI (status_aprovacao).
   if (!/^\S+@\S+\.\S+$/.test(campoEmail.value.trim())) {
     mostrarErro(erroEtapa2, "Informe um e-mail válido.");
     return false;
@@ -236,7 +203,7 @@ formulario.addEventListener("submit", async (evento) => {
   botaoCriar.disabled = true;
   botaoCriar.textContent = "Criando conta…";
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: campoEmail.value.trim(),
     password: campoSenha.value,
     options: {
@@ -249,123 +216,28 @@ formulario.addEventListener("submit", async (evento) => {
     },
   });
 
-  botaoCriar.disabled = false;
-  botaoCriar.textContent = "Criar conta";
-
   if (error) {
+    botaoCriar.disabled = false;
+    botaoCriar.textContent = "Criar conta";
     mostrarErro(erroEtapa2, MENSAGENS_ERRO_SUPABASE[error.code] ?? "Não foi possível criar a conta. Tente novamente.");
     return;
   }
 
-  // A conta existe mas ainda não está confirmada: o Supabase acabou de
-  // mandar o código de 6 dígitos. Só depois de conferir é que ela serve
-  // para entrar — e é nesse momento que o chamado de Aprovação de Acesso
-  // nasce (trigger on_auth_user_email_confirmed no banco).
-  abrirConfirmacaoDeCadastro(campoEmail.value.trim());
-});
-
-//ETAPA 3: CONFERIR O CODIGO QUE CHEGOU NO E-MAIL
-const campoCodigo = document.getElementById("codigo");
-const botaoConfirmar = document.querySelector("[data-acao='confirmar']");
-const orientacaoCodigo = document.querySelector("[data-orientacao-codigo]");
-
-function informarNovoCodigo() {
-  orientacaoCodigo.textContent = "Novo código solicitado. Aguarde o e-mail e use somente o código mais recente.";
-}
-
-botaoConfirmar.addEventListener("click", async () => {
-  const codigo = campoCodigo.value.trim();
-
-  if (codigo.length !== 6) {
-    mostrarErro(erroEtapa3, "Digite os 6 dígitos do código.");
+  // SEM CODIGO POR E-MAIL: com a confirmacao desligada no Supabase, o
+  // cadastro ja devolve a sessao — a pessoa entra direto, e o chamado de
+  // Aprovação de Acesso nasce no mesmo instante (handle_new_user no banco).
+  // O botao continua desabilitado: a pagina vai mudar.
+  if (data.session) {
+    window.location.href = "index.html";
     return;
   }
 
-  esconderErro(erroEtapa3);
-  botaoConfirmar.disabled = true;
-  botaoConfirmar.textContent = "Confirmando…";
-
-  // type "signup": é o código da confirmação de cadastro, não o de
-  // recuperação de senha (que a tela de recuperar usa com type "recovery").
-  const { error } = await supabase.auth.verifyOtp({
-    email: emailCadastrado,
-    token: codigo,
-    type: "signup",
-  });
-
-  botaoConfirmar.disabled = false;
-  botaoConfirmar.textContent = "Confirmar e-mail";
-
-  if (error) {
-    const codigoRejeitado = error.code === "otp_expired"
-      || /token has expired or is invalid/i.test(error.message ?? "");
-
-    if (codigoRejeitado) {
-      campoCodigo.value = "";
-      mostrarErro(erroEtapa3, "Este código não é mais o código válido. Clique em “Enviar de novo” e use apenas o próximo código recebido.");
-      campoCodigo.focus();
-    } else {
-      mostrarErro(erroEtapa3, "Não foi possível confirmar o código agora. Tente novamente em alguns instantes.");
-    }
-    return;
-  }
-
-  limparCadastroPendente();
-  window.location.href = "index.html";
-});
-
-//REENVIAR O CODIGO
-const botaoReenviar = document.querySelector("[data-acao='reenviar']");
-
-botaoReenviar.addEventListener("click", async () => {
-  botaoReenviar.disabled = true;
-  botaoReenviar.textContent = "Enviando…";
-
-  const { error } = await supabase.auth.resend({
-    type: "signup",
-    email: emailCadastrado,
-  });
-
-  botaoReenviar.textContent = "Enviar de novo";
-
-  if (error) {
-    mostrarErro(erroEtapa3, "Não foi possível reenviar o código. Tente em alguns instantes.");
-    botaoReenviar.disabled = false;
-    return;
-  }
-
-  informarNovoCodigo();
-  mostrarErro(erroEtapa3, "Código reenviado. Confira o e-mail.");
-  // Espera antes de liberar outro envio: o Supabase limita a frequência
-  // (max_frequency = 1m no config.toml).
-  setTimeout(() => { botaoReenviar.disabled = false; }, 60000);
-});
-
-// Se a página recarregar durante a confirmação, reabre exatamente na etapa
-// do código. sessionStorage é limitado à mesma aba: nenhum e-mail é guardado
-// em URL, banco ou histórico compartilhado.
-const cadastroPendenteSalvo = sessionStorage.getItem(CHAVE_CADASTRO_PENDENTE);
-if (cadastroPendenteSalvo) {
-  abrirConfirmacaoDeCadastro(cadastroPendenteSalvo, true);
-}
-
-// Logo, links "Entrar" e qualquer outro link interno não abandonam uma conta
-// que ainda depende do OTP. A pessoa continua na etapa em que pode confirmar
-// ou reenviar o código.
-document.addEventListener("click", (evento) => {
-  const link = evento.target.closest("a[href]");
-  if (!link || !temCadastroPendente()) return;
-
-  evento.preventDefault();
-  mostrarErro(erroEtapa3, "Conclua a confirmação do e-mail ou peça um novo código antes de sair.");
-  campoCodigo.focus();
-});
-
-window.addEventListener("popstate", () => {
-  if (!temCadastroPendente()) return;
-
-  history.pushState({ cadastroPendente: true }, "", window.location.href);
-  protecaoDeHistoricoAtiva = true;
-  mostrarErro(erroEtapa3, "Conclua a confirmação do e-mail ou peça um novo código antes de sair.");
-  campoCodigo.focus();
+  // Sem sessao, o servidor ainda exige confirmar o e-mail: a opcao "Confirm
+  // email" continua ligada no painel do Supabase. A conta foi criada, mas a
+  // pessoa nao consegue entrar — nao adianta mandar para o login. Avisa com
+  // clareza em vez de fingir que deu certo.
+  botaoCriar.disabled = false;
+  botaoCriar.textContent = "Criar conta";
+  console.warn("Cadastro criado sem sessão: a confirmação de e-mail ainda está ligada no Supabase (Authentication > Providers > Email > Confirm email).");
+  mostrarErro(erroEtapa2, "Sua conta foi criada, mas ainda não pôde ser liberada para entrar. Avise a equipe de TI.");
 });

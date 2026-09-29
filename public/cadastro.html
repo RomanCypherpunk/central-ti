@@ -30,7 +30,7 @@
 
         <!--CABECALHO-->
         <p class="cadastro__contador">
-          Etapa <span class="cadastro__contador-atual">1</span> de 3
+          Etapa <span class="cadastro__contador-atual">1</span> de 2
         </p>
         <h1 class="cadastro__titulo">Criar conta</h1>
         <p class="cadastro__subtitulo">
@@ -174,53 +174,10 @@
 
           </div>
 
-          <!--ETAPA 3: CODIGO DO E-MAIL. Mesma mecânica da recuperação de
-              senha: o Supabase manda um código de 6 dígitos e só confirma a
-              conta quando ele confere — é assim que sabemos que a pessoa tem
-              acesso à caixa que informou.-->
-          <div class="cadastro__etapa">
-
-            <p class="cadastro__erro" data-erro="etapa3" role="alert"></p>
-
-            <div class="cadastro__campo">
-              <label class="cadastro__label" for="codigo">Código de verificação</label>
-              <input class="cadastro__input cadastro__codigo" type="text" id="codigo" name="codigo"
-                     placeholder="000000"
-                     inputmode="numeric" maxlength="6"
-                     autocomplete="one-time-code">
-              <p class="cadastro__ajuda">
-                Digite os 6 dígitos que enviamos para <strong data-email-destino></strong>.
-                O código vale por 1 hora.
-              </p>
-              <p class="cadastro__ajuda" data-orientacao-codigo aria-live="polite">
-                Use somente o código do e-mail mais recente. Cada novo envio substitui o anterior.
-              </p>
-            </div>
-
-            <div class="cadastro__aviso">
-              <svg class="cadastro__aviso-icone" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                <circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
-                <path d="M12 10.6v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-                <circle cx="12" cy="7.6" r="1.1" fill="currentColor"/>
-              </svg>
-              <p>
-                Depois de confirmar, o TI ainda confere o setor e a unidade. Você
-                receberá um e-mail quando o acesso estiver liberado.
-              </p>
-            </div>
-
-            <div class="cadastro__acoes">
-              <button class="cadastro__botao" type="button" data-acao="confirmar">
-                Confirmar e-mail
-                <span aria-hidden="true">→</span>
-              </button>
-              <p class="cadastro__entrar">
-                Não recebeu?
-                <button class="cadastro__reenviar" type="button" data-acao="reenviar">Enviar de novo</button>
-              </p>
-            </div>
-
-          </div>
+          <!--Nao existe mais etapa de codigo por e-mail: o provedor de e-mail
+              bloqueava ou atrasava parte das mensagens e o cadastro ficava
+              travado esperando um codigo que nao chegava. Quem controla o
+              acesso continua sendo a aprovacao do TI (status_aprovacao).-->
 
         </div>
 

@@ -47,9 +47,14 @@ token_verifications = 10
 [auth.email]
 double_confirm_changes = true
 secure_password_change = true
-# Cadastro exige confirmar o e-mail com um código de 6 dígitos, igual à
-# recuperação de senha: garante que a pessoa tem acesso à caixa que informou.
-enable_confirmations = true
+# Cadastro SEM código por e-mail: o provedor de e-mail bloqueava ou atrasava
+# parte das mensagens e o cadastro travava esperando o código. A pessoa entra
+# direto; quem libera o acesso é a aprovação do TI. O chamado de Aprovação de
+# Acesso nasce no handle_new_user (migration 20260929090000).
+# ATENÇÃO: em produção isto é Authentication > Providers > Email > "Confirm
+# email", no painel — este arquivo só vale localmente ou via config push.
+# A recuperação de senha continua usando o código de 6 dígitos (otp_length).
+enable_confirmations = false
 max_frequency = "1m0s"
 otp_length = 6
 
