@@ -390,6 +390,10 @@ function atualizarResumo() {
   const abertos = chamados.filter((c) => !c.fechamento_em);
   const aguardando = abertos.filter((c) => derivarStatus(c) === STATUS.aguardando).length;
 
+  document.title = aguardando
+    ? `(${aguardando}) Solicitações - TI`
+    : "Solicitações - TI";
+
   if (!chamados.length) {
     resumoEl.textContent = "Nenhuma solicitação por aqui ainda.";
     return;
