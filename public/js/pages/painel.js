@@ -1048,6 +1048,24 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
       return;
     }
 
+    //REJEITADO = CONTA EXCLUIDA. Mesma regra do painel de aprovacao do
+    //chamado (decidirAprovacao, portal.js): quem e recusado nao fica com
+    //conta no sistema. Vale para qualquer salvamento com o status
+    //"Rejeitado", e nao so na troca — assim uma conta rejeitada de antes
+    //desta regra, ou uma exclusao que falhou, tambem se resolve por aqui.
+    const rejeitando = mudancas.status_aprovacao === "rejeitado";
+
+    if (rejeitando) {
+      const certeza = await confirmarNoSite({
+        titulo: "Rejeitar e excluir a conta?",
+        mensagem: `O cadastro de ${nomeCompleto(editando) ?? "esta pessoa"} será rejeitado e a conta, excluída. Não dá para desfazer.`,
+        confirmar: "Rejeitar e excluir",
+        perigo: true,
+      });
+
+      if (!certeza) return;
+    }
+
     botaoSalvar.disabled = true;
 
     // O .select devolve a linha gravada: sem ele, um update barrado pela RLS
@@ -1057,17 +1075,47 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     });
     const gravada = data?.usuario;
 
-    botaoSalvar.disabled = false;
-
     if (error || !gravada) {
+      botaoSalvar.disabled = false;
       console.error("Erro ao salvar pessoa:", error);
       avisar("Não foi possível salvar. Tente de novo.", true);
       return;
     }
 
     Object.assign(editando, gravada);
-    aoSalvar(editando, false);
-    avisar("Salvo");
+
+    if (!rejeitando) {
+      botaoSalvar.disabled = false;
+      aoSalvar(editando, false);
+      avisar("Salvo");
+      janela.close();
+      return;
+    }
+
+    // A rejeicao ja foi gravada (o chamado de aprovacao recebe a mensagem
+    // e fecha). Agora a conta sai, pela mesma Edge Function do "Excluir
+    // conta" — sem transferir historico: o chamado continua existindo, so
+    // sem solicitante.
+    avisar("Excluindo conta…");
+    const { data: exclusao, error: erroExclusao } = await supabase.functions.invoke("excluir-usuario", {
+      body: { usuario_id: editando.id },
+    });
+
+    botaoSalvar.disabled = false;
+
+    if (erroExclusao || !exclusao?.ok) {
+      console.error("Rejeitado, mas a conta não foi excluída:", erroExclusao, exclusao);
+      // A linha na tabela ja mostra "Rejeitado"; salvar de novo tenta so a
+      // exclusao que faltou.
+      aoSalvar(editando, false);
+      avisar(exclusao?.erro ?? "Cadastro rejeitado, mas não foi possível excluir a conta. Salve de novo.", true);
+      return;
+    }
+
+    // Mesmo aviso do "Excluir conta": as listas tiram a pessoa da tabela.
+    document.dispatchEvent(new CustomEvent("central-ti:pessoa-excluida", {
+      detail: { id: editando.id },
+    }));
     janela.close();
   }
 

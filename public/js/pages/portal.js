@@ -3557,14 +3557,23 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     //e o banco concorda: trocar perfil passa pelo trigger
     //protege_perfil_usuario, que so aceita admin. Sem isto o analista
     //clicaria em Aprovar e receberia um erro seco vindo do banco.
-    const podeDecidir = perfilAtendente === "admin";
+    //CONTA JA EXCLUIDA: rejeitar exclui a conta, e o chamado fica sem
+    //solicitante (on delete set null). Nao ha mais o que decidir — sem isto
+    //os botoes apareceriam e nao fariam nada. O texto nao diz "rejeitado":
+    //a conta pode ter sido aprovada e excluida depois, pelo Painel. O que
+    //aconteceu de fato esta na conversa do proprio chamado.
+    const contaExiste = Boolean(solicitante?.id);
+    const podeDecidir = perfilAtendente === "admin" && contaExiste;
 
     botaoAprovar.hidden = !podeDecidir;
     botaoRejeitar.hidden = !podeDecidir;
     campoAprovacaoSetor.disabled = !podeDecidir;
     campoAprovacaoPerfil.disabled = !podeDecidir;
 
-    if (!podeDecidir) {
+    if (!contaExiste) {
+      avisoAprovacao.textContent = "A conta desta solicitação foi excluída.";
+      avisoAprovacao.classList.add("aprovacao__aviso--feito");
+    } else if (!podeDecidir) {
       avisoAprovacao.textContent = "Somente um administrador pode aprovar ou rejeitar cadastros.";
       avisoAprovacao.classList.add("aprovacao__aviso--feito");
     }
@@ -3580,6 +3589,14 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
   //chamado e finalizado na hora. Esperar o evento de tempo real deixava a
   //tela como estava, parecendo que o clique nao tinha feito nada. As duas
   //operacoes sao idempotentes: se o trigger ja fez, nada muda.
+  //
+  //REJEITAR EXCLUI A CONTA. Quem foi recusado nao fica com conta parada no
+  //sistema. A ordem importa: primeiro a rejeicao e gravada (o trigger poe a
+  //mensagem automatica no chamado e fecha o ticket), depois a conta e
+  //excluida pela mesma Edge Function do botao "Excluir conta" do Painel. O
+  //chamado continua existindo — solicitante_id vira nulo (on delete set
+  //null) —, com a mensagem de rejeicao e a etiqueta de quem decidiu: fica o
+  //registro de que aquela pessoa pediu acesso e foi recusada.
   async function decidirAprovacao(aprovar) {
     const solicitante = aberto.usuarios;
 
@@ -3588,6 +3605,18 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     // Preso antes do primeiro await: a janela fecha no fim e `aberto` ja
     // pode estar apontando para outro chamado quando isto terminar.
     const chamado = aberto;
+
+    // Excluir nao tem volta: pergunta antes, com o nome de quem vai sair.
+    if (!aprovar) {
+      const confirmou = await confirmarNoSite({
+        titulo: "Rejeitar e excluir a conta?",
+        mensagem: `O cadastro de ${nomeCompleto(solicitante) ?? "esta pessoa"} será rejeitado e a conta, excluída. Não dá para desfazer. O chamado fica registrado em Tickets finalizados.`,
+        confirmar: "Rejeitar e excluir",
+        perigo: true,
+      });
+
+      if (!confirmou) return;
+    }
 
     botaoAprovar.disabled = true;
     botaoRejeitar.disabled = true;
@@ -3639,13 +3668,43 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     // sai do quadro e vai para Tickets finalizados nos dois casos.
     if (!chamado.fechamento_em) await definirFechamento(chamado, true);
 
-    avisarNoSite(
-      aprovar
-        ? `Cadastro de ${nomeCompleto(solicitante)} aprovado e chamado finalizado.`
-        : `Cadastro de ${nomeCompleto(solicitante)} rejeitado e chamado finalizado.`,
-      { tipo: "sucesso" },
-    );
+    if (aprovar) {
+      avisarNoSite(`Cadastro de ${nomeCompleto(solicitante)} aprovado e chamado finalizado.`, { tipo: "sucesso" });
+      janela.close();
+      return;
+    }
 
+    // Rejeitado: agora a conta sai. A Edge Function confere de novo que
+    // quem pede e admin — a regra nao depende desta tela.
+    botaoAprovar.disabled = true;
+    botaoRejeitar.disabled = true;
+
+    const { data: exclusao, error: erroExclusao } = await supabase.functions.invoke("excluir-usuario", {
+      body: { usuario_id: solicitante.id },
+    });
+
+    botaoAprovar.disabled = false;
+    botaoRejeitar.disabled = false;
+
+    // Se a exclusao falhar, a rejeicao ja esta gravada e o chamado ja esta
+    // fechado. Clicar em Rejeitar de novo tenta so o que faltou: o status
+    // nao muda (o trigger nao repete a mensagem), o ticket ja esta fechado,
+    // e a exclusao roda outra vez.
+    if (erroExclusao || !exclusao?.ok) {
+      console.error("Rejeitado, mas a conta não foi excluída:", erroExclusao, exclusao);
+      avisoAprovacao.textContent = exclusao?.erro
+        ?? "Cadastro rejeitado, mas não foi possível excluir a conta. Clique em Rejeitar de novo.";
+      avisoAprovacao.classList.add("aprovacao__aviso--erro");
+      return;
+    }
+
+    // O banco ja soltou o chamado da conta (solicitante_id nulo). A copia
+    // em memoria acompanha: reabrir este ticket em Tickets finalizados nao
+    // pode oferecer Aprovar/Rejeitar para uma conta que nao existe mais.
+    chamado.solicitante_id = null;
+    chamado.usuarios = null;
+
+    avisarNoSite(`Cadastro de ${nomeCompleto(solicitante)} rejeitado e conta excluída.`, { tipo: "sucesso" });
     janela.close();
   }
 
