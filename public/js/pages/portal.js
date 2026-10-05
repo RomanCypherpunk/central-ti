@@ -9,6 +9,7 @@ import { prepararArquivoParaUpload as prepararImagemFundo } from "../componentes
 // mostrarem status, nome e avatar pela mesma regra.
 import {
   derivarStatus,
+  contarPendenciasDoPortal,
   primeiroNome,
   nomeCompleto,
   iniciais,
@@ -783,13 +784,11 @@ function comAnimacaoFlip(elementos, mudarDom) {
   });
 }
 
-// A primeira lista do quadro e a fila de entrada, mesmo se for renomeada.
-// Conta todos os cards dela: um filtro visual nao muda os pendentes na aba.
-function atualizarTituloInbox() {
-  if (!quadro) return;
+let chamadosDoTitulo = [];
+let atendenteDoTitulo = null;
 
-  const primeiraLista = quadro.querySelector(".fila .fila__cards");
-  const quantidade = primeiraLista?.querySelectorAll(":scope > .card").length ?? 0;
+function atualizarTituloPendencias() {
+  const quantidade = contarPendenciasDoPortal(chamadosDoTitulo, atendenteDoTitulo);
   document.title = quantidade
     ? `(${quantidade}) Portal de Chamados - TI`
     : "Portal de Chamados - TI";
@@ -805,7 +804,7 @@ function sincronizarColuna(coluna) {
   const vazia = lista.querySelector(".fila__vazia");
 
   coluna.querySelector(".fila__contador").textContent = visiveis.length;
-  atualizarTituloInbox();
+  atualizarTituloPendencias();
 
   if (visiveis.length) {
     vazia?.remove();
@@ -1256,7 +1255,7 @@ function ligarArrastarLista(filas, chamados) {
       comAnimacaoFlip(todasAsColunas, () => {
         colunaAlvo.insertAdjacentElement(antes ? "afterend" : "beforebegin", colunaArrastada);
       });
-      atualizarTituloInbox();
+      atualizarTituloPendencias();
     }
 
     // `ordem` vira o indice, de 10 em 10: deixa espaco pra alguem soltar
@@ -5099,7 +5098,8 @@ function ligarFundo() {
 //RESUMO NO CABECALHO: SO CONTA O QUE ESTA ABERTO. Chamado fechado nao
 //esta escondido por engano — foi fechado por decisao de quem atende.
 function atualizarResumo(chamados, totalFilas) {
-  atualizarTituloInbox();
+  chamadosDoTitulo = chamados;
+  atualizarTituloPendencias();
   const abertos = chamados.filter((chamado) => !chamado.fechamento_em);
   const texto =
     `${abertos.length} ${abertos.length === 1 ? "chamado aberto" : "chamados abertos"} em ${totalFilas} filas`;
@@ -5452,7 +5452,7 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
     comAnimacaoFlip(atual, () => {
       desejada.forEach((coluna) => quadro.insertBefore(coluna, botaoNovaLista));
     });
-    atualizarTituloInbox();
+    atualizarTituloPendencias();
   }
 
   function aplicarFila(dados) {
@@ -5730,6 +5730,7 @@ async function montarQuadro() {
   }
 
   const atendente = usuarioAtendendo.id;
+  atendenteDoTitulo = atendente;
 
   const [filas, chamados, equipe, cores, terceiros] = await Promise.all([
     supabase.from("filas").select("id, nome, ordem").eq("ativo", true).order("ordem"),
