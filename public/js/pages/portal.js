@@ -3768,7 +3768,8 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     campoFila.textContent = nomeDaFila.get(chamado.fila_id) ?? "Sem fila";
 
     //APROVACAO DE ACESSO NAO USA O CARD PADRAO: ficha diferente, sem
-    //titulo/prioridade/membros/descricao/chat visiveis. O botao Fechar/
+    //titulo/prioridade/membros/descricao visiveis. O chat é compartilhado.
+    //O botao Fechar/
     //Reabrir do topo continua igual a qualquer chamado — Aprovar/Rejeitar
     //fecham automaticamente (o trigger do banco cuida disso), mas o
     //solicitante pode reabrir pelo dele, e a equipe pode fechar/reabrir
@@ -3778,8 +3779,15 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     conteudoPadrao.hidden = aprovacao;
     atualizarBotaoFechar();
 
+    campoMensagem.value = "";
+    // Mensagem e anexos de outro ticket nunca acompanham a aprovação.
+    limparPendentes();
+    aviso.textContent = "";
+    textosRapidos.fechar();
+
     if (aprovacao) {
       desenharAprovacao();
+      desenharConversa();
       desenharAnexos();
       janela.showModal();
       return;
@@ -3787,12 +3795,6 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
 
     campoTitulo.textContent = tituloDoChamado(chamado);
     campoDescricao.textContent = chamado.descricao ?? "";
-    campoMensagem.value = "";
-    // Anexo colado num ticket nao pode ir parar na resposta de outro.
-    limparPendentes();
-    aviso.textContent = "";
-    // Sem isto o painel continuaria aberto por cima do chamado seguinte.
-    textosRapidos.fechar();
     atualizarBotaoFechar();
 
     desenharDados();
