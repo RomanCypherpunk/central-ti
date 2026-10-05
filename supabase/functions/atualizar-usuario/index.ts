@@ -100,6 +100,14 @@ Deno.serve(async (request) => {
     if (target.ativo !== body.ativo) {
       await admin.auth.admin.updateUserById(target.id, { ban_duration: target.ativo ? "none" : "876000h" });
     }
+    // Não expor nomes, e-mail ou o payload nos logs de diagnóstico.
+    console.error("account-update-failed", { code: updateError?.code });
+    if (updateError?.code === "42501") {
+      return reply({ erro: "A alteração foi bloqueada por falta de permissão. Solicite a revisão das permissões do sistema." }, 403);
+    }
+    if (updateError?.code === "23503") {
+      return reply({ erro: "O setor ou a unidade selecionada não existe mais. Recarregue o Painel e selecione novamente." }, 400);
+    }
     return reply({ erro: "Não foi possível salvar a conta." }, 500);
   }
   if (!body.ativo) {

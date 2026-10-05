@@ -1034,7 +1034,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
   async function salvarEdicao() {
     const mudancas = {
       nome: formulario.querySelector('[data-pessoa-campo="nome"]').value.trim(),
-      sobrenome: formulario.querySelector('[data-pessoa-campo="sobrenome"]').value.trim() || null,
+      sobrenome: formulario.querySelector('[data-pessoa-campo="sobrenome"]').value.trim(),
       email: formulario.querySelector('[data-pessoa-campo="email"]').value.trim(),
       setor_id: formulario.querySelector('[data-pessoa-campo="setor_id"]').value || null,
       unidade_id: formulario.querySelector('[data-pessoa-campo="unidade_id"]').value || null,
@@ -1078,7 +1078,18 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     if (error || !gravada) {
       botaoSalvar.disabled = false;
       console.error("Erro ao salvar pessoa:", error);
-      avisar("Não foi possível salvar. Tente de novo.", true);
+      let mensagem = data?.erro;
+      // A Edge devolve o motivo no JSON mesmo quando o status HTTP é de erro.
+      // Falha de rede não tem resposta JSON; mantém uma orientação de conexão.
+      if (!mensagem && error?.context?.clone) {
+        try {
+          const resposta = await error.context.clone().json();
+          mensagem = resposta?.erro;
+        } catch {
+          // Gateway ou rede podem devolver uma resposta sem JSON.
+        }
+      }
+      avisar(typeof mensagem === "string" ? mensagem : "Não foi possível salvar. Verifique a conexão e tente novamente.", true);
       return;
     }
 
