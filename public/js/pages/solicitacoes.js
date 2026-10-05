@@ -9,7 +9,7 @@
 
 import { supabase } from "../config/supabase-config.js";
 import { pintarFoto } from "../componentes/avatar.js";
-import { prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/otimizar-upload.js";
+import { prepararArquivoParaUploadChamado as prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/anexos-chamado.js";
 import { abrirArquivoPrivado } from "../componentes/storage-privado.js";
 
 const lista = document.querySelector("[data-lista]");
@@ -46,7 +46,6 @@ let usuarioId = null;
 let filtroAtivo = "";
 let aberto = null;
 let arquivosPendentes = [];
-const TAMANHO_MAXIMO = 10 * 1024 * 1024;
 
 //MESMA CONSULTA NA CARGA E NO TEMPO REAL: um caminho só para montar o
 //chamado, igual o Portal faz com CAMPOS_CHAMADO.
@@ -594,7 +593,6 @@ campoArquivos.addEventListener("change", () => {
   const recusados = [];
 
   [...campoArquivos.files].forEach((arquivo) => {
-    const aceito = arquivo.type.startsWith("image/") || arquivo.type === "application/pdf";
     try {
       validarArquivoParaUpload(arquivo);
     } catch (erro) {
@@ -602,10 +600,6 @@ campoArquivos.addEventListener("change", () => {
       return;
     }
 
-    if (!aceito || arquivo.size > TAMANHO_MAXIMO) {
-      recusados.push(`${arquivo.name}: somente imagens ou PDF de até 10 MB`);
-      return;
-    }
 
     arquivosPendentes.push(arquivo);
   });

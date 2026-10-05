@@ -1351,3 +1351,10 @@ body {
     transition: none;
   }
 }
+.anexos-retencao {
+  display: block;
+  padding: 0.25rem 0.75rem;
+  color: var(--texto-suave, #6b7280);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}

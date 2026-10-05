@@ -187,9 +187,10 @@
                   placeholder="Escrever para a equipe de TI…"
                   aria-label="Sua resposta"></textarea>
         <div class="responder__pendentes" data-responder-pendentes hidden></div>
+        <small class="anexos-retencao">Vídeos MP4, MOV ou WebM: até 50 MB. Excluídos automaticamente após 3 meses.</small>
         <div class="responder__acoes">
-          <input type="file" data-responder-arquivos accept="image/*,application/pdf" multiple hidden>
-          <button class="responder__anexar" type="button" data-responder-anexar title="Anexar imagens ou PDF (até 10 MB cada)">
+          <input type="file" data-responder-arquivos accept="image/*,application/pdf,video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" multiple hidden>
+          <button class="responder__anexar" type="button" data-responder-anexar title="Imagem: 10 MB; PDF: 5 MB; vídeo: 50 MB (excluído após 3 meses)">
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="m20.5 11.5-8.8 8.8a5 5 0 0 1-7.1-7.1L14 3.8a3.5 3.5 0 0 1 5 5l-9.4 9.4a2 2 0 0 1-2.8-2.8l8.7-8.7"/>
             </svg>

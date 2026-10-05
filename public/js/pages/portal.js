@@ -3,7 +3,8 @@
 import { supabase } from "../config/supabase-config.js";
 import { pintarImagemPrivada, blobImagemPrivada, invalidarStoragePrivado } from "../componentes/storage-privado.js";
 import { inscreverPush, limparPushNoLogout } from "../componentes/push-sessao.js";
-import { prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/otimizar-upload.js";
+import { prepararArquivoParaUploadChamado as prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/anexos-chamado.js";
+import { prepararArquivoParaUpload as prepararImagemFundo } from "../componentes/otimizar-upload.js";
 // Peças que o Painel também usa: moram em componentes/ para as duas telas
 // mostrarem status, nome e avatar pela mesma regra.
 import {
@@ -2788,13 +2789,21 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
   }
 
   function adicionarPendentes(arquivos) {
+    const recusados = [];
     arquivos.forEach((arquivo) => {
+      try {
+        validarArquivoParaUpload(arquivo);
+      } catch (erro) {
+        recusados.push(erro.message);
+        return;
+      }
       anexosPendentes.push({
         arquivo,
         previa: arquivo.type.startsWith("image/") ? URL.createObjectURL(arquivo) : null,
       });
     });
 
+    if (recusados.length) avisar(recusados.join(". "), true);
     desenharPendentes();
   }
 
@@ -4964,7 +4973,7 @@ function ligarFundo() {
     avisar("");
 
     const { arquivo: arquivoOriginal } = escolhido;
-    const arquivo = await prepararArquivoParaUpload(arquivoOriginal);
+    const arquivo = await prepararImagemFundo(arquivoOriginal);
     const extensao = (arquivo.name.split(".").pop() || "jpg").toLowerCase();
     const caminho = `${usuarioId}.${extensao}`;
 
