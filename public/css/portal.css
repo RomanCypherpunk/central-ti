@@ -3612,17 +3612,21 @@ body.portal-pagina {
 
 /* ==========================================================================
    TICKETS FINALIZADOS
+   Busca inteligente em cima (ver componentes/busca-texto.js), filtros de
+   periodo e "meus atendimentos", e cada chamado como um cartao com numero,
+   categoria, fila, quem pediu, onde, quando e quem atendeu. Tudo por
+   variavel de tema: o mesmo desenho vale no claro e no escuro.
    ========================================================================== */
 
 .finalizados {
-  width: min(38rem, 92vw);
+  width: min(54rem, 94vw);
   /*Mesma conta do .detalhe (ver comentario la): o zoom do .portal se
     propaga visualmente ate este dialog, mas dvh mede a tela real —
     dividir aqui devolve a mesma proporcao final em qualquer zoom.*/
-  max-height: calc(80dvh / var(--zoom-portal, 1));
+  max-height: calc(86dvh / var(--zoom-portal, 1));
   padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: 16px;
   background-color: var(--superficie);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
   overflow: hidden;
@@ -3635,8 +3639,11 @@ body.portal-pagina {
 .finalizados__conteudo {
   display: flex;
   flex-direction: column;
-  max-height: calc(80dvh / var(--zoom-portal, 1));
+  height: calc(86dvh / var(--zoom-portal, 1));
+  max-height: calc(86dvh / var(--zoom-portal, 1));
 }
+
+/* --- CABECALHO ------------------------------------------------------------ */
 
 .finalizados__topo {
   display: flex;
@@ -3644,87 +3651,393 @@ body.portal-pagina {
   justify-content: space-between;
   gap: 1rem;
   flex-shrink: 0;
-  padding: 0.75rem 0.875rem;
-  border-bottom: 1px solid var(--borda-suave);
+  padding: 1.125rem 1.25rem 0.875rem;
+}
+
+.finalizados__cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.finalizados__icone {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.375rem;
+  height: 2.375rem;
+  border-radius: 10px;
+  background-color: var(--realce);
+  color: var(--laranja);
 }
 
 .finalizados__titulo {
   margin: 0;
   font-family: "Sora", system-ui, sans-serif;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--texto);
 }
 
-.finalizados__lista {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  padding: 0.75rem 0.875rem;
-  overflow-y: auto;
-}
-
-.finalizados__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.625rem 0.75rem;
-  border: 1px solid var(--borda);
-  border-radius: 8px;
-}
-
-.finalizados__item-info {
-  min-width: 0;
-}
-
-.finalizados__item-titulo {
-  display: block;
+.finalizados__subtitulo {
+  margin: 0.125rem 0 0;
   font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--texto);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.finalizados__item-meta {
-  display: block;
-  margin-top: 0.125rem;
-  font-size: 0.6875rem;
   color: var(--texto-3);
 }
 
-.finalizados__item-acoes {
+/* --- BUSCA E FILTROS --------------------------------------------------------- */
+
+.finalizados__ferramentas {
   display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
   flex-shrink: 0;
+  padding: 0 1.25rem 0.875rem;
+  border-bottom: 1px solid var(--borda-suave);
+}
+
+.finalizados__busca {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background-color: var(--superficie-3);
+  color: var(--texto-3);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.finalizados__busca:focus-within {
+  border-color: var(--laranja);
+  background-color: var(--superficie);
+  box-shadow: 0 0 0 3px var(--realce);
+  color: var(--laranja);
+}
+
+.finalizados__busca input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.6875rem 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: var(--texto);
+}
+
+.finalizados__busca input::placeholder {
+  color: var(--texto-4);
+}
+
+/*O "x" nativo do type=search destoa do resto: Esc ja limpa (ver o JS).*/
+.finalizados__busca input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+.finalizados__atalho {
+  padding: 0.0625rem 0.4375rem;
+  border: 1px solid var(--borda);
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  color: var(--texto-4);
+}
+
+.finalizados__busca:focus-within .finalizados__atalho {
+  visibility: hidden;
+}
+
+.finalizados__filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.375rem;
 }
 
-.finalizados__acao {
-  padding: 0.3125rem 0.625rem;
+.finalizados__filtro {
+  padding: 0.3125rem 0.75rem;
   border: 1px solid var(--borda);
-  border-radius: 5px;
+  border-radius: 999px;
   background: none;
   font-family: inherit;
-  font-size: 0.6875rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--texto-2);
   cursor: pointer;
   transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 }
 
-.finalizados__acao:hover {
-  border-color: var(--laranja);
+.finalizados__filtro:hover {
+  border-color: var(--realce-borda);
   color: var(--laranja);
-  background-color: var(--realce);
 }
 
-.finalizados__vazio {
-  padding: 1.5rem 0.5rem;
+.finalizados__filtro--ativo,
+.finalizados__filtro--ativo:hover {
+  border-color: var(--laranja);
+  background-color: var(--laranja);
+  color: #fff;
+}
+
+.finalizados__divisor {
+  width: 1px;
+  height: 1.125rem;
+  margin: 0 0.25rem;
+  background-color: var(--borda);
+}
+
+/* --- LISTA ------------------------------------------------------------------- */
+
+.finalizados__lista {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
+  padding: 0.5rem 1.25rem 1.25rem;
+  overflow-y: auto;
+}
+
+/*FAIXA DE TEMPO (Hoje, Ontem, Ultimos 7 dias…): gruda no topo enquanto a
+  lista rola, para saber sempre em que periodo se esta.*/
+.finalizados__faixa {
+  position: sticky;
+  top: -0.5rem;
+  z-index: 1;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0 0.25rem;
+  background-color: var(--superficie);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+
+.finalizados__faixa:first-letter {
+  text-transform: uppercase;
+}
+
+.finalizados__aproximado {
+  margin: 0.25rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background-color: var(--superficie-3);
   font-size: 0.75rem;
-  text-align: center;
+  color: var(--texto-3);
+}
+
+/* --- CARTAO DO CHAMADO -------------------------------------------------------- */
+
+.finalizado {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  background-color: var(--superficie);
+  box-shadow: var(--sombra-card);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.finalizado:hover {
+  border-color: var(--realce-borda);
+  background-color: var(--realce);
+  box-shadow: var(--sombra-card-alta);
+  transform: translateY(-1px);
+}
+
+.finalizado:focus-visible {
+  outline: 2px solid var(--laranja);
+  outline-offset: 2px;
+}
+
+.finalizado__principal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.finalizado__selos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.finalizado__numero {
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--laranja);
+}
+
+.finalizado__selo {
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  background-color: var(--superficie-2);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--texto-2);
+}
+
+.finalizado__selo--fila {
+  border: 1px solid var(--borda);
+  background: none;
+}
+
+.finalizado__titulo {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--texto);
+}
+
+/*POR QUE APARECEU: trecho da descricao ou da conversa com a palavra.*/
+.finalizado__trecho {
+  display: -webkit-box;
+  margin: 0;
+  padding: 0.375rem 0.625rem;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  border-left: 2px solid var(--laranja);
+  border-radius: 0 6px 6px 0;
+  background-color: var(--superficie-3);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--texto-2);
+}
+
+.finalizado__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--texto-3);
+}
+
+.finalizado__meta > * + *::before {
+  content: "·";
+  margin: 0 0.4375rem;
   color: var(--texto-4);
+}
+
+.finalizado mark {
+  padding: 0 0.125rem;
+  border-radius: 3px;
+  background-color: rgba(221, 91, 18, 0.18);
+  color: inherit;
+}
+
+.finalizado__lado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.finalizado__membros {
+  justify-content: flex-end;
+}
+
+.finalizado__reabrir {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background-color: var(--superficie);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--texto-2);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.finalizado__reabrir:hover {
+  border-color: var(--laranja);
+  color: var(--laranja);
+}
+
+/* --- VAZIO E "MOSTRAR MAIS" ----------------------------------------------------- */
+
+.finalizados__vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.finalizados__vazio strong {
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--texto-2);
+}
+
+.finalizados__vazio span {
+  font-size: 0.75rem;
+  color: var(--texto-4);
+}
+
+.finalizados__mais {
+  margin-top: 0.25rem;
+  padding: 0.625rem;
+  border: 1px dashed var(--borda);
+  border-radius: 10px;
+  background: none;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--texto-2);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.finalizados__mais:hover {
+  border-color: var(--laranja);
+  color: var(--laranja);
+}
+
+/*CELULAR: quem atendeu e o Reabrir descem para baixo do texto.*/
+@media (max-width: 640px) {
+  .finalizado {
+    grid-template-columns: 1fr;
+  }
+
+  .finalizado__lado {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finalizado,
+  .finalizado:hover {
+    transition: none;
+    transform: none;
+  }
 }
 
 /* ==========================================================================

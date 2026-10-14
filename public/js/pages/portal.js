@@ -5,6 +5,7 @@ import { pintarImagemPrivada, blobImagemPrivada, invalidarStoragePrivado } from 
 import { inscreverPush, limparPushNoLogout } from "../componentes/push-sessao.js";
 import { prepararArquivoParaUploadChamado as prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/anexos-chamado.js";
 import { prepararArquivoParaUpload as prepararImagemFundo } from "../componentes/otimizar-upload.js";
+import { criarIndiceDeBusca, destacar, trechoEmVolta } from "../componentes/busca-texto.js";
 // Peças que o Painel também usa: moram em componentes/ para as duas telas
 // mostrarem status, nome e avatar pela mesma regra.
 import {
@@ -4662,69 +4663,365 @@ function ligarExportar(chamados, filas, carregarFechados) {
 //TICKETS FINALIZADOS: LISTA OS CHAMADOS COM fechamento_em PREENCHIDO.
 //Reabrir devolve o card ao quadro, na mesma fila de onde saiu — fila_id
 //nunca muda ao fechar, entao nao ha ambiguidade de para onde ele volta.
-function ligarFinalizados(chamados, filas, detalhe, carregarFechados) {
+function ligarFinalizados(chamados, filas, detalhe, carregarFechados, atendente = null) {
   const janela = document.querySelector("[data-finalizados]");
   const lista = document.querySelector("[data-finalizados-lista]");
+  const campoBusca = document.querySelector("[data-finalizados-busca]");
+  const resumoDaJanela = document.querySelector("[data-finalizados-resumo]");
+  const botoesPeriodo = janela.querySelectorAll("[data-finalizados-periodo]");
+  const botaoMeus = janela.querySelector("[data-finalizados-meus]");
   const nomeDaFila = leitorDeNomeDaFila(filas);
 
-  function desenhar() {
-    const fechados = chamados
-      .filter((chamado) => chamado.fechamento_em)
-      .sort((a, b) => new Date(b.fechamento_em) - new Date(a.fechamento_em));
+  // Quantos cards de cada vez. Com milhares de fechados, desenhar todos de
+  // uma vez travava a abertura da janela; o resto vem no "Mostrar mais".
+  const POR_PAGINA = 40;
 
-    lista.replaceChildren();
+  const estado = { consulta: "", periodo: null, meus: false, limite: POR_PAGINA };
 
-    if (!fechados.length) {
-      const vazio = document.createElement("p");
-      vazio.className = "finalizados__vazio";
-      vazio.textContent = "Nenhum chamado finalizado ainda";
-      lista.appendChild(vazio);
-      return;
-    }
+  /* ------------------------------------------------------------------------
+     INDICE DA BUSCA. Cada chamado fechado vira um documento com pesos por
+     campo: o numero e o assunto dizem do que o chamado trata; a conversa
+     pode so mencionar a palavra de passagem.
 
-    fechados.forEach((chamado) => lista.appendChild(montarItem(chamado)));
+     O indice e mantido aos poucos: um chamado so e (re)indexado quando algo
+     nele mudou (assinatura). Na primeira abertura, com milhares de chamados,
+     a indexacao vai em lotes, devolvendo a tela entre eles — a lista ja
+     aparece e a busca fica completa em seguida.
+     ------------------------------------------------------------------------ */
+
+  const indice = criarIndiceDeBusca();
+  const assinaturaIndexada = new Map();
+  let indexando = null;
+
+  function textoDaConversa(chamado) {
+    // Mensagem automatica do sistema nao diz nada do problema.
+    return (chamado.comentarios ?? [])
+      .filter((comentario) => comentario.tipo !== "sistema")
+      .map((comentario) => comentario.texto ?? "")
+      .join("\n");
   }
 
-  function montarItem(chamado) {
-    const item = document.createElement("div");
-    item.className = "finalizados__item";
+  function camposDoChamado(chamado) {
+    const membros = (chamado.chamado_membros ?? [])
+      .map((membro) => nomeCompleto(membro.usuarios) ?? "")
+      .concat((chamado.chamado_terceiros ?? []).map((vinculo) => vinculo.terceiros?.nome ?? ""));
 
-    const info = document.createElement("div");
-    info.className = "finalizados__item-info";
+    return [
+      { texto: String(chamado.numero ?? ""), peso: 6 },
+      { texto: tituloDoChamado(chamado), peso: 4 },
+      { texto: chamado.categorias?.nome, peso: 3 },
+      { texto: nomeCompleto(chamado.usuarios), peso: 3 },
+      { texto: chamado.usuarios?.email, peso: 2 },
+      { texto: membros.join(" "), peso: 2 },
+      { texto: chamado.unidades?.nome, peso: 2 },
+      { texto: nomeDaFila.get(chamado.fila_id), peso: 1.5 },
+      { texto: chamado.descricao, peso: 1.5 },
+      { texto: textoDaConversa(chamado), peso: 1 },
+    ];
+  }
 
-    const titulo = document.createElement("span");
-    titulo.className = "finalizados__item-titulo";
-    titulo.textContent = tituloDoChamado(chamado);
+  function assinatura(chamado) {
+    return [
+      chamado.fechamento_em, chamado.titulo, chamado.fila_id, chamado.descricao?.length,
+      chamado.comentarios?.length, chamado.chamado_membros?.length, chamado.chamado_terceiros?.length,
+    ].join("|");
+  }
 
-    const meta = document.createElement("span");
-    meta.className = "finalizados__item-meta";
-    meta.textContent =
-      `${nomeDaFila.get(chamado.fila_id) ?? "Sem fila"} • Fechado em ${formatarData(chamado.fechamento_em)}`;
+  function fechados() {
+    return chamados.filter((chamado) => chamado.fechamento_em);
+  }
 
-    info.append(titulo, meta);
+  function indexarPendentes() {
+    if (indexando) return indexando;
 
-    const acoes = document.createElement("div");
-    acoes.className = "finalizados__item-acoes";
+    indexando = (async () => {
+      const pendentes = fechados().filter((chamado) => assinaturaIndexada.get(chamado.id) !== assinatura(chamado));
+      const LOTE = 400;
 
-    const ver = document.createElement("button");
-    ver.type = "button";
-    ver.className = "finalizados__acao";
-    ver.textContent = "Ver";
-    ver.addEventListener("click", () => {
-      janela.close();
-      detalhe.abrir(chamado);
-    });
+      for (let i = 0; i < pendentes.length; i += LOTE) {
+        pendentes.slice(i, i + LOTE).forEach((chamado) => {
+          indice.adicionar(chamado.id, camposDoChamado(chamado));
+          assinaturaIndexada.set(chamado.id, assinatura(chamado));
+        });
+
+        // Devolve a tela entre um lote e outro.
+        if (i + LOTE < pendentes.length) await new Promise((pronto) => setTimeout(pronto, 0));
+      }
+    })().finally(() => { indexando = null; });
+
+    return indexando;
+  }
+
+  /* ------------------------------------------------------------------------
+     FILTRO + BUSCA + ORDEM
+     ------------------------------------------------------------------------ */
+
+  function passaNosFiltros(chamado) {
+    if (estado.periodo) {
+      const limite = Date.now() - estado.periodo * 24 * 60 * 60 * 1000;
+
+      if (new Date(chamado.fechamento_em).getTime() < limite) return false;
+    }
+
+    if (estado.meus) {
+      const atendeu = (chamado.chamado_membros ?? []).some((membro) => membro.usuario_id === atendente);
+
+      if (!atendeu) return false;
+    }
+
+    return true;
+  }
+
+  function resultado() {
+    const candidatos = fechados().filter(passaNosFiltros);
+    const busca = indice.buscar(estado.consulta);
+    const maisRecente = (a, b) => new Date(b.fechamento_em) - new Date(a.fechamento_em);
+
+    if (!busca.ids) {
+      return { itens: candidatos.sort(maisRecente), achadas: busca.achadas, aproximado: false, buscando: false };
+    }
+
+    const itens = candidatos
+      .filter((chamado) => busca.ids.has(chamado.id))
+      .sort((a, b) => (busca.ids.get(b.id) - busca.ids.get(a.id)) || maisRecente(a, b));
+
+    return { itens, achadas: busca.achadas, aproximado: busca.aproximado, buscando: true };
+  }
+
+  /* ------------------------------------------------------------------------
+     DESENHO
+     ------------------------------------------------------------------------ */
+
+  const tempoRelativo = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
+
+  function haQuantoTempo(iso) {
+    const dias = Math.round((new Date(iso) - Date.now()) / (24 * 60 * 60 * 1000));
+
+    if (dias === 0) {
+      const horas = Math.round((new Date(iso) - Date.now()) / (60 * 60 * 1000));
+
+      return horas === 0 ? "agora há pouco" : tempoRelativo.format(horas, "hour");
+    }
+    if (Math.abs(dias) < 30) return tempoRelativo.format(dias, "day");
+    if (Math.abs(dias) < 365) return tempoRelativo.format(Math.round(dias / 30), "month");
+
+    return tempoRelativo.format(Math.round(dias / 365), "year");
+  }
+
+  // Sem busca, a lista vem do mais recente para o mais antigo, separada em
+  // faixas — fica facil achar "aquele de semana passada".
+  function faixaDoTempo(iso) {
+    const data = new Date(iso);
+    const hoje = new Date();
+    const inicioDeHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).getTime();
+    const DIA = 24 * 60 * 60 * 1000;
+
+    if (data.getTime() >= inicioDeHoje) return "Hoje";
+    if (data.getTime() >= inicioDeHoje - DIA) return "Ontem";
+    if (data.getTime() >= inicioDeHoje - 6 * DIA) return "Últimos 7 dias";
+    if (data.getMonth() === hoje.getMonth() && data.getFullYear() === hoje.getFullYear()) return "Este mês";
+
+    return data.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  }
+
+  function montarItem(chamado, achadas) {
+    const item = document.createElement("article");
+    item.className = "finalizado";
+    item.tabIndex = 0;
+    item.setAttribute("role", "button");
+    item.setAttribute("aria-label", `Abrir ${tituloDoChamado(chamado)}`);
+
+    const principal = document.createElement("div");
+    principal.className = "finalizado__principal";
+
+    const selos = document.createElement("div");
+    selos.className = "finalizado__selos";
+
+    const numero = document.createElement("span");
+    numero.className = "finalizado__numero";
+    numero.textContent = `#${chamado.numero ?? "—"}`;
+    selos.appendChild(numero);
+
+    if (chamado.categorias?.nome) {
+      const categoria = document.createElement("span");
+      categoria.className = "finalizado__selo";
+      categoria.textContent = chamado.categorias.nome;
+      selos.appendChild(categoria);
+    }
+
+    const fila = document.createElement("span");
+    fila.className = "finalizado__selo finalizado__selo--fila";
+    fila.textContent = nomeDaFila.get(chamado.fila_id) ?? "Sem fila";
+    selos.appendChild(fila);
+
+    const titulo = document.createElement("h3");
+    titulo.className = "finalizado__titulo";
+    destacar(titulo, tituloDoChamado(chamado), achadas);
+
+    principal.append(selos, titulo);
+
+    // POR QUE ESTE CHAMADO APARECEU: se a palavra nao esta no assunto, um
+    // trecho da descricao ou da conversa mostra onde ela esta.
+    if (achadas?.size && !titulo.querySelector("mark")) {
+      const trecho = trechoEmVolta(chamado.descricao, achadas) ?? trechoEmVolta(textoDaConversa(chamado), achadas);
+
+      if (trecho) {
+        const linha = document.createElement("p");
+        linha.className = "finalizado__trecho";
+        destacar(linha, trecho, achadas);
+        principal.appendChild(linha);
+      }
+    }
+
+    const meta = document.createElement("p");
+    meta.className = "finalizado__meta";
+
+    const quem = document.createElement("span");
+    destacar(quem, nomeCompleto(chamado.usuarios) ?? "Conta excluída", achadas);
+
+    const onde = document.createElement("span");
+    destacar(onde, chamado.unidades?.nome ?? "Sem unidade", achadas);
+
+    const quando = document.createElement("time");
+    quando.dateTime = chamado.fechamento_em;
+    quando.title = `Fechado em ${formatarData(chamado.fechamento_em)}`;
+    quando.textContent = `fechado ${haQuantoTempo(chamado.fechamento_em)}`;
+
+    meta.append(quem, onde, quando);
+    principal.appendChild(meta);
+
+    const lado = document.createElement("div");
+    lado.className = "finalizado__lado";
+
+    // Quem atendeu, com a mesma foto e cor dos cards do quadro.
+    const membros = document.createElement("div");
+    membros.className = "card__membros finalizado__membros";
+    desenharMembrosDoCard(membros, chamado.chamado_membros ?? [], chamado.chamado_terceiros ?? []);
 
     const reabrir = document.createElement("button");
     reabrir.type = "button";
-    reabrir.className = "finalizados__acao";
-    reabrir.textContent = "Reabrir";
-    reabrir.addEventListener("click", () => reabrirChamado(chamado));
+    reabrir.className = "finalizado__reabrir";
+    reabrir.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">'
+      + '<path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    reabrir.append("Reabrir");
+    reabrir.addEventListener("click", (evento) => {
+      evento.stopPropagation();
+      reabrirChamado(chamado);
+    });
 
-    acoes.append(ver, reabrir);
-    item.append(info, acoes);
+    lado.append(membros, reabrir);
+    item.append(principal, lado);
+
+    const abrir = () => {
+      janela.close();
+      detalhe.abrir(chamado);
+    };
+
+    item.addEventListener("click", abrir);
+    item.addEventListener("keydown", (evento) => {
+      if (evento.key === "Enter" || evento.key === " ") {
+        evento.preventDefault();
+        abrir();
+      }
+    });
 
     return item;
+  }
+
+  function mensagemVazia(titulo, dica) {
+    const vazio = document.createElement("div");
+    vazio.className = "finalizados__vazio";
+
+    const forte = document.createElement("strong");
+    forte.textContent = titulo;
+    vazio.appendChild(forte);
+
+    if (dica) {
+      const texto = document.createElement("span");
+      texto.textContent = dica;
+      vazio.appendChild(texto);
+    }
+
+    return vazio;
+  }
+
+  function desenhar() {
+    const total = fechados().length;
+    const { itens, achadas, aproximado, buscando } = resultado();
+
+    lista.replaceChildren();
+
+    // Resumo do topo: quantos existem e quantos a busca/filtro mostra.
+    const filtrando = buscando || estado.periodo || estado.meus;
+    const doTotal = `${total} ${total === 1 ? "chamado finalizado" : "chamados finalizados"}`;
+
+    resumoDaJanela.textContent = filtrando
+      ? `${itens.length} ${itens.length === 1 ? "encontrado" : "encontrados"} de ${doTotal}`
+      : doTotal;
+
+    if (!total) {
+      lista.appendChild(mensagemVazia("Nenhum chamado finalizado ainda"));
+      return;
+    }
+
+    if (!itens.length) {
+      lista.appendChild(mensagemVazia(
+        "Nada encontrado",
+        buscando
+          ? "Tente outra palavra, o número do ticket ou o nome de quem pediu."
+          : "Nenhum chamado neste filtro.",
+      ));
+      return;
+    }
+
+    if (aproximado) {
+      const aviso = document.createElement("p");
+      aviso.className = "finalizados__aproximado";
+      aviso.textContent = "Nenhum chamado tem todas as palavras — mostrando os que chegam mais perto.";
+      lista.appendChild(aviso);
+    }
+
+    let faixaAtual = null;
+
+    itens.slice(0, estado.limite).forEach((chamado) => {
+      // Faixas de tempo so sem busca: com busca, a ordem e de relevancia.
+      if (!buscando) {
+        const faixa = faixaDoTempo(chamado.fechamento_em);
+
+        if (faixa !== faixaAtual) {
+          const cabecalho = document.createElement("h4");
+          cabecalho.className = "finalizados__faixa";
+          cabecalho.textContent = faixa;
+          lista.appendChild(cabecalho);
+          faixaAtual = faixa;
+        }
+      }
+
+      lista.appendChild(montarItem(chamado, achadas));
+    });
+
+    if (itens.length > estado.limite) {
+      const mais = document.createElement("button");
+      mais.type = "button";
+      mais.className = "finalizados__mais";
+      mais.textContent = `Mostrar mais (${itens.length - estado.limite} restantes)`;
+      mais.addEventListener("click", () => {
+        estado.limite += POR_PAGINA;
+        desenhar();
+      });
+      lista.appendChild(mais);
+    }
+  }
+
+  // Desenha ja, e de novo quando a indexacao terminar — assim a lista nunca
+  // espera o indice, e a busca fica completa logo depois.
+  async function atualizarComIndice() {
+    desenhar();
+
+    if (fechados().some((chamado) => assinaturaIndexada.get(chamado.id) !== assinatura(chamado))) {
+      await indexarPendentes();
+      if (janela.open) desenhar();
+    }
   }
 
   //REABRIR PELA LISTA: mesmo caminho do botao do detalhe (grava, devolve o
@@ -4740,11 +5037,74 @@ function ligarFinalizados(chamados, filas, detalhe, carregarFechados) {
       acao: {
         rotulo: "Desfazer",
         aoClicar: async () => {
-          if (await detalhe.definirFechamento(chamado, true) && janela.open) desenhar();
+          if (await detalhe.definirFechamento(chamado, true) && janela.open) atualizarComIndice();
         },
       },
     });
   }
+
+  /* ------------------------------------------------------------------------
+     CONTROLES
+     ------------------------------------------------------------------------ */
+
+  let esperaDigitacao = null;
+
+  campoBusca.addEventListener("input", () => {
+    clearTimeout(esperaDigitacao);
+    esperaDigitacao = setTimeout(() => {
+      estado.consulta = campoBusca.value;
+      estado.limite = POR_PAGINA;
+      lista.scrollTop = 0;
+      desenhar();
+    }, 120);
+  });
+
+  // Enter na busca abre o primeiro resultado.
+  campoBusca.addEventListener("keydown", (evento) => {
+    if (evento.key !== "Enter") return;
+
+    evento.preventDefault();
+    lista.querySelector(".finalizado")?.click();
+  });
+
+  botoesPeriodo.forEach((botao) => {
+    botao.addEventListener("click", () => {
+      estado.periodo = Number(botao.dataset.finalizadosPeriodo) || null;
+      estado.limite = POR_PAGINA;
+      botoesPeriodo.forEach((outro) => outro.classList.toggle("finalizados__filtro--ativo", outro === botao));
+      desenhar();
+    });
+  });
+
+  botaoMeus.addEventListener("click", () => {
+    estado.meus = !estado.meus;
+    estado.limite = POR_PAGINA;
+    botaoMeus.classList.toggle("finalizados__filtro--ativo", estado.meus);
+    botaoMeus.setAttribute("aria-pressed", String(estado.meus));
+    desenhar();
+  });
+
+  // Sem quem esta logado nao ha "meus".
+  if (!atendente) botaoMeus.hidden = true;
+
+  // ATALHOS: "/" leva para a busca; Esc com texto limpa a busca em vez de
+  // fechar a janela (fechar sem querer perderia o que foi digitado).
+  janela.addEventListener("keydown", (evento) => {
+    if (evento.key === "/" && document.activeElement !== campoBusca) {
+      evento.preventDefault();
+      campoBusca.focus();
+    }
+  });
+
+  janela.addEventListener("cancel", (evento) => {
+    if (!campoBusca.value) return;
+
+    evento.preventDefault();
+    campoBusca.value = "";
+    estado.consulta = "";
+    estado.limite = POR_PAGINA;
+    desenhar();
+  });
 
   document.querySelector("[data-finalizados-fechar]")
     .addEventListener("click", () => janela.close());
@@ -4761,27 +5121,28 @@ function ligarFinalizados(chamados, filas, detalhe, carregarFechados) {
   // nao se repete.
   document.querySelector("[data-acao-finalizados]")
     .addEventListener("click", async () => {
+      estado.limite = POR_PAGINA;
       desenhar();
-
-      const aviso = document.createElement("p");
-      aviso.className = "finalizados__vazio";
-      aviso.textContent = "Carregando chamados finalizados…";
 
       // Só avisa se ainda não há nada para mostrar — com a lista já
       // preenchida, trocá-la por "Carregando" seria um passo para trás.
       if (!chamados.some((chamado) => chamado.fechamento_em)) {
-        lista.replaceChildren(aviso);
+        resumoDaJanela.textContent = "Carregando…";
+        lista.replaceChildren(mensagemVazia("Carregando chamados finalizados…"));
       }
 
+      // A busca ja esta pronta para digitar assim que a janela abre: o
+      // autofocus do campo faz o showModal focar nele.
+
       await carregarFechados();
-      desenhar();
+      atualizarComIndice();
     });
 
   // Tempo real: com a lista aberta, quem fecha ou reabre em outra tela
   // aparece (ou some) na hora. Fechada, ela ja se recalcula ao abrir.
   return {
     atualizar() {
-      if (janela.open) desenhar();
+      if (janela.open) atualizarComIndice();
     },
   };
 }
@@ -5831,7 +6192,7 @@ async function montarQuadro() {
   ligarQuadroMenu(exportar);
   ligarNotificacoes(atendente, usuarioAtendendo.notificacoesAtivas);
   ligarFiltros(chamados.data, equipe.data ?? [], filas.data);
-  finalizados = ligarFinalizados(chamados.data, filas.data, detalhe, carregarFechados);
+  finalizados = ligarFinalizados(chamados.data, filas.data, detalhe, carregarFechados, atendente);
   ligarFundo();
   ligarListaNova(filas.data);
   ligarArrastarLista(filas.data, chamados.data);
