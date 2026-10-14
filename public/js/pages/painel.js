@@ -832,6 +832,24 @@ const TAMANHO_MAXIMO_FOTO = 2 * 1024 * 1024;
 //dialog (abrir/criar/salvar/foto) UMA unica vez — ligar duas vezes
 //duplicaria cada envio de formulário — e devolve funções que cada lista
 //(ligarListaDePessoas) chama para abrir o dialog na pessoa certa.
+//MENSAGEM DE ERRO DA EDGE FUNCTION. Quando a funcao responde com erro
+//(4xx/5xx), o supabase-js entrega `data` vazio e guarda a resposta em
+//error.context — sem ler esse corpo, a tela so tinha um "tente de novo"
+//generico para qualquer motivo, e o motivo real ficava escondido.
+async function mensagemDaFuncao(error, data, padrao) {
+  if (data?.erro) return data.erro;
+
+  try {
+    const corpo = await error?.context?.json?.();
+
+    if (corpo?.erro) return corpo.erro;
+  } catch {
+    // Resposta sem JSON (queda de rede, timeout): fica a mensagem padrao.
+  }
+
+  return padrao;
+}
+
 function ligarPessoaDialog(setores, unidades, pessoas) {
   const janela = document.querySelector("[data-pessoa]");
   const formulario = document.querySelector("[data-pessoa-form]");
@@ -1078,7 +1096,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     if (error || !gravada) {
       botaoSalvar.disabled = false;
       console.error("Erro ao salvar pessoa:", error);
-      avisar("Não foi possível salvar. Tente de novo.", true);
+      avisar(await mensagemDaFuncao(error, data, "Não foi possível salvar. Tente de novo."), true);
       return;
     }
 
@@ -1114,7 +1132,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
       // A linha na tabela ja mostra "Rejeitado"; salvar de novo tenta so a
       // exclusao que faltou.
       aoSalvar(editando, false);
-      avisar(exclusao?.erro ?? "Cadastro rejeitado, mas não foi possível excluir a conta. Salve de novo.", true);
+      avisar(await mensagemDaFuncao(erroExclusao, exclusao, "Cadastro rejeitado, mas não foi possível excluir a conta. Salve de novo."), true);
       return;
     }
 
@@ -1165,7 +1183,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     // corpo JSON; por isso a mensagem soa generica quando o servidor negou.
     if (error || !data?.usuario) {
       console.error("Erro ao criar pessoa:", error, data);
-      avisar(data?.erro ?? "Não foi possível criar a conta. Tente de novo.", true);
+      avisar(await mensagemDaFuncao(error, data, "Não foi possível criar a conta. Tente de novo."), true);
       return;
     }
 
@@ -1197,7 +1215,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
 
     if (error || !data?.ok) {
       console.error("Erro ao excluir conta:", error);
-      avisar(data?.erro ?? "Não foi possível excluir a conta.", true);
+      avisar(await mensagemDaFuncao(error, data, "Não foi possível excluir a conta."), true);
       return;
     }
 

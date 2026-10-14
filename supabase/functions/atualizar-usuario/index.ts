@@ -94,12 +94,25 @@ Deno.serve(async (request) => {
     email: body.email.trim(), setor_id: body.setor_id, unidade_id: body.unidade_id,
     perfil: body.perfil, status_aprovacao: body.status_aprovacao, ativo: body.ativo,
   };
-  const { data: updated, error: updateError } = await admin.from("usuarios").update(changes).eq("id", target.id)
+  // GRAVA COMO O ADMIN QUE CHAMOU, e nao com a service_role. Os gatilhos de
+  // usuarios (protege_perfil_usuario, bloquear_autoaprovacao,
+  // proteger_unidade_usuario) decidem pelo auth.uid() — que com a
+  // service_role e nulo, entao para eles "ninguem da equipe de TI" estava
+  // gravando. Resultado: trocar unidade, setor, perfil, cadastro ou conta
+  // ativa pela ficha do Painel sempre falhava; so nome e e-mail passavam.
+  // Com o token de quem chamou, gatilhos e RLS enxergam um admin de verdade
+  // e fazem as mesmas conferencias de uma edicao direta. A service_role
+  // continua so onde precisa: o bloqueio de login (auth.admin) acima.
+  const { data: updated, error: updateError } = await caller.from("usuarios").update(changes).eq("id", target.id)
     .select("id,nome,sobrenome,email,setor_id,unidade_id,perfil,ativo,status_aprovacao,foto_path").single();
   if (updateError || !updated) {
     if (target.ativo !== body.ativo) {
       await admin.auth.admin.updateUserById(target.id, { ban_duration: target.ativo ? "none" : "876000h" });
     }
+    // 42501 = um gatilho recusou (ex.: rejeitar a propria conta). A mensagem
+    // dele ja e em portugues e diz o motivo — melhor que "tente de novo".
+    if (updateError?.code === "42501") return reply({ erro: updateError.message }, 403);
+    console.error("account-update-failed", updateError?.code);
     return reply({ erro: "Não foi possível salvar a conta." }, 500);
   }
   if (!body.ativo) {
