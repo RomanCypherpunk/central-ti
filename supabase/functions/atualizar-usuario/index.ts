@@ -109,10 +109,16 @@ Deno.serve(async (request) => {
     if (target.ativo !== body.ativo) {
       await admin.auth.admin.updateUserById(target.id, { ban_duration: target.ativo ? "none" : "876000h" });
     }
+    // Não expor nomes, e-mail ou o payload nos logs de diagnóstico.
+    console.error("account-update-failed", { code: updateError?.code });
     // 42501 = um gatilho recusou (ex.: rejeitar a propria conta). A mensagem
-    // dele ja e em portugues e diz o motivo — melhor que "tente de novo".
-    if (updateError?.code === "42501") return reply({ erro: updateError.message }, 403);
-    console.error("account-update-failed", updateError?.code);
+    // dele ja e em portugues e diz o motivo — melhor que uma generica.
+    if (updateError?.code === "42501") {
+      return reply({ erro: updateError.message || "A alteração foi bloqueada por falta de permissão. Solicite a revisão das permissões do sistema." }, 403);
+    }
+    if (updateError?.code === "23503") {
+      return reply({ erro: "O setor ou a unidade selecionada não existe mais. Recarregue o Painel e selecione novamente." }, 400);
+    }
     return reply({ erro: "Não foi possível salvar a conta." }, 500);
   }
   if (!body.ativo) {

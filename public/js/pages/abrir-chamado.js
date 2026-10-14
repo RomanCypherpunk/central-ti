@@ -20,7 +20,7 @@
 // descrição legível, que é o que a equipe lê na ficha do Portal.
 
 import { supabase } from "../config/supabase-config.js";
-import { prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/otimizar-upload.js";
+import { prepararArquivoParaUploadChamado as prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/anexos-chamado.js";
 import { pintarImagemPrivada, abrirArquivoPrivado } from "../componentes/storage-privado.js";
 
 const passoTipo = document.querySelector("[data-passo-tipo]");
@@ -53,7 +53,6 @@ const triagemLista = document.querySelector("[data-triagem-lista]");
 const botaoTriagemChamado = document.querySelector("[data-triagem-chamado]");
 const botaoTriagemTexto = document.querySelector("[data-triagem-chamado-texto]");
 
-const TAMANHO_MAXIMO = 10 * 1024 * 1024;
 
 // padraoCategoria: como achar a categoria do tipo pelo nome (a migration
 // 20260915110000 cria "Cadastro de Colaborador" e "Desligamento de
@@ -1273,19 +1272,14 @@ function adicionarArquivos(arquivos) {
   const recusados = [];
 
   arquivos.forEach((arquivo) => {
-    const aceito = arquivo.type.startsWith("image/") || arquivo.type === "application/pdf";
 
     try {
       validarArquivoParaUpload(arquivo);
-    } catch {
-      recusados.push(`${arquivo.name} (PDFs têm limite de 5 MB)`);
+    } catch (erro) {
+      recusados.push(erro.message);
       return;
     }
 
-    if (!aceito || arquivo.size > TAMANHO_MAXIMO) {
-      recusados.push(arquivo.name);
-      return;
-    }
 
     pendentes.push({
       arquivo,
@@ -1294,7 +1288,7 @@ function adicionarArquivos(arquivos) {
   });
 
   avisar(recusados.length
-    ? `Não foi possível anexar: ${recusados.join(", ")}. Só imagens ou PDF, até 10 MB cada.`
+    ? `Não foi possível anexar: ${recusados.join(", ")}.`
     : "");
 
   desenharPendentes();

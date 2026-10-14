@@ -106,3 +106,6 @@ verify_jwt = true
 
 [functions.notificar-portal]
 verify_jwt = true
+
+[functions.limpar-videos-chamados]
+verify_jwt = true

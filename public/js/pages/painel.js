@@ -837,14 +837,16 @@ const TAMANHO_MAXIMO_FOTO = 2 * 1024 * 1024;
 //error.context — sem ler esse corpo, a tela so tinha um "tente de novo"
 //generico para qualquer motivo, e o motivo real ficava escondido.
 async function mensagemDaFuncao(error, data, padrao) {
-  if (data?.erro) return data.erro;
+  if (typeof data?.erro === "string") return data.erro;
 
   try {
-    const corpo = await error?.context?.json?.();
+    // clone(): le uma copia, sem consumir o corpo da resposta original.
+    const resposta = error?.context?.clone ? error.context.clone() : error?.context;
+    const corpo = await resposta?.json?.();
 
-    if (corpo?.erro) return corpo.erro;
+    if (typeof corpo?.erro === "string") return corpo.erro;
   } catch {
-    // Resposta sem JSON (queda de rede, timeout): fica a mensagem padrao.
+    // Gateway ou rede podem devolver uma resposta sem JSON: fica a padrao.
   }
 
   return padrao;
@@ -1052,7 +1054,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
   async function salvarEdicao() {
     const mudancas = {
       nome: formulario.querySelector('[data-pessoa-campo="nome"]').value.trim(),
-      sobrenome: formulario.querySelector('[data-pessoa-campo="sobrenome"]').value.trim() || null,
+      sobrenome: formulario.querySelector('[data-pessoa-campo="sobrenome"]').value.trim(),
       email: formulario.querySelector('[data-pessoa-campo="email"]').value.trim(),
       setor_id: formulario.querySelector('[data-pessoa-campo="setor_id"]').value || null,
       unidade_id: formulario.querySelector('[data-pessoa-campo="unidade_id"]').value || null,
@@ -1096,7 +1098,7 @@ function ligarPessoaDialog(setores, unidades, pessoas) {
     if (error || !gravada) {
       botaoSalvar.disabled = false;
       console.error("Erro ao salvar pessoa:", error);
-      avisar(await mensagemDaFuncao(error, data, "Não foi possível salvar. Tente de novo."), true);
+      avisar(await mensagemDaFuncao(error, data, "Não foi possível salvar. Verifique a conexão e tente novamente."), true);
       return;
     }
 

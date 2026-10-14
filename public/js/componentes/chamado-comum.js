@@ -28,6 +28,19 @@ export function derivarStatus(chamado) {
     : { chave: "aguardando", rotulo: "Aguardando retorno" };
 }
 
+// Pendências da equipe e respostas destinadas ao atendente desta sessão.
+// Usa os mesmos status exibidos nos cards, sem depender de filas ou filtros.
+export function contarPendenciasDoPortal(chamados, atendenteId) {
+  return chamados.filter((chamado) => {
+    const status = derivarStatus(chamado).chave;
+    const membros = chamado.chamado_membros ?? [];
+    const terceiros = chamado.chamado_terceiros ?? [];
+    return (status === "aberto" && !membros.length && !terceiros.length)
+      || (status === "respondeu" && Boolean(atendenteId)
+        && membros.some((membro) => membro.usuario_id === atendenteId));
+  }).length;
+}
+
 //O banco guarda nome e sobrenome separados. No quadro aparece so o nome —
 //e o que o analista precisa para reconhecer quem esta no card.
 export function primeiroNome(pessoa) {

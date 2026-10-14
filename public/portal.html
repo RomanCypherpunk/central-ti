@@ -338,7 +338,7 @@
           <div class="detalhe__principal">
 
             <!--APROVAÇÃO DE ACESSO: ficha enxuta + Aprovar/Rejeitar, no lugar
-                do card normal (título, prioridade, membros, descrição, chat).
+                do card normal (título, prioridade, membros, descrição).
                 Nasce escondida; o portal.js decide qual mostrar pela categoria
                 do chamado. Fica antes do bloco padrão para não pular o layout
                 quando o [hidden] alterna.-->
@@ -402,6 +402,8 @@
                    contenteditable="true" role="textbox" aria-label="Descrição do chamado"></div>
             </div>
   
+            </div>
+
             <p class="detalhe__aviso" data-detalhe-aviso role="status"></p>
   
             <!--CORRESPONDENCIA COM O USUARIO: O CANAL DE ATENDIMENTO-->
@@ -418,11 +420,12 @@
                 <!--ANEXOS PENDENTES: O QUE VAI JUNTO COM A PROXIMA RESPOSTA.
                     Preenchido pelo portal.js (botao Anexar ou Ctrl+V no campo).-->
                 <div class="conversa__pendentes" data-conversa-pendentes hidden></div>
+                <small class="anexos-retencao">Vídeos MP4, MOV ou WebM: até 50 MB. Excluídos automaticamente após 3 meses.</small>
   
                 <div class="conversa__acoes">
-                  <label class="conversa__anexar">
+                  <label class="conversa__anexar" title="Imagem: 10 MB; PDF: 5 MB; vídeo: 50 MB (excluído após 3 meses)">
                     <input type="file" data-conversa-arquivo hidden multiple
-                           accept="image/*,application/pdf">
+                           accept="image/*,application/pdf,video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov">
                     <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                       <path d="M16.5 8.5 9.7 15.3a2.4 2.4 0 0 0 3.4 3.4l7.3-7.3a4 4 0 0 0-5.7-5.7l-7.3 7.3a5.7 5.7 0 0 0 8 8l6.4-6.4"
                             fill="none" stroke="currentColor" stroke-width="1.7"
@@ -529,7 +532,6 @@
                 </div>
               </div>
             </section>
-            </div>
           </div>
 
           <!--COLUNA DIREITA: ANEXOS DO CHAMADO-->

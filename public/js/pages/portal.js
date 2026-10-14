@@ -3,11 +3,13 @@
 import { supabase } from "../config/supabase-config.js";
 import { pintarImagemPrivada, blobImagemPrivada, invalidarStoragePrivado } from "../componentes/storage-privado.js";
 import { inscreverPush, limparPushNoLogout } from "../componentes/push-sessao.js";
-import { prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/otimizar-upload.js";
+import { prepararArquivoParaUploadChamado as prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/anexos-chamado.js";
+import { prepararArquivoParaUpload as prepararImagemFundo } from "../componentes/otimizar-upload.js";
 // Peças que o Painel também usa: moram em componentes/ para as duas telas
 // mostrarem status, nome e avatar pela mesma regra.
 import {
   derivarStatus,
+  contarPendenciasDoPortal,
   primeiroNome,
   nomeCompleto,
   iniciais,
@@ -782,6 +784,16 @@ function comAnimacaoFlip(elementos, mudarDom) {
   });
 }
 
+let chamadosDoTitulo = [];
+let atendenteDoTitulo = null;
+
+function atualizarTituloPendencias() {
+  const quantidade = contarPendenciasDoPortal(chamadosDoTitulo, atendenteDoTitulo);
+  document.title = quantidade
+    ? `(${quantidade}) Portal de Chamados - TI`
+    : "Portal de Chamados - TI";
+}
+
 //ATUALIZA O CONTADOR E O AVISO DE VAZIO DE UMA COLUNA DEPOIS DE MOVER UM
 //CARD. Conta so o que esta aparecendo: com filtro ligado, o numero bate com
 //os cards que a pessoa ve.
@@ -792,6 +804,7 @@ function sincronizarColuna(coluna) {
   const vazia = lista.querySelector(".fila__vazia");
 
   coluna.querySelector(".fila__contador").textContent = visiveis.length;
+  atualizarTituloPendencias();
 
   if (visiveis.length) {
     vazia?.remove();
@@ -1242,6 +1255,7 @@ function ligarArrastarLista(filas, chamados) {
       comAnimacaoFlip(todasAsColunas, () => {
         colunaAlvo.insertAdjacentElement(antes ? "afterend" : "beforebegin", colunaArrastada);
       });
+      atualizarTituloPendencias();
     }
 
     // `ordem` vira o indice, de 10 em 10: deixa espaco pra alguem soltar
@@ -2774,13 +2788,21 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
   }
 
   function adicionarPendentes(arquivos) {
+    const recusados = [];
     arquivos.forEach((arquivo) => {
+      try {
+        validarArquivoParaUpload(arquivo);
+      } catch (erro) {
+        recusados.push(erro.message);
+        return;
+      }
       anexosPendentes.push({
         arquivo,
         previa: arquivo.type.startsWith("image/") ? URL.createObjectURL(arquivo) : null,
       });
     });
 
+    if (recusados.length) avisar(recusados.join(". "), true);
     desenharPendentes();
   }
 
@@ -3746,7 +3768,8 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     campoFila.textContent = nomeDaFila.get(chamado.fila_id) ?? "Sem fila";
 
     //APROVACAO DE ACESSO NAO USA O CARD PADRAO: ficha diferente, sem
-    //titulo/prioridade/membros/descricao/chat visiveis. O botao Fechar/
+    //titulo/prioridade/membros/descricao visiveis. O chat é compartilhado.
+    //O botao Fechar/
     //Reabrir do topo continua igual a qualquer chamado — Aprovar/Rejeitar
     //fecham automaticamente (o trigger do banco cuida disso), mas o
     //solicitante pode reabrir pelo dele, e a equipe pode fechar/reabrir
@@ -3756,8 +3779,15 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     conteudoPadrao.hidden = aprovacao;
     atualizarBotaoFechar();
 
+    campoMensagem.value = "";
+    // Mensagem e anexos de outro ticket nunca acompanham a aprovação.
+    limparPendentes();
+    aviso.textContent = "";
+    textosRapidos.fechar();
+
     if (aprovacao) {
       desenharAprovacao();
+      desenharConversa();
       desenharAnexos();
       janela.showModal();
       return;
@@ -3765,12 +3795,6 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
 
     campoTitulo.textContent = tituloDoChamado(chamado);
     campoDescricao.textContent = chamado.descricao ?? "";
-    campoMensagem.value = "";
-    // Anexo colado num ticket nao pode ir parar na resposta de outro.
-    limparPendentes();
-    aviso.textContent = "";
-    // Sem isto o painel continuaria aberto por cima do chamado seguinte.
-    textosRapidos.fechar();
     atualizarBotaoFechar();
 
     desenharDados();
@@ -4950,7 +4974,7 @@ function ligarFundo() {
     avisar("");
 
     const { arquivo: arquivoOriginal } = escolhido;
-    const arquivo = await prepararArquivoParaUpload(arquivoOriginal);
+    const arquivo = await prepararImagemFundo(arquivoOriginal);
     const extensao = (arquivo.name.split(".").pop() || "jpg").toLowerCase();
     const caminho = `${usuarioId}.${extensao}`;
 
@@ -5076,6 +5100,8 @@ function ligarFundo() {
 //RESUMO NO CABECALHO: SO CONTA O QUE ESTA ABERTO. Chamado fechado nao
 //esta escondido por engano — foi fechado por decisao de quem atende.
 function atualizarResumo(chamados, totalFilas) {
+  chamadosDoTitulo = chamados;
+  atualizarTituloPendencias();
   const abertos = chamados.filter((chamado) => !chamado.fechamento_em);
   const texto =
     `${abertos.length} ${abertos.length === 1 ? "chamado aberto" : "chamados abertos"} em ${totalFilas} filas`;
@@ -5428,6 +5454,7 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
     comAnimacaoFlip(atual, () => {
       desejada.forEach((coluna) => quadro.insertBefore(coluna, botaoNovaLista));
     });
+    atualizarTituloPendencias();
   }
 
   function aplicarFila(dados) {
@@ -5705,6 +5732,7 @@ async function montarQuadro() {
   }
 
   const atendente = usuarioAtendendo.id;
+  atendenteDoTitulo = atendente;
 
   const [filas, chamados, equipe, cores, terceiros] = await Promise.all([
     supabase.from("filas").select("id, nome, ordem").eq("ativo", true).order("ordem"),
