@@ -9,6 +9,7 @@
 
 import { supabase } from "../config/supabase-config.js";
 import { pintarImagemPrivada } from "../componentes/storage-privado.js";
+import { normalizarVideoUrl, montarVideoEmbed } from "../componentes/video-embed.js";
 import { prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/otimizar-upload.js";
 
 const BUCKET = "artigos";
@@ -505,6 +506,13 @@ function criarCampos(artigo, tipo) {
     </div>
     `}
 
+    <div class="campo-grupo">
+      <label class="campo-label" for="video-url-input">Vídeo do procedimento (link do Vimeo ou YouTube, opcional)</label>
+      <input class="campo-input" type="url" id="video-url-input" maxlength="300" placeholder="https://vimeo.com/123456789/abcdef1234">
+      <p class="campo-aviso" id="video-url-aviso" hidden></p>
+      <div id="video-url-previa"></div>
+    </div>
+
     <div class="passo-a-passo">
       <div class="passo-a-passo__cabecalho">
         <span class="passo-a-passo__titulo">Passo a passo da solução</span>
@@ -850,6 +858,29 @@ function coletarTags(containerId) {
     .filter(Boolean);
 }
 
+//VÍDEO: o campo é recriado a cada troca de tipo, então o listener fica
+//delegado no documento.
+const campoVideo = () => document.getElementById("video-url-input");
+
+function atualizarPreviaVideo() {
+  const input = campoVideo();
+
+  if (!input) return;
+
+  const aviso = document.getElementById("video-url-aviso");
+  const previa = document.getElementById("video-url-previa");
+  const texto = input.value.trim();
+  const embed = texto ? montarVideoEmbed(texto, "video-previa") : null;
+
+  previa.replaceChildren(...(embed ? [embed] : []));
+  aviso.hidden = !texto || Boolean(embed);
+  aviso.textContent = aviso.hidden ? "" : "Use um link do Vimeo (vimeo.com/...) ou do YouTube.";
+}
+
+document.addEventListener("input", (evento) => {
+  if (evento.target.id === "video-url-input") atualizarPreviaVideo();
+});
+
 //SALVAR
 salvarBtn.addEventListener("click", async () => {
   publicacaoErro.textContent = "";
@@ -865,6 +896,14 @@ salvarBtn.addEventListener("click", async () => {
 
   if (!titulo) {
     publicacaoErro.textContent = "Preencha o título da solução.";
+    return;
+  }
+
+  const videoTexto = campoVideo()?.value.trim() ?? "";
+  const video = videoTexto ? normalizarVideoUrl(videoTexto) : null;
+
+  if (videoTexto && !video) {
+    publicacaoErro.textContent = "O link do vídeo precisa ser do Vimeo ou do YouTube.";
     return;
   }
 
@@ -903,6 +942,7 @@ salvarBtn.addEventListener("click", async () => {
       sintomas: coletarTags("tags-campo"),
       passos,
       anexos,
+      video_url: videoTexto || null,
       // Sem `autor`: quem cadastrou já fica em autor_id (gravado no insert
       // abaixo), e a Base mostra o nome e a foto a partir dele.
       setores,
@@ -973,6 +1013,11 @@ async function iniciarModoEdicao() {
     registroVazio.hidden = true;
     registroCampos.hidden = false;
     criarCampos(data, data.tipo);
+
+    if (campoVideo()) {
+      campoVideo().value = data.video_url ?? "";
+      atualizarPreviaVideo();
+    }
   }
 
   const { pagina, caminho } = separarCaminho(data.modulo);
