@@ -53,6 +53,8 @@ const triagemAjuda = document.querySelector("[data-triagem-ajuda]");
 const triagemLista = document.querySelector("[data-triagem-lista]");
 const botaoTriagemChamado = document.querySelector("[data-triagem-chamado]");
 const botaoTriagemTexto = document.querySelector("[data-triagem-chamado-texto]");
+const triagemSaida = document.querySelector("[data-triagem-saida]");
+const triagemSaidaTitulo = document.querySelector("[data-triagem-saida-titulo]");
 
 
 // padraoCategoria: como achar a categoria do tipo pelo nome (a migration
@@ -754,7 +756,7 @@ function montarPassos(passos) {
 
   if (!passos?.length) {
     const vazio = document.createElement("p");
-    vazio.className = "triagem__resumo";
+    vazio.className = "triagem__sem-passos";
     vazio.textContent = "Esta solução ainda não tem passo a passo cadastrado.";
 
     return vazio;
@@ -836,21 +838,41 @@ function montarDetalhe(artigo) {
   return detalhe;
 }
 
+//Icones fixos (SVG nosso, sem dado de fora): erro e procedimento se
+//distinguem de longe, antes de ler o selo.
+const ICONE_DA_SOLUCAO = {
+  erro: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 4l9 16H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg>',
+  procedimento: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="5" y="3.5" width="14" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 9h6M9 13h6M9 17h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+};
+
+const SETA_DA_SOLUCAO = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function desenharSolucoes(encontradas) {
   triagemLista.replaceChildren();
 
-  encontradas.forEach((artigo) => {
+  encontradas.forEach((artigo, posicao) => {
     const item = document.createElement("li");
     item.className = "triagem__item";
+    item.style.setProperty("--atraso", `${Math.min(posicao, 6) * 50}ms`);
 
     const cabecalho = document.createElement("button");
     cabecalho.type = "button";
     cabecalho.className = "triagem__solucao";
     cabecalho.setAttribute("aria-expanded", "false");
 
+    const ehErro = artigo.tipo === "erro";
+
+    const icone = document.createElement("span");
+    icone.className = `triagem__icone${ehErro ? " triagem__icone--erro" : ""}`;
+    icone.setAttribute("aria-hidden", "true");
+    icone.innerHTML = ICONE_DA_SOLUCAO[ehErro ? "erro" : "procedimento"];
+
+    const corpo = document.createElement("span");
+    corpo.className = "triagem__corpo";
+
     const selo = document.createElement("span");
-    selo.className = "triagem__selo";
-    selo.textContent = artigo.tipo === "erro" ? "Erro" : "Procedimento";
+    selo.className = `triagem__selo${ehErro ? " triagem__selo--erro" : ""}`;
+    selo.textContent = ehErro ? "Erro" : "Procedimento";
 
     const titulo = document.createElement("span");
     titulo.className = "triagem__titulo";
@@ -864,7 +886,13 @@ function desenharSolucoes(encontradas) {
     acao.className = "triagem__ver";
     acao.textContent = "Ver solução";
 
-    cabecalho.append(selo, titulo, resumo, acao);
+    const seta = document.createElement("span");
+    seta.className = "triagem__seta";
+    seta.setAttribute("aria-hidden", "true");
+    seta.innerHTML = SETA_DA_SOLUCAO;
+
+    corpo.append(selo, titulo, resumo, acao);
+    cabecalho.append(icone, corpo, seta);
 
     const detalhe = montarDetalhe(artigo);
 
@@ -929,10 +957,12 @@ async function buscarSolucoes() {
     resultadoTriagem.hidden = true;
     triagemLista.replaceChildren();
     triagemDica.textContent = "Escreva com as suas palavras. Procuramos na base de soluções sozinhos.";
+    triagemDica.dataset.estado = "";
     return;
   }
 
   triagemDica.textContent = "Procurando soluções…";
+  triagemDica.dataset.estado = "procurando";
 
   const lista = await carregarArtigos();
 
@@ -944,18 +974,21 @@ async function buscarSolucoes() {
 
   desenharSolucoes(encontradas);
 
-  triagemTitulo.textContent = encontradas.length
-    ? "Isso pode resolver"
+  const achou = encontradas.length > 0;
+
+  triagemTitulo.textContent = achou
+    ? (encontradas.length === 1 ? "1 solução pode resolver" : `${encontradas.length} soluções podem resolver`)
     : "Não encontrei nada parecido";
-  triagemAjuda.textContent = encontradas.length
+  triagemAjuda.textContent = achou
     ? "clique numa solução para ver o passo a passo aqui"
     : "ninguém cadastrou uma solução para isso ainda";
-  triagemDica.textContent = encontradas.length
+  triagemDica.textContent = achou
     ? "Continue escrevendo para afinar a busca."
     : motivoDeNaoAchar(lista);
-  botaoTriagemTexto.textContent = encontradas.length
-    ? "Nenhuma resolveu, abrir chamado"
-    : "Abrir chamado para o TI";
+  triagemDica.dataset.estado = achou ? "achou" : "nada";
+  triagemSaidaTitulo.textContent = achou ? "Nenhuma resolveu?" : "Vamos chamar o TI";
+  botaoTriagemTexto.textContent = "Abrir chamado";
+  triagemSaida.classList.toggle("triagem__saida--destaque", !achou);
 
   resultadoTriagem.hidden = false;
 }
