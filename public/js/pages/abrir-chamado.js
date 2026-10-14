@@ -20,6 +20,7 @@
 // descrição legível, que é o que a equipe lê na ficha do Portal.
 
 import { supabase } from "../config/supabase-config.js";
+import { montarVideoEmbed } from "../componentes/video-embed.js";
 import { prepararArquivoParaUploadChamado as prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/anexos-chamado.js";
 import { pintarImagemPrivada, abrirArquivoPrivado } from "../componentes/storage-privado.js";
 
@@ -409,7 +410,7 @@ function carregarArtigos() {
 
   lendoArtigos = supabase
     .from("artigos")
-    .select("id, titulo, conteudo, tipo, codigo_erro, modulo, sintomas, passos, anexos, setores")
+    .select("id, titulo, conteudo, tipo, codigo_erro, modulo, sintomas, passos, anexos, setores, video_url")
     .eq("ativo", true)
     .then(({ data, error }) => {
       lendoArtigos = null;
@@ -802,6 +803,10 @@ function montarDetalhe(artigo) {
     conteudo.textContent = artigo.conteudo.trim();
     detalhe.appendChild(conteudo);
   }
+
+  const video = montarVideoEmbed(artigo.video_url, "triagem__video");
+
+  if (video) detalhe.appendChild(video);
 
   detalhe.appendChild(montarPassos(artigo.passos));
 

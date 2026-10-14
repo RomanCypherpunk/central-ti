@@ -10,6 +10,7 @@ import { supabase } from "../config/supabase-config.js";
 import { pintarFoto } from "../componentes/avatar.js";
 import { pintarImagemPrivada, blobImagemPrivada, urlStoragePrivado, abrirArquivoPrivado } from "../componentes/storage-privado.js";
 import { prepararArquivoParaUpload } from "../componentes/otimizar-upload.js";
+import { montarVideoEmbed } from "../componentes/video-embed.js";
 
 const contagemEl = document.getElementById("busca-contagem");
 const buscaInput = document.getElementById("busca-input");
@@ -360,6 +361,12 @@ function abrirPainel(artigo) {
       </div>
     ` : ""}
 
+    ${artigo.video_url ? `
+      <div class="painel__secao" id="painel-video">
+        <span class="painel__secao-titulo">Vídeo do procedimento</span>
+      </div>
+    ` : ""}
+
     <div class="painel__secao">
       <span class="painel__secao-titulo">Solução</span>
       <div class="painel-passos">${renderizarPassos(artigo.passos)}</div>
@@ -368,6 +375,12 @@ function abrirPainel(artigo) {
     ${renderizarSecaoTags("Sintomas e palavras-chave", artigo.sintomas)}    ${renderizarAnexos(artigo.anexos)}
     ${renderizarRelacionadas(artigo.relacionadas)}
   `;
+
+  const secaoVideo = painelCorpoEl.querySelector("#painel-video");
+  const video = secaoVideo && montarVideoEmbed(artigo.video_url, "painel-video");
+
+  if (video) secaoVideo.appendChild(video);
+  else secaoVideo?.remove();
 
   painelCorpoEl.querySelectorAll(".painel-passo__imagem").forEach((img) => {
     pintarImagemPrivada(img, "artigos", img.dataset.arquivoArtigo);
