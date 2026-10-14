@@ -94,7 +94,16 @@ Deno.serve(async (request) => {
     email: body.email.trim(), setor_id: body.setor_id, unidade_id: body.unidade_id,
     perfil: body.perfil, status_aprovacao: body.status_aprovacao, ativo: body.ativo,
   };
-  const { data: updated, error: updateError } = await admin.from("usuarios").update(changes).eq("id", target.id)
+  // GRAVA COMO O ADMIN QUE CHAMOU, e nao com a service_role. Os gatilhos de
+  // usuarios (protege_perfil_usuario, bloquear_autoaprovacao,
+  // proteger_unidade_usuario) decidem pelo auth.uid() — que com a
+  // service_role e nulo, entao para eles "ninguem da equipe de TI" estava
+  // gravando. Resultado: trocar unidade, setor, perfil, cadastro ou conta
+  // ativa pela ficha do Painel sempre falhava; so nome e e-mail passavam.
+  // Com o token de quem chamou, gatilhos e RLS enxergam um admin de verdade
+  // e fazem as mesmas conferencias de uma edicao direta. A service_role
+  // continua so onde precisa: o bloqueio de login (auth.admin) acima.
+  const { data: updated, error: updateError } = await caller.from("usuarios").update(changes).eq("id", target.id)
     .select("id,nome,sobrenome,email,setor_id,unidade_id,perfil,ativo,status_aprovacao,foto_path").single();
   if (updateError || !updated) {
     if (target.ativo !== body.ativo) {
@@ -102,8 +111,10 @@ Deno.serve(async (request) => {
     }
     // Não expor nomes, e-mail ou o payload nos logs de diagnóstico.
     console.error("account-update-failed", { code: updateError?.code });
+    // 42501 = um gatilho recusou (ex.: rejeitar a propria conta). A mensagem
+    // dele ja e em portugues e diz o motivo — melhor que uma generica.
     if (updateError?.code === "42501") {
-      return reply({ erro: "A alteração foi bloqueada por falta de permissão. Solicite a revisão das permissões do sistema." }, 403);
+      return reply({ erro: updateError.message || "A alteração foi bloqueada por falta de permissão. Solicite a revisão das permissões do sistema." }, 403);
     }
     if (updateError?.code === "23503") {
       return reply({ erro: "O setor ou a unidade selecionada não existe mais. Recarregue o Painel e selecione novamente." }, 400);

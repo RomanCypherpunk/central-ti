@@ -164,7 +164,13 @@ Deno.serve(async (req) => {
   // status_aprovacao nao existem la (ficam nos valores padrao da tabela) —
   // e setor/unidade podem ter sido deixados em branco no formulario, o que
   // deve limpar o que o trigger inferiu.
-  const { data: usuarioFinal, error: erroAtualizar } = await clienteAdmin
+  //
+  // COM O TOKEN DO ADMIN, e nao com o clienteAdmin: os gatilhos de usuarios
+  // decidem pelo auth.uid(), nulo com a service_role — e recusavam perfil
+  // diferente de solicitante, cadastro ja aprovado ou setor/unidade em
+  // branco, apagando a conta recem-criada logo abaixo. Ver o mesmo
+  // comentario em atualizar-usuario.
+  const { data: usuarioFinal, error: erroAtualizar } = await clienteChamador
     .from("usuarios")
     .update({
       setor_id: corpo.setor_id || null,
