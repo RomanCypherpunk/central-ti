@@ -1,0 +1,51 @@
+/* Barra própria do vídeo de procedimento: só pausar e volume. */
+.video-embed iframe {
+  pointer-events: none;
+}
+
+.video-controles {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+}
+
+.video-controles__botao {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+}
+
+.video-controles__botao:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.video-controles__botao svg,
+.video-controles__icone svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.video-controles__icone {
+  display: grid;
+  margin-left: auto;
+}
+
+.video-controles__volume {
+  width: 5.5rem;
+  accent-color: #dd5b12;
+}
