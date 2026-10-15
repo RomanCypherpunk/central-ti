@@ -270,17 +270,20 @@
           </div>
         </div>
 
+        <!--Menos colunas, celulas mais ricas: categoria e prioridade vao junto
+            do titulo, a unidade embaixo do solicitante. A faixa colorida na
+            esquerda de cada linha e o status, para ler a lista de longe.-->
         <div class="painel-tabela__caixa">
-          <table class="painel-tabela">
+          <table class="painel-tabela painel-tabela--tickets">
             <thead>
               <tr>
                 <th scope="col">Ticket</th>
                 <th scope="col">Status</th>
                 <th scope="col">Solicitante</th>
-                <th scope="col">Unidade</th>
-                <th scope="col">Categoria</th>
                 <th scope="col">Fila</th>
-                <th scope="col">Aberto em</th>
+                <th scope="col">Atendentes</th>
+                <th scope="col">Aberto</th>
+                <th scope="col" class="tickets__coluna-seta" aria-label="Abrir"></th>
               </tr>
             </thead>
             <tbody data-tickets-corpo></tbody>

@@ -659,6 +659,90 @@ html[data-painel-sidebar="colapsada"] .painel {
   border-top: 1px solid var(--borda-suave);
 }
 
+/*GRUPO RECOLHIVEL (ver recolherGruposDeFiltro no painel.js): o titulo
+  vira um cabecalho clicavel, com a contagem do que esta marcado e uma seta
+  que gira ao abrir. Os grupos ficam colados, separados so pela linha.*/
+.painel-filtro-grupo--recolhivel + .painel-filtro-grupo--recolhivel {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.painel-filtro-grupo__cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 0.35rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--texto);
+  font: 500 0.8125rem/1.2 "Poppins", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.painel-filtro-grupo__cabecalho:hover {
+  background: var(--superficie-3);
+}
+
+.painel-filtro-grupo__cabecalho:focus-visible {
+  outline: 2px solid var(--laranja);
+  outline-offset: -2px;
+}
+
+.painel-filtro-grupo__nome {
+  flex: 1;
+}
+
+.painel-filtro-grupo--aberto .painel-filtro-grupo__nome {
+  font-weight: 600;
+}
+
+.painel-filtro-grupo__contagem {
+  display: grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--laranja);
+  color: #fff;
+  font: 600 0.6875rem/1 "Poppins", sans-serif;
+}
+
+.painel-filtro-grupo__contagem[hidden] {
+  display: none;
+}
+
+.painel-filtro-grupo__seta {
+  display: grid;
+  color: var(--texto-3);
+  transition: transform 0.2s ease;
+}
+
+.painel-filtro-grupo--aberto .painel-filtro-grupo__seta {
+  transform: rotate(180deg);
+  color: var(--laranja);
+}
+
+.painel-filtro-grupo__corpo {
+  padding: 0.15rem 0.35rem 0.85rem;
+}
+
+.painel-filtro-grupo__corpo[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .painel-filtro-grupo__seta,
+  .painel-filtro-grupo__cabecalho {
+    transition: none;
+  }
+}
+
 .painel-filtro-grupo__titulo {
   margin: 0 0 0.45rem;
   color: var(--texto-3);
@@ -1009,6 +1093,269 @@ html[data-painel-sidebar="colapsada"] .painel {
 .painel-selo--fechado {
   background: var(--superficie-2);
   color: var(--texto-3);
+}
+
+/* ==========================================================================
+   TODOS OS TICKETS: a tabela com cara de lista de trabalho.
+   Faixa de status na esquerda de cada linha, numero em destaque, titulo
+   forte, e o que e apoio (categoria, unidade, data exata) em tom menor.
+   So .painel-tabela--tickets: as outras abas usam a tabela simples.
+   ========================================================================== */
+
+/*DUAS CORES SO: verde = ainda esta no quadro (aberto, aguardando ou
+  respondeu), vermelho = fechado. O texto do selo continua dizendo qual dos
+  estados abertos e.*/
+.painel-tabela--tickets {
+  --cor-status: var(--status-fechado);
+}
+
+.painel-tabela--tickets thead th {
+  padding: 0.65rem 0.9rem;
+  background: var(--superficie-3);
+  color: var(--texto-3);
+  font: 600 0.6875rem/1.2 "Poppins", sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.painel-tabela--tickets thead th:first-child {
+  padding-left: 1.25rem;
+}
+
+.painel-tabela--tickets td {
+  padding: 0.8rem 0.75rem;
+}
+
+.painel-tabela--tickets tbody tr[data-status="fechado"] { --cor-status: var(--erro-texto); }
+
+/*A FAIXA: 3px na cor do status, colada na borda esquerda. No hover vira
+  laranja e engrossa, junto com o fundo de realce.*/
+.painel-tabela--tickets tbody td:first-child {
+  padding-left: 1.25rem;
+  box-shadow: inset 3px 0 0 var(--cor-status);
+  transition: box-shadow 0.15s ease;
+}
+
+.painel-tabela--tickets tbody tr:hover {
+  background: var(--realce);
+}
+
+.painel-tabela--tickets tbody tr:hover td:first-child,
+.painel-tabela--tickets tbody tr:focus-visible td:first-child {
+  box-shadow: inset 4px 0 0 var(--laranja);
+}
+
+.tickets__ticket {
+  min-width: 15rem;
+}
+
+.tickets__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+
+.tickets__numero {
+  color: var(--laranja-forte);
+  font: 700 0.75rem/1.2 "Sora", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.tickets__categoria {
+  overflow: hidden;
+  max-width: 14ch;
+  color: var(--texto-3);
+  font: 500 0.6875rem/1.2 "Poppins", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets__categoria::before {
+  content: "·";
+  margin-right: 0.4rem;
+  color: var(--texto-4);
+}
+
+.tickets__marca {
+  padding: 0.1rem 0.4rem;
+  border: 1px solid;
+  border-radius: 999px;
+  font: 600 0.625rem/1.2 "Poppins", sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.tickets__marca--urgente {
+  border-color: var(--etiqueta-urgente-borda);
+  background: var(--etiqueta-urgente-fundo);
+  color: var(--etiqueta-urgente-texto);
+}
+
+.tickets__marca--prioridade {
+  border-color: var(--etiqueta-prioridade-borda);
+  background: var(--etiqueta-prioridade-fundo);
+  color: var(--etiqueta-prioridade-texto);
+}
+
+.tickets__titulo {
+  display: block;
+  max-width: 34ch;
+  overflow: hidden;
+  color: var(--texto);
+  font: 600 0.84375rem/1.35 "Poppins", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*Fechado sai do caminho: titulo mais apagado, a faixa verde ja diz o resto.*/
+.painel-tabela--tickets tr[data-status="fechado"] .tickets__titulo {
+  color: var(--texto-2);
+  font-weight: 500;
+}
+
+/*SELO COM BOLINHA: a mesma cor da faixa, para ligar uma coisa a outra.*/
+.tickets__selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.tickets__selo::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.painel-tabela--tickets .tickets__selo {
+  background: color-mix(in srgb, var(--cor-status) 12%, transparent);
+  color: var(--cor-status);
+}
+
+.tickets__solicitante {
+  min-width: 10.5rem;
+  max-width: 14rem;
+}
+
+.tickets__quem {
+  display: grid;
+  min-width: 0;
+}
+
+.tickets__nome {
+  overflow: hidden;
+  color: var(--texto);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets__apoio {
+  overflow: hidden;
+  color: var(--texto-3);
+  font-size: 0.71875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets__fila {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background: var(--superficie-3);
+  color: var(--texto-2);
+  font: 500 0.75rem/1.3 "Poppins", sans-serif;
+  white-space: nowrap;
+}
+
+/*ATENDENTES: fotos sobrepostas, com anel da cor do fundo separando uma
+  da outra.*/
+.tickets__pilha {
+  display: inline-flex;
+  align-items: center;
+}
+
+.tickets__avatar {
+  width: 26px;
+  height: 26px;
+  box-shadow: 0 0 0 2px var(--superficie);
+}
+
+.tickets__avatar + .tickets__avatar {
+  margin-left: -7px;
+}
+
+.tickets__avatar--mais {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--superficie-2);
+  color: var(--texto-2);
+  font: 600 0.625rem/1 "Poppins", sans-serif;
+}
+
+.painel-tabela--tickets tbody tr:hover .tickets__avatar {
+  box-shadow: 0 0 0 2px var(--realce);
+}
+
+.tickets__sem-atendente {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border: 1px dashed var(--borda);
+  border-radius: 999px;
+  color: var(--texto-4);
+  font-size: 0.71875rem;
+  white-space: nowrap;
+}
+
+.tickets__quando {
+  white-space: nowrap;
+}
+
+.tickets__relativo {
+  display: block;
+  color: var(--texto);
+  font-weight: 500;
+}
+
+.tickets__quando .tickets__apoio {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+/*SETA: aparece no hover, dizendo que a linha abre o chamado.*/
+.tickets__coluna-seta,
+.tickets__seta {
+  width: 2rem;
+  padding-left: 0 !important;
+}
+
+.tickets__seta {
+  color: var(--laranja);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tickets__seta svg {
+  display: block;
+}
+
+.painel-tabela--tickets tbody tr:hover .tickets__seta,
+.painel-tabela--tickets tbody tr:focus-visible .tickets__seta {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tickets__seta,
+  .painel-tabela--tickets tbody td:first-child {
+    transition: none;
+  }
 }
 
 .painel-vazio {

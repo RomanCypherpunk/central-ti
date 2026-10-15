@@ -37,6 +37,109 @@ function mostrarErro(mensagem) {
   erro.hidden = false;
 }
 
+/* ==========================================================================
+   FILTROS RECOLHIDOS: cada grupo (Status, Lista, Solicitante...) vira um
+   item que abre ao clicar, um de cada vez. Fechado, o cabecalho mostra
+   quantas opcoes estao marcadas ali dentro.
+   Vale para todos os filtros do Painel sem mexer em quem monta os grupos:
+   o observador prepara cada grupo novo (inclusive quando "Limpar filtros"
+   remonta tudo) e o contador e lido do que esta marcado na tela.
+   ========================================================================== */
+
+const SETA_DO_GRUPO = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function recolherGruposDeFiltro(container) {
+  // Pelo titulo: sobrevive ao "Limpar filtros", que recria os grupos.
+  let abertoAgora = null;
+
+  const grupos = () => container.querySelectorAll(":scope > .painel-filtro-grupo--recolhivel");
+
+  function contar(grupo) {
+    return grupo.querySelectorAll(".painel-filtro-chip--marcado, input[type=\"checkbox\"]:checked").length
+      + [...grupo.querySelectorAll("input[type=\"date\"]")].filter((campo) => campo.value).length;
+  }
+
+  function atualizarContagens() {
+    grupos().forEach((grupo) => {
+      const total = contar(grupo);
+      const contagem = grupo.querySelector(".painel-filtro-grupo__contagem");
+      contagem.textContent = String(total);
+      contagem.hidden = !total;
+    });
+  }
+
+  function mostrar(grupo, aberto) {
+    grupo.querySelector(".painel-filtro-grupo__corpo").hidden = !aberto;
+    grupo.querySelector(".painel-filtro-grupo__cabecalho").setAttribute("aria-expanded", String(aberto));
+    grupo.classList.toggle("painel-filtro-grupo--aberto", aberto);
+  }
+
+  function preparar(grupo) {
+    const rotulo = grupo.querySelector(":scope > .painel-filtro-grupo__titulo");
+
+    if (!rotulo) return;
+
+    const titulo = rotulo.textContent;
+
+    const cabecalho = document.createElement("button");
+    cabecalho.type = "button";
+    cabecalho.className = "painel-filtro-grupo__cabecalho";
+
+    const nome = document.createElement("span");
+    nome.className = "painel-filtro-grupo__nome";
+    nome.textContent = titulo;
+
+    const contagem = document.createElement("span");
+    contagem.className = "painel-filtro-grupo__contagem";
+    contagem.hidden = true;
+
+    const seta = document.createElement("span");
+    seta.className = "painel-filtro-grupo__seta";
+    seta.innerHTML = SETA_DO_GRUPO;
+
+    cabecalho.append(nome, contagem, seta);
+
+    const corpo = document.createElement("div");
+    corpo.className = "painel-filtro-grupo__corpo";
+    corpo.append(...[...grupo.childNodes].filter((filho) => filho !== rotulo));
+
+    rotulo.replaceWith(cabecalho);
+    grupo.append(corpo);
+    grupo.classList.add("painel-filtro-grupo--recolhivel");
+
+    cabecalho.addEventListener("click", () => {
+      const abrindo = corpo.hidden;
+
+      grupos().forEach((outro) => mostrar(outro, false));
+      abertoAgora = abrindo ? titulo : null;
+
+      if (!abrindo) return;
+
+      mostrar(grupo, true);
+      // Grupo de pessoas com busca: ja deixa o cursor nela.
+      corpo.querySelector("input[type=\"search\"]:not([hidden])")?.focus();
+    });
+
+    mostrar(grupo, titulo === abertoAgora);
+  }
+
+  function prepararNovos() {
+    container.querySelectorAll(":scope > .painel-filtro-grupo:not(.painel-filtro-grupo--recolhivel)").forEach(preparar);
+    atualizarContagens();
+  }
+
+  new MutationObserver(prepararNovos).observe(container, { childList: true });
+
+  // Os cliques nas opcoes chegam aqui depois de a opcao ja ter mudado.
+  ["click", "change", "input"].forEach((tipo) => container.addEventListener(tipo, atualizarContagens));
+
+  prepararNovos();
+}
+
+document.querySelectorAll(
+  "[data-tickets-filtro-grupos], [data-analise-filtro-grupos], [data-contatos-filtro-grupos], [data-administradores-filtro-grupos]",
+).forEach(recolherGruposDeFiltro);
+
 //MENU LATERAL: RECOLHER/EXPANDIR. Chave propria (painelSidebarColapsada),
 //separada da Base de Solucoes de proposito — recolher aqui nao deve mexer
 //la, e vice-versa (perguntado ao usuario antes de escrever isto). O <head>
@@ -232,53 +335,107 @@ function ligarTickets(chamados, filas, equipe, detalhe) {
       + (filtros.de ? 1 : 0) + (filtros.ate ? 1 : 0);
   }
 
+  const tempoRelativo = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
+
+  //"há 3 horas", "ontem", "há 2 semanas": le mais rapido que uma data. A
+  //data exata fica logo embaixo, para quem precisa dela.
+  function haQuantoTempo(iso) {
+    const minutos = Math.round((new Date(iso).getTime() - Date.now()) / 60000);
+    const passos = [[60, "minute"], [24, "hour"], [7, "day"], [4.35, "week"], [12, "month"]];
+    let valor = minutos;
+
+    if (Math.abs(valor) < 1) return "agora";
+
+    for (const [tamanho, unidade] of passos) {
+      if (Math.abs(valor) < tamanho) return tempoRelativo.format(Math.round(valor), unidade);
+      valor /= tamanho;
+    }
+
+    return tempoRelativo.format(Math.round(valor), "year");
+  }
+
+  function texto(tag, classe, conteudo) {
+    const elemento = document.createElement(tag);
+    elemento.className = classe;
+    if (conteudo !== undefined) elemento.textContent = conteudo;
+    return elemento;
+  }
+
+  //ATENDENTES EMPILHADOS: ate 3 fotos sobrepostas e "+N" para o resto.
+  //Ninguem atribuido ainda vira um aviso discreto, que e o que a equipe
+  //procura nessa coluna.
+  function montarAtendentes(chamado) {
+    const membros = chamado.chamado_membros ?? [];
+
+    if (!membros.length) return texto("span", "tickets__sem-atendente", "Ninguém");
+
+    const pilha = texto("span", "tickets__pilha");
+    pilha.title = membros.map((membro) => nomeCompleto(membro.usuarios)).filter(Boolean).join(", ");
+
+    membros.slice(0, 3).forEach((membro) => {
+      const avatar = texto("span", "painel-pessoa__avatar tickets__avatar");
+      pintarAvatar(avatar, membro.usuarios);
+      pilha.appendChild(avatar);
+    });
+
+    if (membros.length > 3) pilha.appendChild(texto("span", "tickets__avatar tickets__avatar--mais", `+${membros.length - 3}`));
+
+    return pilha;
+  }
+
   function montarLinha(chamado) {
     const status = derivarStatus(chamado);
     const linha = document.createElement("tr");
     linha.dataset.chamado = chamado.id;
+    linha.dataset.status = status.chave;
     linha.tabIndex = 0;
 
-    const ticket = document.createElement("td");
-    const numero = document.createElement("span");
-    numero.className = "painel-tabela__numero";
-    numero.textContent = `#${chamado.numero}`;
-    const titulo = document.createElement("span");
-    titulo.className = "painel-tabela__titulo";
-    titulo.textContent = tituloDoChamado(chamado);
+    //TICKET: numero, prioridade e categoria numa linha; o titulo embaixo.
+    const ticket = texto("td", "tickets__ticket");
+    const topo = texto("span", "tickets__topo");
+    topo.appendChild(texto("span", "tickets__numero", `#${chamado.numero}`));
+
+    if (chamado.eh_urgente) topo.appendChild(texto("span", "tickets__marca tickets__marca--urgente", "Urgente"));
+    if (chamado.eh_prioridade) topo.appendChild(texto("span", "tickets__marca tickets__marca--prioridade", "Prioridade"));
+    if (chamado.categorias?.nome) topo.appendChild(texto("span", "tickets__categoria", chamado.categorias.nome));
+
+    const titulo = texto("span", "tickets__titulo", tituloDoChamado(chamado));
     titulo.title = tituloDoChamado(chamado);
-    ticket.append(numero, titulo);
+    ticket.append(topo, titulo);
 
     const celulaStatus = document.createElement("td");
-    const selo = document.createElement("span");
-    selo.className = `painel-selo painel-selo--${status.chave}`;
-    selo.textContent = status.rotulo;
-    celulaStatus.appendChild(selo);
+    celulaStatus.appendChild(texto("span", `painel-selo tickets__selo painel-selo--${status.chave}`, status.rotulo));
 
-    const solicitante = document.createElement("td");
-    const pessoa = document.createElement("span");
-    pessoa.className = "painel-pessoa";
-    const avatar = document.createElement("span");
-    avatar.className = "painel-pessoa__avatar";
+    //SOLICITANTE: foto, nome e, embaixo, a unidade do chamado.
+    const solicitante = texto("td", "tickets__solicitante");
+    const pessoa = texto("span", "painel-pessoa");
+    const avatar = texto("span", "painel-pessoa__avatar");
     pintarAvatar(avatar, chamado.usuarios);
-    const nome = document.createElement("span");
-    nome.textContent = nomeCompleto(chamado.usuarios) ?? "—";
-    pessoa.append(avatar, nome);
+    const quem = texto("span", "tickets__quem");
+    quem.append(
+      texto("span", "tickets__nome", nomeCompleto(chamado.usuarios) ?? "Conta excluída"),
+      texto("span", "tickets__apoio", chamado.unidades?.nome ?? "Sem unidade"),
+    );
+    pessoa.append(avatar, quem);
     solicitante.appendChild(pessoa);
 
-    const unidade = document.createElement("td");
-    unidade.textContent = chamado.unidades?.nome ?? "—";
-
-    const categoria = document.createElement("td");
-    categoria.textContent = chamado.categorias?.nome ?? "—";
-
     const fila = document.createElement("td");
-    fila.textContent = nomeDaFila.get(chamado.fila_id) ?? "—";
+    fila.appendChild(texto("span", "tickets__fila", nomeDaFila.get(chamado.fila_id) ?? "—"));
 
-    const aberto = document.createElement("td");
-    aberto.className = "painel-tabela__numero";
-    aberto.textContent = formatarData(chamado.abertura_em);
+    const atendentes = document.createElement("td");
+    atendentes.appendChild(montarAtendentes(chamado));
 
-    linha.append(ticket, celulaStatus, solicitante, unidade, categoria, fila, aberto);
+    const aberto = texto("td", "tickets__quando");
+    aberto.append(
+      texto("span", "tickets__relativo", haQuantoTempo(chamado.abertura_em)),
+      texto("span", "tickets__apoio", formatarData(chamado.abertura_em)),
+    );
+
+    const seta = texto("td", "tickets__seta");
+    seta.setAttribute("aria-hidden", "true");
+    seta.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><path d="m9.5 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    linha.append(ticket, celulaStatus, solicitante, fila, atendentes, aberto, seta);
 
     return linha;
   }
