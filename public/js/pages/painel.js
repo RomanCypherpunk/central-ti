@@ -2071,7 +2071,7 @@ async function desativarItem(tabela, id) {
 //ICONE DE COLUNA DO QUADRO: cada lista e uma coluna do Portal.
 const ICONE_DA_LISTA = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="4" y="4.5" width="6" height="15" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="14" y="4.5" width="6" height="9" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>';
 
-function ligarListaDeFilas(filas, chamados = []) {
+function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null) {
   const corpo = document.querySelector("[data-listas-corpo]");
   const campoBusca = document.querySelector("[data-listas-busca]");
   const resumo = document.querySelector("[data-listas-resumo]");
@@ -2082,9 +2082,12 @@ function ligarListaDeFilas(filas, chamados = []) {
   //QUANTOS CHAMADOS ABERTOS ESTAO EM CADA LISTA (fotografia da hora em que
   //o Painel abriu): mostra onde o trabalho esta parado.
   const abertosNaFila = new Map();
+  const chamadosAbertosDaFila = new Map();
   chamados.forEach((chamado) => {
     if (chamado.fechamento_em) return;
     abertosNaFila.set(chamado.fila_id, (abertosNaFila.get(chamado.fila_id) ?? 0) + 1);
+    if (!chamadosAbertosDaFila.has(chamado.fila_id)) chamadosAbertosDaFila.set(chamado.fila_id, []);
+    chamadosAbertosDaFila.get(chamado.fila_id).push(chamado);
   });
 
   function combina(fila) {
@@ -2140,6 +2143,14 @@ function ligarListaDeFilas(filas, chamados = []) {
     preenchido.classList.toggle("listas__preenchido--maior", ehDestaque(quantidade, filas.map((outra) => abertosNaFila.get(outra.id) ?? 0)));
     trilho.appendChild(preenchido);
     carga.appendChild(trilho);
+
+    // O numero abre a lista dos chamados abertos desta lista.
+    if (quantidade && aoVerChamados) {
+      const conteudo = criarElemento("span", "simples__carga");
+      conteudo.append(...carga.childNodes);
+      carga.appendChild(numeroClicavel(conteudo, `Ver chamados abertos em ${fila.nome}`,
+        () => aoVerChamados(`Chamados abertos em ${fila.nome}`, chamadosAbertosDaFila.get(fila.id) ?? [])));
+    }
 
     const situacao = document.createElement("td");
     situacao.appendChild(pedaco(
@@ -2507,6 +2518,121 @@ function haQuantoTempo(iso) {
   }
 
   return TEMPO_RELATIVO_CURTO.format(Math.round(valor), "year");
+}
+
+/* ==========================================================================
+   O QUE ESTA POR TRAS DO NUMERO: "4 pessoas", "8 chamados" sao clicaveis
+   em toda lista de cadastro e abrem esta janela com quem/quais sao. Clicar
+   numa pessoa abre a ficha; num chamado, o detalhe do chamado. Uma janela
+   so para o Painel inteiro.
+   ========================================================================== */
+
+const ROTULOS_PERFIL_CURTO = { solicitante: "Solicitante", contribuinte: "Contribuinte", analista: "Analista", admin: "Admin" };
+
+function ligarJanelaDeNumeros() {
+  const janela = criarElemento("dialog", "numeros");
+  janela.setAttribute("aria-labelledby", "numeros-titulo");
+
+  const topo = criarElemento("header", "numeros__topo");
+  const textos = criarElemento("div", "numeros__textos");
+  const titulo = criarElemento("h2", "numeros__titulo");
+  titulo.id = "numeros-titulo";
+  const subtitulo = criarElemento("p", "numeros__subtitulo");
+  textos.append(titulo, subtitulo);
+
+  const fechar = criarElemento("button", "numeros__fechar");
+  fechar.type = "button";
+  fechar.setAttribute("aria-label", "Fechar");
+  fechar.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  fechar.addEventListener("click", () => janela.close());
+  topo.append(textos, fechar);
+
+  const lista = criarElemento("ul", "numeros__lista");
+  janela.append(topo, lista);
+  document.body.appendChild(janela);
+
+  // Clique no fundo escuro (fora do cartao) fecha, como os outros avisos.
+  janela.addEventListener("click", (evento) => {
+    if (evento.target === janela) janela.close();
+  });
+
+  function abrirCom(textoTitulo, textoSubtitulo, itens) {
+    titulo.textContent = textoTitulo;
+    subtitulo.textContent = textoSubtitulo;
+    lista.replaceChildren(...itens);
+    if (!janela.open) janela.showModal();
+    lista.scrollTop = 0;
+  }
+
+  // Um item da lista: botao que fecha esta janela e abre o que foi pedido
+  // (ficha ou chamado) — duas janelas empilhadas confundiriam.
+  function itemClicavel(conteudo, aoEscolher) {
+    const item = criarElemento("li");
+    const botao = criarElemento("button", "numeros__item");
+    botao.type = "button";
+    botao.append(...conteudo);
+    botao.addEventListener("click", () => {
+      janela.close();
+      aoEscolher();
+    });
+    item.appendChild(botao);
+    return item;
+  }
+
+  function mostrarPessoas(textoTitulo, pessoas, aoEscolher) {
+    const ordenadas = [...pessoas].sort((a, b) => (nomeCompleto(a) ?? "").localeCompare(nomeCompleto(b) ?? "", "pt-BR"));
+
+    abrirCom(textoTitulo, `${ordenadas.length} ${ordenadas.length === 1 ? "pessoa" : "pessoas"} · clique para abrir a ficha`,
+      ordenadas.map((pessoa) => {
+        const avatar = criarElemento("span", "painel-pessoa__avatar numeros__avatar");
+        pintarAvatar(avatar, pessoa);
+        const textosDaPessoa = criarElemento("span", "numeros__corpo");
+        textosDaPessoa.append(
+          criarElemento("span", "numeros__nome", nomeCompleto(pessoa) ?? "—"),
+          criarElemento("span", "numeros__apoio", pessoa.email ?? ""),
+        );
+        const perfil = criarElemento("span", `pessoas__perfil pessoas__perfil--${pessoa.perfil ?? "solicitante"}`,
+          ROTULOS_PERFIL_CURTO[pessoa.perfil] ?? pessoa.perfil ?? "—");
+        return itemClicavel([avatar, textosDaPessoa, perfil], () => aoEscolher(pessoa));
+      }));
+  }
+
+  function mostrarChamados(textoTitulo, chamados, aoEscolher) {
+    const recentes = [...chamados].sort((a, b) => (b.abertura_em > a.abertura_em ? 1 : -1));
+
+    abrirCom(textoTitulo, `${recentes.length} ${recentes.length === 1 ? "chamado" : "chamados"} · do mais recente ao mais antigo`,
+      recentes.map((chamado) => {
+        const status = derivarStatus(chamado);
+        const textosDoChamado = criarElemento("span", "numeros__corpo");
+        const linhaTitulo = criarElemento("span", "numeros__nome");
+        linhaTitulo.append(criarElemento("span", "numeros__numero", `#${chamado.numero}`), tituloDoChamado(chamado));
+        textosDoChamado.append(
+          linhaTitulo,
+          criarElemento("span", "numeros__apoio",
+            `${nomeCompleto(chamado.usuarios) ?? "Conta excluída"} · aberto ${haQuantoTempo(chamado.abertura_em)}`),
+        );
+        const selo = criarElemento("span", `painel-selo painel-selo--${status.chave}`, status.rotulo);
+        return itemClicavel([textosDoChamado, selo], () => aoEscolher(chamado));
+      }));
+  }
+
+  return { mostrarPessoas, mostrarChamados };
+}
+
+//NUMERO CLICAVEL dentro de uma linha: o clique (e o Enter) nao pode subir
+//para a linha, que abriria o editor do cadastro.
+function numeroClicavel(conteudo, rotulo, aoClicar) {
+  const botao = criarElemento("button", "numero-clicavel");
+  botao.type = "button";
+  botao.setAttribute("aria-label", rotulo);
+  botao.title = rotulo;
+  botao.appendChild(conteudo);
+  botao.addEventListener("click", (evento) => {
+    evento.stopPropagation();
+    aoClicar();
+  });
+  botao.addEventListener("keydown", (evento) => evento.stopPropagation());
+  return botao;
 }
 
 //ICONES DAS LISTAS SIMPLES: um por tipo de cadastro, no quadradinho ao
@@ -5972,7 +6098,8 @@ async function montarPainel() {
       : `Mostrando ${visiveis.length} de ${todas.length}`),
   });
 
-  ligarListaDeFilas(filasTodas.data ?? [], chamados.data ?? []);
+  // verChamados e declarada mais abaixo: so e chamada no clique, ja pronta.
+  ligarListaDeFilas(filasTodas.data ?? [], chamados.data ?? [], (titulo, lista) => verChamados(titulo, lista));
 
   //DIALOG DE ITEM SIMPLES: UM SO, compartilhado por Unidades/Setores/
   //Categorias (ver comentario em ligarItemSimplesDialog).
@@ -5998,10 +6125,19 @@ async function montarPainel() {
     const contas = new Map();
     (chamados.data ?? []).forEach((chamado) => {
       chavesDe(chamado).filter(Boolean).forEach((chave) => {
-        const conta = contas.get(chave) ?? { abertos: 0, total: 0, ultimo: null };
+        // Guarda os chamados mesmo, nao so a conta: o numero clicado abre
+        // a lista deles.
+        const conta = contas.get(chave) ?? { abertos: 0, total: 0, ultimo: null, todos: [], listaAbertos: [], chamadoMaisRecente: null };
         conta.total += 1;
-        if (!chamado.fechamento_em) conta.abertos += 1;
-        if (!conta.ultimo || chamado.abertura_em > conta.ultimo) conta.ultimo = chamado.abertura_em;
+        conta.todos.push(chamado);
+        if (!chamado.fechamento_em) {
+          conta.abertos += 1;
+          conta.listaAbertos.push(chamado);
+        }
+        if (!conta.ultimo || chamado.abertura_em > conta.ultimo) {
+          conta.ultimo = chamado.abertura_em;
+          conta.chamadoMaisRecente = chamado;
+        }
         contas.set(chave, conta);
       });
     });
@@ -6012,8 +6148,16 @@ async function montarPainel() {
     ? `${quantidade.toLocaleString("pt-BR")} ${quantidade === 1 ? "chamado" : "chamados"}`
     : "Nenhum");
 
-  //PESSOAS: ate 4 fotos sobrepostas e quantas sao no total.
-  function colunaPessoas(pessoasDe) {
+  //CLICOU NUM NUMERO: a janela lista quem/quais; escolher abre a ficha da
+  //pessoa ou o chamado (o mesmo detalhe de Todos os tickets).
+  const janelaDeNumeros = ligarJanelaDeNumeros();
+  const abrirPessoa = (pessoa) => dialogPessoa.abrir(pessoa, () => {});
+  const abrirChamado = (chamado) => detalhe.abrir(chamado);
+  const verChamados = (titulo, lista) => janelaDeNumeros.mostrarChamados(titulo, lista, abrirChamado);
+
+  //PESSOAS: ate 4 fotos sobrepostas e quantas sao no total. Clicar lista
+  //quem sao.
+  function colunaPessoas(pessoasDe, rotuloDoItem) {
     return {
       titulo: "Pessoas",
       montar: (item) => {
@@ -6023,7 +6167,6 @@ async function montarPainel() {
 
         const caixa = criarElemento("span", "simples__pessoas");
         const pilha = criarElemento("span", "tickets__pilha");
-        pilha.title = doItem.map((pessoa) => nomeCompleto(pessoa)).filter(Boolean).join(", ");
 
         doItem.slice(0, 4).forEach((pessoa) => {
           const avatar = criarElemento("span", "painel-pessoa__avatar tickets__avatar");
@@ -6031,20 +6174,25 @@ async function montarPainel() {
           pilha.appendChild(avatar);
         });
 
-        caixa.append(pilha, criarElemento("span", "simples__contagem",
-          `${doItem.length} ${doItem.length === 1 ? "pessoa" : "pessoas"}`));
-        return caixa;
+        const quantas = `${doItem.length} ${doItem.length === 1 ? "pessoa" : "pessoas"}`;
+        caixa.append(pilha, criarElemento("span", "simples__contagem", quantas));
+
+        return numeroClicavel(caixa, `Ver ${quantas} ${rotuloDoItem(item)}`, () => {
+          janelaDeNumeros.mostrarPessoas(`Pessoas ${rotuloDoItem(item)}`, doItem, abrirPessoa);
+        });
       },
     };
   }
 
   //CHAMADOS ABERTOS: numero e barra; o mais cheio em laranja, os outros
   //neutros (mesma regra dos graficos da Analise, inclusive no empate).
-  function colunaAbertos(contaDe, itens) {
+  //Clicar lista os chamados abertos.
+  function colunaAbertos(contaDe, itens, rotuloDoItem) {
     return {
       titulo: "Chamados abertos",
       montar: (item) => {
-        const abertos = contaDe(item)?.abertos ?? 0;
+        const conta = contaDe(item);
+        const abertos = conta?.abertos ?? 0;
         const todos = itens.map((outro) => contaDe(outro)?.abertos ?? 0);
         const maior = Math.max(0, ...todos);
 
@@ -6056,32 +6204,48 @@ async function montarPainel() {
         preenchido.classList.toggle("listas__preenchido--maior", ehDestaque(abertos, todos));
         trilho.appendChild(preenchido);
         caixa.appendChild(trilho);
-        return caixa;
+
+        if (!abertos) return caixa;
+
+        return numeroClicavel(caixa, `Ver chamados abertos ${rotuloDoItem(item)}`, () => {
+          verChamados(`Chamados abertos ${rotuloDoItem(item)}`, conta.listaAbertos);
+        });
       },
     };
   }
 
-  function colunaTotal(contaDe) {
+  function colunaTotal(contaDe, rotuloDoItem) {
     return {
       titulo: "Total de chamados",
-      montar: (item) => criarElemento("span", "simples__total", textoDeChamados(contaDe(item)?.total ?? 0)),
+      montar: (item) => {
+        const conta = contaDe(item);
+        const texto = criarElemento("span", "simples__total", textoDeChamados(conta?.total ?? 0));
+
+        if (!conta?.total) return texto;
+
+        return numeroClicavel(texto, `Ver todos os chamados ${rotuloDoItem(item)}`, () => {
+          verChamados(`Todos os chamados ${rotuloDoItem(item)}`, conta.todos);
+        });
+      },
     };
   }
 
+  //ULTIMO CHAMADO: clicar abre esse chamado direto.
   function colunaUltimo(contaDe) {
     return {
       titulo: "Último chamado",
       montar: (item) => {
-        const ultimo = contaDe(item)?.ultimo;
+        const conta = contaDe(item);
 
-        if (!ultimo) return criarElemento("span", "simples__vazio", "Nenhum ainda");
+        if (!conta?.ultimo) return criarElemento("span", "simples__vazio", "Nenhum ainda");
 
         const caixa = criarElemento("span", "simples__quando");
         caixa.append(
-          criarElemento("span", "simples__relativo", haQuantoTempo(ultimo)),
-          criarElemento("span", "simples__apoio", new Date(ultimo).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })),
+          criarElemento("span", "simples__relativo", haQuantoTempo(conta.ultimo)),
+          criarElemento("span", "simples__apoio", new Date(conta.ultimo).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })),
         );
-        return caixa;
+
+        return numeroClicavel(caixa, `Abrir o chamado #${conta.chamadoMaisRecente.numero}`, () => abrirChamado(conta.chamadoMaisRecente));
       },
     };
   }
@@ -6099,8 +6263,8 @@ async function montarPainel() {
     rotuloPlural: "Unidades",
     dialog: dialogItemSimples,
     colunas: [
-      colunaPessoas((unidade) => pessoasPorUnidade.get(unidade.id) ?? []),
-      colunaAbertos(contaDaUnidade, unidades.data ?? []),
+      colunaPessoas((unidade) => pessoasPorUnidade.get(unidade.id) ?? [], (unidade) => `em ${unidade.nome}`),
+      colunaAbertos(contaDaUnidade, unidades.data ?? [], (unidade) => `em ${unidade.nome}`),
       colunaUltimo(contaDaUnidade),
     ],
   });
@@ -6120,8 +6284,8 @@ async function montarPainel() {
     generoMasculino: true,
     dialog: dialogItemSimples,
     colunas: [
-      colunaPessoas((setor) => pessoasPorSetor.get(setor.id) ?? []),
-      colunaAbertos(contaDoSetor, setores.data ?? []),
+      colunaPessoas((setor) => pessoasPorSetor.get(setor.id) ?? [], (setor) => `do setor ${setor.nome}`),
+      colunaAbertos(contaDoSetor, setores.data ?? [], (setor) => `do setor ${setor.nome}`),
       colunaUltimo(contaDoSetor),
     ],
   });
@@ -6138,8 +6302,8 @@ async function montarPainel() {
     rotuloPlural: "Categorias",
     dialog: dialogItemSimples,
     colunas: [
-      colunaAbertos(contaDaCategoria, categorias.data ?? []),
-      colunaTotal(contaDaCategoria),
+      colunaAbertos(contaDaCategoria, categorias.data ?? [], (categoria) => `em ${categoria.nome}`),
+      colunaTotal(contaDaCategoria, (categoria) => `em ${categoria.nome}`),
       colunaUltimo(contaDaCategoria),
     ],
   });
@@ -6160,8 +6324,8 @@ async function montarPainel() {
     bucketFoto: "terceiros",
     dialog: dialogItemSimples,
     colunas: [
-      colunaAbertos(contaDoTerceiro, terceiros.data ?? []),
-      colunaTotal(contaDoTerceiro),
+      colunaAbertos(contaDoTerceiro, terceiros.data ?? [], (terceiro) => `com ${terceiro.nome}`),
+      colunaTotal(contaDoTerceiro, (terceiro) => `com ${terceiro.nome}`),
       colunaUltimo(contaDoTerceiro),
     ],
   });
