@@ -589,26 +589,47 @@
               <span class="abrir__secao-texto">Quem está saindo</span>
             </div>
 
-            <div class="abrir__campo">
-              <label class="abrir__label" for="desligamento-nome">Nome completo</label>
-              <input class="abrir__input" id="desligamento-nome" type="text" maxlength="120" autocomplete="off"
-                     data-campo="nome" data-obrigatorio data-minimo="3"
-                     data-mensagem="Informe o nome completo de quem está saindo." placeholder="Ex.: João Pereira">
+            <!--Os quatro sao obrigatorios (data-obrigatorio): sem eles a equipe nao
+                sabe de quem tirar os acessos nem de onde. O * so sinaliza; quem
+                barra e a validacao do abrir-chamado.js.-->
+            <div class="abrir__linha">
+              <div class="abrir__campo">
+                <label class="abrir__label" for="desligamento-nome">
+                  Nome completo <span class="abrir__obrigatorio" aria-hidden="true">*</span>
+                </label>
+                <input class="abrir__input" id="desligamento-nome" type="text" maxlength="120" autocomplete="off"
+                       data-campo="nome" data-obrigatorio data-minimo="3" required aria-required="true"
+                       data-mensagem="Informe o nome completo de quem está saindo." placeholder="Ex.: João Pereira">
+              </div>
+
+              <div class="abrir__campo">
+                <label class="abrir__label" for="desligamento-email">
+                  E-mail <span class="abrir__obrigatorio" aria-hidden="true">*</span>
+                </label>
+                <input class="abrir__input" id="desligamento-email" type="email" maxlength="160" autocomplete="off"
+                       data-campo="email" data-obrigatorio data-validar="email" required aria-required="true"
+                       data-mensagem="Informe o e-mail de quem está saindo."
+                       placeholder="Ex.: joao.pereira@madeirasgasometro.com.br">
+              </div>
             </div>
 
             <div class="abrir__linha">
               <div class="abrir__campo">
-                <label class="abrir__label" for="desligamento-email">E-mail</label>
-                <input class="abrir__input" id="desligamento-email" type="email" maxlength="160" autocomplete="off"
-                       data-campo="email" data-obrigatorio data-validar="email"
-                       data-mensagem="Informe o e-mail de quem está saindo."
-                       placeholder="Ex.: joao.pereira@madeirasgasometro.com.br">
+                <label class="abrir__label" for="desligamento-setor">
+                  Setor <span class="abrir__obrigatorio" aria-hidden="true">*</span>
+                </label>
+                <select class="abrir__input abrir__select" id="desligamento-setor" required aria-required="true"
+                        data-campo="setor" data-lista="setores" data-obrigatorio data-mensagem="Escolha o setor do colaborador.">
+                  <option value="">Carregando…</option>
+                </select>
               </div>
 
               <div class="abrir__campo">
-                <label class="abrir__label" for="desligamento-setor">Setor</label>
-                <select class="abrir__input abrir__select" id="desligamento-setor"
-                        data-campo="setor" data-lista="setores" data-obrigatorio data-mensagem="Escolha o setor do colaborador.">
+                <label class="abrir__label" for="desligamento-unidade">
+                  Unidade <span class="abrir__obrigatorio" aria-hidden="true">*</span>
+                </label>
+                <select class="abrir__input abrir__select" id="desligamento-unidade" required aria-required="true"
+                        data-campo="unidade" data-lista="unidades" data-obrigatorio data-mensagem="Escolha a unidade do colaborador.">
                   <option value="">Carregando…</option>
                 </select>
               </div>

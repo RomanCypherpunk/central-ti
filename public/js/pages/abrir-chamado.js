@@ -1165,6 +1165,9 @@ async function carregar() {
     "Selecione o setor",
   );
 
+  // Unidade de quem está saindo (desligamento).
+  preencherSelects("unidades", unidades.data ?? [], "Selecione a unidade");
+
   // No suporte a pessoa escolhe a categoria; as de colaborador e a do
   // sistema ficam fora da lista, porque têm formulário (ou dono) próprio.
   preencherSelects(
@@ -1512,6 +1515,8 @@ function montarChamado() {
     email: valor("email"),
     setor_id: valor("setor"),
     setor: textoEscolhido("setor"),
+    unidade_id: valor("unidade"),
+    unidade: textoEscolhido("unidade"),
     providencias,
     // Com "Excluir e-mail" marcado o campo fica escondido: um valor digitado
     // antes de marcar não pode ir no chamado.
@@ -1526,6 +1531,7 @@ function montarChamado() {
       ["Nome", colaborador.nome],
       ["E-mail", colaborador.email],
       ["Setor", colaborador.setor],
+      ["Unidade", colaborador.unidade],
       ["Providências", colaborador.providencias.join(", ") || "Nenhuma marcada"],
       ["Repassar os e-mails para", colaborador.repassar_emails],
       ["Observações", colaborador.observacoes],
