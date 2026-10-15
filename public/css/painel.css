@@ -1358,6 +1358,187 @@ html[data-painel-sidebar="colapsada"] .painel {
   }
 }
 
+/* ==========================================================================
+   CONTATOS E ADMINISTRADORES: a mesma tabela de pessoas, no padrao dos
+   diretorios de pessoas (Linear, Notion, Stripe): quem e (foto, nome,
+   e-mail), onde esta, que acesso tem e se a conta esta valendo. Cabecalho
+   igual ao de Todos os tickets; a linha inteira abre a ficha.
+   ========================================================================== */
+
+.painel-tabela--pessoas thead th {
+  padding: 0.65rem 0.9rem;
+  background: var(--superficie-3);
+  color: var(--texto-3);
+  font: 600 0.6875rem/1.2 "Poppins", sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.painel-tabela--pessoas thead th:first-child,
+.painel-tabela--pessoas tbody td:first-child {
+  padding-left: 1.25rem;
+}
+
+.painel-tabela--pessoas td {
+  padding: 0.75rem 0.9rem;
+}
+
+.painel-tabela--pessoas tbody tr:hover {
+  background: var(--realce);
+}
+
+/*Conta desligada ou recusada fica em segundo plano: continua na lista
+  (da para reativar), mas nao disputa atencao com quem esta ativo.*/
+.painel-tabela--pessoas tr[data-situacao="inativo"] .pessoas__identidade,
+.painel-tabela--pessoas tr[data-situacao="inativo"] .pessoas__lotacao,
+.painel-tabela--pessoas tr[data-situacao="rejeitado"] .pessoas__identidade,
+.painel-tabela--pessoas tr[data-situacao="rejeitado"] .pessoas__lotacao {
+  opacity: 0.55;
+}
+
+.pessoas__identidade {
+  min-width: 15rem;
+}
+
+.pessoas__avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 0.75rem;
+}
+
+.pessoas__textos {
+  display: grid;
+  min-width: 0;
+}
+
+.pessoas__nome {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  overflow: hidden;
+  color: var(--texto);
+  font: 600 0.84375rem/1.35 "Poppins", sans-serif;
+  white-space: nowrap;
+}
+
+.pessoas__voce {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--superficie-2);
+  color: var(--texto-2);
+  font: 600 0.625rem/1.4 "Poppins", sans-serif;
+}
+
+.pessoas__apoio {
+  display: block;
+  overflow: hidden;
+  max-width: 28ch;
+  color: var(--texto-3);
+  font: 400 0.75rem/1.4 "Poppins", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pessoas__setor {
+  display: block;
+  color: var(--texto);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/*PERFIL: uma cor por nivel de acesso. Admin na cor da marca, analista e
+  contribuinte em tons proprios, solicitante neutro (e a maioria, nao
+  precisa chamar atencao).*/
+.pessoas__perfil {
+  --cor-perfil: var(--texto-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--cor-perfil) 28%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--cor-perfil) 9%, var(--superficie));
+  color: var(--cor-perfil);
+  font: 600 0.75rem/1.3 "Poppins", sans-serif;
+  white-space: nowrap;
+}
+
+.pessoas__perfil--admin { --cor-perfil: var(--laranja-forte); }
+.pessoas__perfil--analista { --cor-perfil: #6a4fd8; }
+.pessoas__perfil--contribuinte { --cor-perfil: #2c6fd6; }
+
+[data-tema="escuro"] .pessoas__perfil--analista { --cor-perfil: #a996ff; }
+[data-tema="escuro"] .pessoas__perfil--contribuinte { --cor-perfil: #7fb0ff; }
+
+.pessoas__perfil--solicitante {
+  border-color: var(--borda);
+  background: var(--superficie-3);
+}
+
+/*SITUACAO: bolinha + texto, nas cores de status do resto do Painel.*/
+.pessoas__situacao {
+  --cor-situacao: var(--texto-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--cor-situacao);
+  font: 500 0.78125rem/1.3 "Poppins", sans-serif;
+  white-space: nowrap;
+}
+
+.pessoas__situacao::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.pessoas__situacao--aprovado { --cor-situacao: var(--status-fechado); }
+.pessoas__situacao--pendente { --cor-situacao: var(--status-aguardando); }
+.pessoas__situacao--rejeitado { --cor-situacao: var(--erro-texto); }
+
+.pessoas__desde {
+  white-space: nowrap;
+}
+
+.pessoas__relativo {
+  display: block;
+  color: var(--texto);
+  font-weight: 500;
+}
+
+/*SETA: aparece no hover, dizendo que a linha abre a ficha.*/
+.pessoas__coluna-seta,
+.pessoas__seta {
+  width: 2rem;
+  padding-left: 0 !important;
+}
+
+.pessoas__seta {
+  color: var(--laranja);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.pessoas__seta svg {
+  display: block;
+}
+
+.painel-tabela--pessoas tbody tr:hover .pessoas__seta,
+.painel-tabela--pessoas tbody tr:focus-visible .pessoas__seta {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pessoas__seta {
+    transition: none;
+  }
+}
+
 .painel-vazio {
   margin: 1.5rem 0;
   color: var(--texto-4);

@@ -1636,56 +1636,86 @@ function ligarListaDePessoas({ prefixo, pessoas, setores, unidades, dialog, rotu
       && passaNoGrupo(filtros.situacao, () => filtros.situacao.includes(situacaoDe(pessoa)));
   }
 
+  function pedaco(tag, classe, conteudo) {
+    const elemento = document.createElement(tag);
+    elemento.className = classe;
+    if (conteudo !== undefined) elemento.textContent = conteudo;
+    return elemento;
+  }
+
+  //"desde mar. de 2026" e, embaixo, "há 7 meses": a data para quem precisa
+  //dela, o tempo relativo para ler de relance.
+  const tempoRelativo = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
+
+  function haQuanto(iso) {
+    const dias = Math.round((new Date(iso).getTime() - Date.now()) / 86_400_000);
+
+    if (dias === 0) return "hoje";
+    if (Math.abs(dias) < 7) return tempoRelativo.format(dias, "day");
+    if (Math.abs(dias) < 31) return tempoRelativo.format(Math.round(dias / 7), "week");
+    if (Math.abs(dias) < 365) return tempoRelativo.format(Math.round(dias / 30.4), "month");
+    return tempoRelativo.format(Math.round(dias / 365), "year");
+  }
+
   function montarLinha(pessoa) {
     const linha = document.createElement("tr");
     linha.dataset.pessoa = pessoa.id;
     linha.tabIndex = 0;
 
-    const identidade = document.createElement("td");
-    const caixa = document.createElement("span");
-    caixa.className = "painel-pessoa";
-    const avatar = document.createElement("span");
-    avatar.className = "painel-pessoa__avatar";
+    const situacaoAtual = situacaoDe(pessoa);
+    linha.dataset.situacao = situacaoAtual;
+
+    //PESSOA: foto, nome em destaque e o e-mail embaixo (uma coluna a menos,
+    //e o e-mail continua ali para quem procura). "Você" marca a propria conta.
+    const identidade = pedaco("td", "pessoas__identidade");
+    const caixa = pedaco("span", "painel-pessoa");
+    const avatar = pedaco("span", "painel-pessoa__avatar pessoas__avatar");
     pintarAvatar(avatar, pessoa);
-    const nome = document.createElement("span");
-    nome.textContent = nomeCompleto(pessoa) ?? "—";
-    caixa.append(avatar, nome);
+
+    const textos = pedaco("span", "pessoas__textos");
+    const linhaNome = pedaco("span", "pessoas__nome", nomeCompleto(pessoa) ?? "—");
+    if (pessoa.id === usuarioAtual) linhaNome.appendChild(pedaco("span", "pessoas__voce", "Você"));
+    textos.append(linhaNome, pedaco("span", "pessoas__apoio", pessoa.email ?? "sem e-mail"));
+    textos.title = [nomeCompleto(pessoa), pessoa.email].filter(Boolean).join(" · ");
+
+    caixa.append(avatar, textos);
     identidade.appendChild(caixa);
 
-    const email = document.createElement("td");
-    email.textContent = pessoa.email ?? "—";
+    const lotacao = pedaco("td", "pessoas__lotacao");
+    lotacao.append(
+      pedaco("span", "pessoas__setor", nomeDoSetor.get(pessoa.setor_id) ?? "Sem setor"),
+      pedaco("span", "pessoas__apoio", nomeDaUnidade.get(pessoa.unidade_id) ?? "Sem unidade"),
+    );
 
-    const setor = document.createElement("td");
-    setor.textContent = nomeDoSetor.get(pessoa.setor_id) ?? "—";
-
-    const unidade = document.createElement("td");
-    unidade.textContent = nomeDaUnidade.get(pessoa.unidade_id) ?? "—";
-
+    //PERFIL: etiqueta com cor propria por nivel de acesso, do mais
+    //poderoso (admin, na cor da marca) ao solicitante (neutro).
     const perfil = document.createElement("td");
-    perfil.textContent = ROTULO_PERFIL[pessoa.perfil] ?? pessoa.perfil ?? "—";
+    perfil.appendChild(pedaco(
+      "span",
+      `pessoas__perfil pessoas__perfil--${pessoa.perfil ?? "solicitante"}`,
+      ROTULO_PERFIL[pessoa.perfil] ?? pessoa.perfil ?? "—",
+    ));
 
     //SITUACAO: conta desligada vem primeiro, porque manda mais que o
     //status do cadastro — quem esta inativo nao entra de jeito nenhum.
     const situacao = document.createElement("td");
-    const selo = document.createElement("span");
+    situacao.appendChild(pedaco("span", `pessoas__situacao pessoas__situacao--${situacaoAtual}`, ROTULOS_SITUACAO[situacaoAtual]));
 
-    if (!pessoa.ativo) {
-      selo.className = "painel-selo painel-selo--fechado";
-      selo.textContent = "Inativo";
-    } else if (pessoa.status_aprovacao === "aprovado") {
-      selo.className = "painel-selo painel-selo--aguardando";
-      selo.textContent = "Aprovado";
-    } else if (pessoa.status_aprovacao === "rejeitado") {
-      selo.className = "painel-selo painel-selo--fechado";
-      selo.textContent = "Rejeitado";
+    const desde = pedaco("td", "pessoas__desde");
+    if (pessoa.created_at) {
+      desde.append(
+        pedaco("span", "pessoas__relativo", haQuanto(pessoa.created_at)),
+        pedaco("span", "pessoas__apoio", new Date(pessoa.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })),
+      );
     } else {
-      selo.className = "painel-selo painel-selo--respondeu";
-      selo.textContent = "Pendente";
+      desde.textContent = "—";
     }
 
-    situacao.appendChild(selo);
+    const seta = pedaco("td", "pessoas__seta");
+    seta.setAttribute("aria-hidden", "true");
+    seta.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><path d="m9.5 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-    linha.append(identidade, email, setor, unidade, perfil, situacao);
+    linha.append(identidade, lotacao, perfil, situacao, desde, seta);
 
     return linha;
   }
