@@ -321,7 +321,7 @@
         <header class="painel-aba__topo">
           <div>
             <h1 class="painel-aba__titulo">Análise</h1>
-            <p class="painel-aba__resumo">Resumo geral do período selecionado.</p>
+            <p class="painel-aba__resumo" data-analise-resumo>Resumo geral do período selecionado.</p>
           </div>
 
           <!--PERIODO + FILTRO: agrupados, os dois no topo desta secao
@@ -485,13 +485,19 @@
 
           <div class="analise-graficos">
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Total de tickets por unidade</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Total de tickets por unidade</h2>
+                <p class="analise-grafico__descricao">Quantos chamados cada unidade abriu no período.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--barra">
                 <canvas data-analise-grafico-unidades></canvas>
               </div>
             </div>
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Total de tickets por categoria</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Total de tickets por categoria</h2>
+                <p class="analise-grafico__descricao">Do que se tratam os chamados, em proporção.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--pizza">
                 <canvas data-analise-grafico-categorias></canvas>
               </div>
@@ -517,13 +523,19 @@
 
           <div class="analise-graficos">
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Total de tickets por unidade</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Total de tickets por unidade</h2>
+                <p class="analise-grafico__descricao">Chamados por unidade, separando normais e urgentes.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--barra">
                 <canvas data-analise-grafico-unidades-empilhado></canvas>
               </div>
             </div>
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Tempo de solução por unidade (h)</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Tempo de solução por unidade</h2>
+                <p class="analise-grafico__descricao">Média de horas úteis até fechar, por unidade. Maior = mais demorado.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--barra">
                 <canvas data-analise-grafico-unidades-sla></canvas>
               </div>
@@ -551,13 +563,19 @@
 
           <div class="analise-graficos">
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Total de tickets por categoria</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Total de tickets por categoria</h2>
+                <p class="analise-grafico__descricao">Chamados por categoria, separando normais e urgentes.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--barra">
                 <canvas data-analise-grafico-categorias-empilhado></canvas>
               </div>
             </div>
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Tempo de solução por categoria (h)</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Tempo de solução por categoria</h2>
+                <p class="analise-grafico__descricao">Média de horas úteis até fechar, por categoria. Maior = mais demorado.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--barra">
                 <canvas data-analise-grafico-categorias-sla></canvas>
               </div>
@@ -585,13 +603,19 @@
 
           <div class="analise-graficos">
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Total de tickets por setor</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Total de tickets por setor</h2>
+                <p class="analise-grafico__descricao">Chamados pelo setor de quem abriu, separando normais e urgentes.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--barra">
                 <canvas data-analise-grafico-setores-empilhado></canvas>
               </div>
             </div>
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Tempo de solução por setor (h)</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Tempo de solução por setor</h2>
+                <p class="analise-grafico__descricao">Média de horas úteis até fechar, por setor. Maior = mais demorado.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--barra">
                 <canvas data-analise-grafico-setores-sla></canvas>
               </div>
@@ -621,13 +645,19 @@
 
           <div class="analise-graficos">
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Total de tickets por solicitante (top 10)</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Total de tickets por solicitante (top 10)</h2>
+                <p class="analise-grafico__descricao">As 10 pessoas que mais abriram chamados, separando normais e urgentes.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--barra">
                 <canvas data-analise-grafico-solicitantes-empilhado></canvas>
               </div>
             </div>
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Tempo de solução por solicitante (h, top 10)</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Tempo de solução por solicitante (top 10)</h2>
+                <p class="analise-grafico__descricao">Média de horas úteis até fechar, das 10 pessoas com mais chamados.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--barra">
                 <canvas data-analise-grafico-solicitantes-sla></canvas>
               </div>
@@ -659,13 +689,19 @@
 
           <div class="analise-graficos">
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Total de tickets por atendente</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Total de tickets por atendente</h2>
+                <p class="analise-grafico__descricao">Quantos chamados cada pessoa da equipe atendeu.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--coluna">
                 <canvas data-analise-grafico-atendentes-total></canvas>
               </div>
             </div>
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Média de solução por atendente (h)</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Média de solução por atendente</h2>
+                <p class="analise-grafico__descricao">Média de horas úteis até fechar, por pessoa da equipe. Menor = mais rápido.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--coluna">
                 <canvas data-analise-grafico-atendentes-sla></canvas>
               </div>
@@ -703,13 +739,19 @@
 
           <div class="analise-graficos">
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Total de tickets por terceiro</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Total de tickets por terceiro</h2>
+                <p class="analise-grafico__descricao">Quantos chamados foram passados para cada fornecedor.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--coluna">
                 <canvas data-analise-grafico-terceiros-total></canvas>
               </div>
             </div>
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Média de solução por terceiro (h)</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Média de solução por terceiro</h2>
+                <p class="analise-grafico__descricao">Média de horas úteis até fechar, por fornecedor. Menor = mais rápido.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--coluna">
                 <canvas data-analise-grafico-terceiros-sla></canvas>
               </div>
@@ -744,13 +786,19 @@
 
           <div class="analise-graficos analise-graficos--linha">
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Total de tickets por mês</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Total de tickets por mês</h2>
+                <p class="analise-grafico__descricao">Chamados abertos em cada um dos últimos 12 meses.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--linha">
                 <canvas data-analise-grafico-mes-total></canvas>
               </div>
             </div>
             <div class="analise-grafico">
-              <h2 class="analise-grafico__titulo">Tempo de solução por mês (h)</h2>
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Tempo de solução por mês</h2>
+                <p class="analise-grafico__descricao">Média de horas úteis até fechar, mês a mês.</p>
+              </div>
               <div class="analise-grafico__caixa analise-grafico__caixa--linha">
                 <canvas data-analise-grafico-mes-sla></canvas>
               </div>

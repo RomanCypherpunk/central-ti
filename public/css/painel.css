@@ -1102,11 +1102,11 @@ html[data-painel-sidebar="colapsada"] .painel {
    So .painel-tabela--tickets: as outras abas usam a tabela simples.
    ========================================================================== */
 
-/*DUAS CORES SO: verde = ainda esta no quadro (aberto, aguardando ou
-  respondeu), vermelho = fechado. O texto do selo continua dizendo qual dos
-  estados abertos e.*/
+/*DUAS CORES SO, no padrao do card do Portal: ambar = ainda esta no
+  quadro (aberto, aguardando ou respondeu), cinza = fechado. O texto do selo
+  continua dizendo qual dos estados abertos e.*/
 .painel-tabela--tickets {
-  --cor-status: var(--status-fechado);
+  --cor-status: var(--status-aguardando);
 }
 
 .painel-tabela--tickets thead th {
@@ -1126,7 +1126,7 @@ html[data-painel-sidebar="colapsada"] .painel {
   padding: 0.8rem 0.75rem;
 }
 
-.painel-tabela--tickets tbody tr[data-status="fechado"] { --cor-status: var(--erro-texto); }
+.painel-tabela--tickets tbody tr[data-status="fechado"] { --cor-status: var(--texto-3); }
 
 /*A FAIXA: 3px na cor do status, colada na borda esquerda. No hover vira
   laranja e engrossa, junto com o fundo de realce.*/
@@ -1231,7 +1231,7 @@ html[data-painel-sidebar="colapsada"] .painel {
 }
 
 .painel-tabela--tickets .tickets__selo {
-  background: color-mix(in srgb, var(--cor-status) 12%, transparent);
+  background: color-mix(in srgb, var(--cor-status) 14%, var(--superficie));
   color: var(--cor-status);
 }
 
@@ -2402,24 +2402,121 @@ html[data-painel-sidebar="colapsada"] .painel {
   margin-bottom: 1.5rem;
 }
 
+/*CARD DE INDICADOR (KPI): icone na cor do assunto, rotulo, o numero grande
+  e uma linha de contexto embaixo. A cor (--tom) vem do assunto do card,
+  decidido em decorarCardsDaAnalise (painel.js): volume, urgencia, tempo,
+  resposta ou variacao. Um fio de 3px no topo repete a cor, discreto.*/
 .analise-card {
+  --tom: var(--laranja);
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem 1.1rem;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 1rem 1.1rem 1.05rem;
   border: 1px solid var(--borda);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--superficie);
+  box-shadow: var(--sombra-card);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.analise-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--tom);
+  opacity: 0.85;
+}
+
+.analise-card:hover {
+  border-color: color-mix(in srgb, var(--tom) 35%, var(--borda));
+  box-shadow: var(--sombra-card-alta);
+}
+
+.analise-card--urgente { --tom: #e5484d; }
+.analise-card--tempo { --tom: #d4891a; }
+.analise-card--resposta { --tom: #2f9e64; }
+.analise-card--variacao { --tom: #2f6fb0; }
+
+.analise-card__topo {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.analise-card__icone {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tom) 13%, var(--superficie));
+  color: var(--tom);
 }
 
 .analise-card__rotulo {
-  color: var(--texto-3);
+  min-width: 0;
+  color: var(--texto-2);
   font: 500 0.75rem/1.3 "Poppins", sans-serif;
 }
 
 .analise-card__valor {
   color: var(--texto);
-  font: 700 1.625rem/1.1 "Sora", sans-serif;
+  font: 700 1.75rem/1.1 "Sora", sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.analise-card__dica {
+  color: var(--texto-3);
+  font: 400 0.71875rem/1.35 "Poppins", sans-serif;
+}
+
+.analise-card__dica:empty {
+  display: none;
+}
+
+/*Proporcao (% de urgentes): trilho cinza com a fatia na cor do card.*/
+.analise-card__medidor {
+  display: block;
+  height: 6px;
+  margin-top: 0.15rem;
+  border-radius: 999px;
+  background: var(--superficie-2);
+  overflow: hidden;
+}
+
+.analise-card__medidor span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tom);
+  transition: width 0.4s ease;
+}
+
+/*DESTAQUE (cards das sub-abas): nome em evidencia, cortado com reticencias
+  se nao couber, e a metrica num selo na cor do card.*/
+.analise-destaque__nome {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analise-destaque__metrica {
+  display: inline-block;
+  margin-top: 0.45rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tom) 13%, var(--superficie));
+  color: var(--tom);
+  font: 600 0.75rem/1.4 "Poppins", sans-serif;
+  letter-spacing: 0;
 }
 
 /*CARDS DE VARIACAO (Acompanhamento): sobem/descem sao BONS ou RUINS
@@ -2454,16 +2551,36 @@ html[data-painel-sidebar="colapsada"] .painel {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 1.25rem;
+  padding: 1.25rem 1.35rem 1.35rem;
   border: 1px solid var(--borda);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--superficie);
+  box-shadow: var(--sombra-card);
+}
+
+/*CABECALHO DO GRAFICO: titulo e, embaixo, uma frase dizendo o que ele
+  mostra e como ler (maior = mais demorado...). Uma linha separa do
+  grafico.*/
+.analise-grafico__cabecalho {
+  margin: 0 0 1.1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--borda-suave);
 }
 
 .analise-grafico__titulo {
   margin: 0 0 1rem;
   color: var(--texto);
   font: 600 0.9375rem/1.3 "Sora", sans-serif;
+}
+
+.analise-grafico__cabecalho .analise-grafico__titulo {
+  margin: 0;
+}
+
+.analise-grafico__descricao {
+  margin: 0.3rem 0 0;
+  color: var(--texto-3);
+  font: 400 0.75rem/1.45 "Poppins", sans-serif;
 }
 
 .analise-grafico__caixa {
@@ -2559,39 +2676,57 @@ html[data-painel-sidebar="colapsada"] .painel {
   nao so uma linha fina em cima — sem isso a separacao ficava fraca
   demais perto dos cards de grafico logo acima, que ja tem sua propria
   borda visivel (a "linha" some visualmente entre os dois).*/
+/*Continua no rodape (pedido do usuario), mas grudada na base da tela
+  (sticky): a pessoa troca de secao sem rolar ate o fim. Visual de controle
+  segmentado — um trilho com as opcoes dentro e a atual em destaque.*/
 .analise-subabas {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 4;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-  padding: 1rem 1.25rem;
+  gap: 0.25rem;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 1.75rem auto 0;
+  padding: 0.3rem;
   border: 1px solid var(--borda);
-  border-radius: 12px;
-  background: var(--superficie-2);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--superficie) 88%, transparent);
+  box-shadow: 0 10px 30px -12px rgba(26, 26, 26, 0.28);
+  backdrop-filter: blur(10px);
 }
 
 .analise-subaba {
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--borda);
-  border-radius: 999px;
-  background: var(--superficie);
+  padding: 0.5rem 0.95rem;
+  border: 0;
+  border-radius: 10px;
+  background: none;
   color: var(--texto-2);
   font: 500 0.8125rem/1.2 "Poppins", sans-serif;
+  white-space: nowrap;
   cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .analise-subaba:hover {
-  border-color: var(--realce-borda);
+  background: var(--superficie-2);
   color: var(--texto);
+}
+
+.analise-subaba:focus-visible {
+  outline: 2px solid var(--laranja);
+  outline-offset: 1px;
 }
 
 .analise-subaba--atual,
 .analise-subaba--atual:hover {
-  border-color: var(--laranja);
   background: var(--laranja);
   color: #fff;
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--laranja) 70%, transparent);
 }
 
 /* ==========================================================================

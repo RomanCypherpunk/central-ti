@@ -24,6 +24,7 @@ import {
   tituloDoChamado,
   formatarData,
   CAMPOS_CHAMADO,
+  CORES_DESTAQUE,
 } from "../componentes/chamado-comum.js";
 
 const erro = document.querySelector("[data-erro]");
@@ -2738,6 +2739,105 @@ const CORES_GRAFICO = [
   "#b02a2a", "#5e141d", "#6b6b70", "#c77240", "#1f6b5c",
 ];
 
+//BARRAS NEUTRAS, SO O MAIOR EM LARANJA: cinza-pedra (quente, combina com
+//o laranja) para todas as barras, e a cor da marca so na maior de cada
+//grafico — a unidade com mais chamados, o maior tempo de solucao. O
+//laranja deixa de ser enfeite e passa a apontar o que importa. No tema
+//escuro o cinza clareia para nao sumir no fundo do card. Normal x urgente
+//continua cinza x vermelho.
+function corDasBarras() {
+  return document.documentElement.dataset.tema === "escuro" ? "#8a837d" : "#78716c";
+}
+
+//Empate no topo: todas as que empatam com a maior ficam em destaque — a
+//menos que TODAS empatem: ai nao ha o que apontar, e o grafico inteiro
+//laranja era justamente o excesso que se queria evitar.
+function coresComDestaque(valores) {
+  const numeros = valores.filter((valor) => valor != null);
+  const maior = Math.max(...numeros);
+  const todasIguais = numeros.length > 1 && numeros.every((valor) => valor === maior);
+
+  return valores.map((valor) => (valor === maior && maior > 0 && !todasIguais ? "#dd5b12" : corDasBarras()));
+}
+
+//COR DE CADA ATENDENTE: a da etiqueta dele (usuarios.cor_destaque, a mesma
+//do card no Portal). Quem ainda nao escolheu ganha uma cor da mesma paleta
+//de etiquetas que ninguem do grafico esteja usando — quando escolher, o
+//grafico passa a seguir a escolha.
+function evitarNoGrafico(cor) {
+  return ["#dd5b12", "#d64545", "#b02a2a"].includes(cor.toLowerCase()) ? 1 : 0;
+}
+
+//As cores que ninguem esta usando, primeiro as da paleta de etiquetas.
+//Laranja e vermelho por ultimo: laranja e a marca (ja esta em todo canto)
+//e vermelho, nos graficos, quer dizer "urgente".
+function coresLivres(usadas) {
+  return [...CORES_DESTAQUE.map(({ valor }) => valor), ...CORES_GRAFICO]
+    .filter((cor, indice, todas) => todas.indexOf(cor) === indice && !usadas.has(cor.toLowerCase()))
+    .sort((a, b) => evitarNoGrafico(a) - evitarNoGrafico(b));
+}
+
+//TODA A EQUIPE COM ETIQUETA: quem esta sem cor ganha uma livre, GRAVADA no
+//cadastro (usuarios.cor_destaque). Assim a cor do grafico e a da etiqueta
+//no Portal sao a mesma coisa — e quando a pessoa trocar a etiqueta, o
+//grafico acompanha. .is(null) no update: se alguem escolheu uma cor nesse
+//meio-tempo, a escolha dele vale e esta nao sobrescreve.
+let avisarCoresProntas = () => {};
+const coresDaEquipeProntas = new Promise((resolver) => { avisarCoresProntas = resolver; });
+
+async function darCorParaQuemNaoTem(equipe) {
+  const semCor = equipe
+    .filter((pessoa) => !pessoa.cor_destaque)
+    .sort((a, b) => (nomeCompleto(a) ?? "").localeCompare(nomeCompleto(b) ?? "", "pt-BR"));
+
+  if (!semCor.length) return;
+
+  const livres = coresLivres(new Set(equipe.map((pessoa) => pessoa.cor_destaque?.toLowerCase()).filter(Boolean)));
+
+  await Promise.all(semCor.map(async (pessoa, indice) => {
+    const cor = livres.length ? livres[indice % livres.length] : "#5e141d";
+    const { data, error } = await supabase
+      .from("usuarios")
+      .update({ cor_destaque: cor })
+      .eq("id", pessoa.id)
+      .is("cor_destaque", null)
+      .select("id");
+
+    if (error || !data?.length) {
+      console.warn("Não foi possível dar cor de etiqueta para", pessoa.id, error ?? "(nenhuma linha gravada)");
+      return;
+    }
+
+    pessoa.cor_destaque = cor;
+  }));
+}
+
+//Recebe os grupos de agruparPorAtendente; devolve nome -> cor. Com
+//darCorParaQuemNaoTem todos ja vem com cor; a escolha aqui so cobre quem
+//ficou sem (o update falhou, ou a pessoa saiu da equipe).
+function coresDosAtendentes(grupos) {
+  const cores = new Map();
+  const pessoas = [...grupos.entries()].map(([nome, { pessoa }]) => ({ nome, cor: pessoa?.cor_destaque || null }));
+  const livres = coresLivres(new Set(pessoas.map(({ cor }) => cor?.toLowerCase()).filter(Boolean)));
+
+  let proxima = 0;
+
+  // Ordem alfabetica: a mesma pessoa pega a mesma cor de um dia pro outro.
+  pessoas
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+    .forEach(({ nome, cor }) => {
+      if (cor) {
+        cores.set(nome, cor);
+        return;
+      }
+
+      cores.set(nome, livres.length ? livres[proxima % livres.length] : corDasBarras());
+      proxima += 1;
+    });
+
+  return cores;
+}
+
 //ESPESSURA DA BARRA PROPORCIONAL A QUANTIDADE: com maxBarThickness fixo,
 //3 barras num container de 352px (.analise-grafico__caixa--barra, 22rem)
 //ficavam finas e desencontradas, sobrando bastante espaco vazio entre
@@ -2762,6 +2862,7 @@ function espessuraDaBarra(quantidade) {
 //antes do primeiro grafico ser criado (Chart e global, vem do CDN).
 Chart.defaults.font.family = "'Poppins', system-ui, sans-serif";
 Chart.defaults.font.size = 12;
+Chart.defaults.locale = "pt-BR";
 
 //TOOLTIP NO PADRAO SHADCN DO PROJETO: cantos arredondados generosos,
 //sem a seta/triangulo padrao do Chart.js (nao combina com o resto do
@@ -2775,6 +2876,30 @@ Chart.defaults.plugins.tooltip.padding = 10;
 Chart.defaults.plugins.tooltip.cornerRadius = 8;
 Chart.defaults.plugins.tooltip.displayColors = true;
 Chart.defaults.plugins.tooltip.boxPadding = 4;
+Chart.defaults.plugins.tooltip.usePointStyle = true;
+Chart.defaults.plugins.tooltip.caretSize = 0;
+Chart.defaults.plugins.tooltip.callbacks.label = (contexto) => {
+  const valor = contexto.parsed?.x != null && contexto.chart.options.indexAxis === "y"
+    ? contexto.parsed.x
+    : (typeof contexto.parsed === "number" ? contexto.parsed : contexto.parsed?.y);
+  const serie = contexto.dataset.label ? `${contexto.dataset.label}: ` : "";
+
+  if (valor == null) return `${serie}—`;
+  if (ehGraficoDeTempo(contexto.chart)) return ` ${serie}${formatarDuracao(valor)}`;
+
+  if (contexto.chart.config.type === "doughnut" || contexto.chart.config.type === "pie") {
+    const total = contexto.dataset.data.reduce((soma, atual) => soma + atual, 0);
+    const fatia = total ? Math.round((valor / total) * 100) : 0;
+    return ` ${contagemDeChamados(valor)} (${fatia}%)`;
+  }
+
+  return ` ${serie}${contagemDeChamados(valor)}`;
+};
+
+//LEGENDA COM BOLINHAS, nao quadrados: mais leve, e casa com os selos de
+//status do resto do Painel.
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.legend.labels.pointStyle = "circle";
 
 //SLA EM HORAS UTEIS, NAO HORAS CORRIDAS: regra do horario de
 //funcionamento do TI — seg-sex 8h as 12h e 13h as 17h48 (a hora de almoco
@@ -2831,14 +2956,117 @@ function horasUteisEntre(inicio, fim) {
   return minutos / 60;
 }
 
+//DURACAO LEGIVEL, NUNCA HORA QUEBRADA: menos de 1 hora sai sempre em
+//minutos ("45 min"), ate 1 dia em horas e minutos ("2h 30min"), acima
+//disso em dias e horas ("3d 4h"). "0,7 horas" obrigava a fazer conta de
+//cabeca. Dias aqui sao blocos de 24h, como sempre foram neste arquivo.
 function formatarDuracao(horas) {
   if (horas == null || !Number.isFinite(horas)) return "—";
 
-  if (horas < 24) {
-    return `${horas.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} horas`;
+  const minutosTotais = Math.round(Math.abs(horas) * 60);
+
+  if (minutosTotais < 1) return horas === 0 ? "0 min" : "< 1 min";
+  if (minutosTotais < 60) return `${minutosTotais} min`;
+
+  const horasInteiras = Math.floor(minutosTotais / 60);
+  const minutos = minutosTotais % 60;
+
+  if (horasInteiras < 24) return minutos ? `${horasInteiras}h ${minutos}min` : `${horasInteiras}h`;
+
+  const dias = Math.floor(horasInteiras / 24);
+  const resto = horasInteiras % 24;
+
+  return resto ? `${dias}d ${resto}h` : `${dias} ${dias === 1 ? "dia" : "dias"}`;
+}
+
+//ROTULO DO EIXO DE TEMPO nos graficos de SLA: o mesmo formato, so que o 0
+//fica "0" (o eixo comeca nele, nao precisa de unidade).
+function rotuloDeHoras(valor) {
+  return valor === 0 ? "0" : formatarDuracao(valor);
+}
+
+//GRAFICO DE TEMPO: qualquer canvas data-analise-grafico-*-sla mostra
+//horas. O tooltip desses mostra a duracao formatada; os de contagem dizem
+//"12 chamados", e o de pizza tambem a fatia em %.
+function ehGraficoDeTempo(chart) {
+  return [...chart.canvas.attributes].some((atributo) => /-sla$/.test(atributo.name));
+}
+
+function contagemDeChamados(valor) {
+  return `${valor.toLocaleString("pt-BR")} ${valor === 1 ? "chamado" : "chamados"}`;
+}
+
+//CARD DE DESTAQUE ("Unidade com mais chamados"): o nome em evidencia e a
+//metrica num selo ao lado, em vez de "Matriz (12)" num texto so. title
+//mostra o nome inteiro quando ele e cortado com reticencias.
+function escreverDestaque(elemento, nome, metrica) {
+  if (!elemento) return;
+
+  if (!nome) {
+    elemento.textContent = "—";
+    elemento.removeAttribute("title");
+    return;
   }
 
-  return `${(horas / 24).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} dias`;
+  const nomeEl = document.createElement("span");
+  nomeEl.className = "analise-destaque__nome";
+  nomeEl.textContent = nome;
+
+  const metricaEl = document.createElement("span");
+  metricaEl.className = "analise-destaque__metrica";
+  // Numero seco e contagem de chamados: diz a unidade, "12" sozinho e vago.
+  metricaEl.textContent = /^[\d.]+$/.test(metrica) ? `${metrica} ${metrica === "1" ? "chamado" : "chamados"}` : metrica;
+
+  elemento.replaceChildren(nomeEl, metricaEl);
+  elemento.title = `${nome} · ${metrica}`;
+}
+
+//ICONE E TOM DE CADA CARD, decididos pelo rotulo: volume (laranja),
+//urgencia (vermelho), tempo (ambar), resposta (verde), variacao (azul).
+//Montado uma vez, na abertura da Analise — o HTML dos cards continua so
+//rotulo + valor, e quem quiser um card novo nao precisa lembrar do icone.
+const ICONES_DOS_CARDS = {
+  volume: '<path d="M4 19.5h16M7 16V10M12 16V5M17 16v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  urgente: '<path d="M12 4 21 19.5H3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 10v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="16.8" r="1" fill="currentColor"/>',
+  tempo: '<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  resposta: '<path d="M5 6.5h14v9H10l-4 3v-3H5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 11h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  variacao: '<path d="M4 16l5-5 4 4 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 8h5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+
+function tomDoCard(rotulo) {
+  if (/varia/i.test(rotulo)) return "variacao";
+  if (/resposta/i.test(rotulo)) return "resposta";
+  if (/urg/i.test(rotulo)) return "urgente";
+  if (/tempo|solu|sla/i.test(rotulo)) return "tempo";
+  return "volume";
+}
+
+function decorarCardsDaAnalise(secao) {
+  secao.querySelectorAll(".analise-card").forEach((card) => {
+    const rotulo = card.querySelector(".analise-card__rotulo");
+
+    if (!rotulo || card.querySelector(".analise-card__topo")) return;
+
+    const tom = tomDoCard(rotulo.textContent);
+    card.classList.add(`analise-card--${tom}`);
+
+    const topo = document.createElement("div");
+    topo.className = "analise-card__topo";
+
+    const icone = document.createElement("span");
+    icone.className = "analise-card__icone";
+    icone.setAttribute("aria-hidden", "true");
+    icone.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16">${ICONES_DOS_CARDS[tom]}</svg>`;
+
+    rotulo.replaceWith(topo);
+    topo.append(icone, rotulo);
+
+    // Linha de contexto embaixo do numero ("12 em aberto · 30 fechados"),
+    // preenchida por quem desenha os cards. Vazia, nao ocupa espaco.
+    const dica = document.createElement("span");
+    dica.className = "analise-card__dica";
+    card.appendChild(dica);
+  });
 }
 
 //TEMPO ATE A PRIMEIRA RESPOSTA: da abertura ate o primeiro comentario de
@@ -2927,7 +3155,10 @@ function ligarAnalise() {
 
   if (!secao) return { aoAbrir: () => {} };
 
+  decorarCardsDaAnalise(secao);
+
   const erroEl = secao.querySelector("[data-analise-erro]");
+  const resumoEl = secao.querySelector("[data-analise-resumo]");
   const vazioEl = secao.querySelector("[data-analise-vazio]");
   const cardsEl = secao.querySelector("[data-analise-cards]");
   const unidadesCardsEl = secao.querySelector("[data-analise-unidades-cards]");
@@ -3675,6 +3906,10 @@ function ligarAnalise() {
     terceirosCardsEl.hidden = false;
     subabasNavEl.hidden = false;
 
+    // A cor dos atendentes vem da etiqueta: espera quem estava sem ganhar a
+    // dela (darCorParaQuemNaoTem), no maximo 5s para nao travar a aba.
+    await Promise.race([coresDaEquipeProntas, new Promise((resolver) => setTimeout(resolver, 5000))]);
+
     const desde = paraTextoLocal(periodo.de);
     const ate = paraTextoLocal(periodo.ate);
 
@@ -3689,7 +3924,7 @@ function ligarAnalise() {
         unidade_id, categoria_id,
         unidades(nome), categorias(nome),
         usuarios!chamados_solicitante_id_fkey(nome, sobrenome, setor_id, setores(nome)),
-        chamado_membros(usuario_id, usuarios(nome, sobrenome)),
+        chamado_membros(usuario_id, usuarios(nome, sobrenome, cor_destaque)),
         chamado_terceiros(terceiro_id, terceiros(nome)),
         comentarios(autor_id, criado_em, visibilidade, tipo)
       `)
@@ -3724,6 +3959,7 @@ function ligarAnalise() {
       terceirosCardsEl.hidden = true;
       subabasNavEl.hidden = true;
       vazioEl.hidden = false;
+      resumoEl.textContent = `${periodoPorExtenso()} · nenhum chamado`;
       graficoUnidades?.destroy();
       graficoCategorias?.destroy();
       graficoUnidadesEmpilhado?.destroy();
@@ -3797,6 +4033,57 @@ function ligarAnalise() {
       `${percentualUrgentes.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`;
     secao.querySelector("[data-analise-media]").textContent = formatarDuracao(media);
     secao.querySelector("[data-analise-primeira-resposta]").textContent = formatarDuracao(mediaPrimeiraResposta);
+
+    //CONTEXTO DE CADA NUMERO: o que entrou na conta, em uma linha.
+    const numero = (valor) => valor.toLocaleString("pt-BR");
+    const fechados = duracoesEmHoras.length;
+    const jaFechados = chamados.filter((chamado) => chamado.fechamento_em).length;
+
+    escreverDica("[data-analise-total]", `${numero(total - jaFechados)} em aberto · ${numero(jaFechados)} fechados`);
+    escreverDica("[data-analise-urgentes]", `de ${numero(total)} chamados no período`);
+    escreverMedidor("[data-analise-percentual-urgentes]", percentualUrgentes);
+    escreverDica("[data-analise-media]", fechados ? `em horas úteis · média de ${numero(fechados)} fechados` : "nenhum chamado fechado ainda");
+    escreverDica("[data-analise-primeira-resposta]", horasPrimeiraResposta.length
+      ? `em horas úteis · média de ${numero(horasPrimeiraResposta.length)} respondidos`
+      : "nenhuma resposta da equipe ainda");
+
+    // O subtitulo do topo diz de que periodo e quantos chamados estao na tela.
+    resumoEl.textContent = `${periodoPorExtenso()} · ${numero(total)} ${total === 1 ? "chamado" : "chamados"}`
+      + (totalDeFiltrosAnalise() ? " (com filtro)" : "");
+  }
+
+  function dicaDoCard(seletor) {
+    return secao.querySelector(seletor)?.closest(".analise-card")?.querySelector(".analise-card__dica");
+  }
+
+  function escreverDica(seletor, texto) {
+    const dica = dicaDoCard(seletor);
+    if (dica) dica.textContent = texto;
+  }
+
+  //BARRA DE PROPORCAO: no card de % de urgentes, ve-se o tamanho da fatia
+  //sem precisar ler o numero.
+  function escreverMedidor(seletor, percentual) {
+    const dica = dicaDoCard(seletor);
+
+    if (!dica) return;
+
+    const trilho = document.createElement("span");
+    trilho.className = "analise-card__medidor";
+    const preenchido = document.createElement("span");
+    preenchido.style.width = `${Math.max(0, Math.min(100, percentual))}%`;
+    trilho.appendChild(preenchido);
+    dica.replaceChildren(trilho);
+  }
+
+  //"1 de out. – 15 de out. de 2026": o periodo inteiro, por extenso curto.
+  function periodoPorExtenso() {
+    const dia = { day: "numeric", month: "short" };
+    const comAno = { ...dia, year: "numeric" };
+    const de = periodo.de.toLocaleDateString("pt-BR", periodo.de.getFullYear() === periodo.ate.getFullYear() ? dia : comAno);
+    const ate = periodo.ate.toLocaleDateString("pt-BR", comAno);
+
+    return paraTextoLocal(periodo.de) === paraTextoLocal(periodo.ate) ? ate : `${de} – ${ate}`;
   }
 
   //AGRUPA E ORDENA DO MAIOR PRO MENOR — mesmo formato dos dois graficos do
@@ -3823,7 +4110,7 @@ function ligarAnalise() {
         labels: dados.map(([nome]) => nome),
         datasets: [{
           data: dados.map(([, quantidade]) => quantidade),
-          backgroundColor: "#dd5b12",
+          backgroundColor: coresComDestaque(dados.map(([, quantidade]) => quantidade)),
           borderRadius: 6,
           borderSkipped: false,
           maxBarThickness: espessuraDaBarra(dados.length),
@@ -3940,12 +4227,15 @@ function ligarAnalise() {
       }
     });
 
-    secao.querySelector("[data-analise-unidade-mais-chamados]").textContent =
-      maisChamados ? `${maisChamados.nome} (${maisChamados.valor.toLocaleString("pt-BR")})` : "—";
-    secao.querySelector("[data-analise-unidade-mais-urgente]").textContent =
-      maisUrgente ? `${maisUrgente.nome} (${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%)` : "—";
-    secao.querySelector("[data-analise-unidade-maior-sla]").textContent =
-      maiorSla ? `${maiorSla.nome} (${formatarDuracao(maiorSla.valor)})` : "—";
+    escreverDestaque(secao.querySelector("[data-analise-unidade-mais-chamados]"),
+      maisChamados && maisChamados.nome,
+      maisChamados && `${maisChamados.valor.toLocaleString("pt-BR")}`);
+    escreverDestaque(secao.querySelector("[data-analise-unidade-mais-urgente]"),
+      maisUrgente && maisUrgente.nome,
+      maisUrgente && `${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`);
+    escreverDestaque(secao.querySelector("[data-analise-unidade-maior-sla]"),
+      maiorSla && maiorSla.nome,
+      maiorSla && `${formatarDuracao(maiorSla.valor)}`);
   }
 
   function desenharGraficoUnidadesEmpilhado(chamados) {
@@ -4061,8 +4351,8 @@ function ligarAnalise() {
       data: {
         labels: linhas.map((linha) => linha.nome),
         datasets: [{
-          data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
-          backgroundColor: "#dd5b12",
+          data: linhas.map((linha) => linha.media),
+          backgroundColor: coresComDestaque(linhas.map((linha) => linha.media)),
           borderRadius: 6,
           borderSkipped: false,
           maxBarThickness: espessuraDaBarra(linhas.length),
@@ -4074,7 +4364,7 @@ function ligarAnalise() {
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          x: { beginAtZero: true, ticks: { color: texto, padding: 6, callback: rotuloDeHoras, maxRotation: 0, autoSkipPadding: 16 }, grid: { display: false } },
           y: { ticks: { color: texto, padding: 8 }, grid: { display: false } },
         },
       },
@@ -4132,12 +4422,15 @@ function ligarAnalise() {
       }
     });
 
-    secao.querySelector("[data-analise-categoria-mais-chamados]").textContent =
-      maisChamados ? `${maisChamados.nome} (${maisChamados.valor.toLocaleString("pt-BR")})` : "—";
-    secao.querySelector("[data-analise-categoria-mais-urgente]").textContent =
-      maisUrgente ? `${maisUrgente.nome} (${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%)` : "—";
-    secao.querySelector("[data-analise-categoria-maior-sla]").textContent =
-      maiorSla ? `${maiorSla.nome} (${formatarDuracao(maiorSla.valor)})` : "—";
+    escreverDestaque(secao.querySelector("[data-analise-categoria-mais-chamados]"),
+      maisChamados && maisChamados.nome,
+      maisChamados && `${maisChamados.valor.toLocaleString("pt-BR")}`);
+    escreverDestaque(secao.querySelector("[data-analise-categoria-mais-urgente]"),
+      maisUrgente && maisUrgente.nome,
+      maisUrgente && `${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`);
+    escreverDestaque(secao.querySelector("[data-analise-categoria-maior-sla]"),
+      maiorSla && maiorSla.nome,
+      maiorSla && `${formatarDuracao(maiorSla.valor)}`);
   }
 
   function desenharGraficoCategoriasEmpilhado(chamados) {
@@ -4239,8 +4532,8 @@ function ligarAnalise() {
       data: {
         labels: linhas.map((linha) => linha.nome),
         datasets: [{
-          data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
-          backgroundColor: "#dd5b12",
+          data: linhas.map((linha) => linha.media),
+          backgroundColor: coresComDestaque(linhas.map((linha) => linha.media)),
           borderRadius: 6,
           borderSkipped: false,
           maxBarThickness: espessuraDaBarra(linhas.length),
@@ -4252,7 +4545,7 @@ function ligarAnalise() {
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          x: { beginAtZero: true, ticks: { color: texto, padding: 6, callback: rotuloDeHoras, maxRotation: 0, autoSkipPadding: 16 }, grid: { display: false } },
           y: { ticks: { color: texto, padding: 8 }, grid: { display: false } },
         },
       },
@@ -4312,12 +4605,15 @@ function ligarAnalise() {
       }
     });
 
-    secao.querySelector("[data-analise-setor-mais-chamados]").textContent =
-      maisChamados ? `${maisChamados.nome} (${maisChamados.valor.toLocaleString("pt-BR")})` : "—";
-    secao.querySelector("[data-analise-setor-mais-urgente]").textContent =
-      maisUrgente ? `${maisUrgente.nome} (${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%)` : "—";
-    secao.querySelector("[data-analise-setor-maior-sla]").textContent =
-      maiorSla ? `${maiorSla.nome} (${formatarDuracao(maiorSla.valor)})` : "—";
+    escreverDestaque(secao.querySelector("[data-analise-setor-mais-chamados]"),
+      maisChamados && maisChamados.nome,
+      maisChamados && `${maisChamados.valor.toLocaleString("pt-BR")}`);
+    escreverDestaque(secao.querySelector("[data-analise-setor-mais-urgente]"),
+      maisUrgente && maisUrgente.nome,
+      maisUrgente && `${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`);
+    escreverDestaque(secao.querySelector("[data-analise-setor-maior-sla]"),
+      maiorSla && maiorSla.nome,
+      maiorSla && `${formatarDuracao(maiorSla.valor)}`);
   }
 
   function desenharGraficoSetoresEmpilhado(chamados) {
@@ -4419,8 +4715,8 @@ function ligarAnalise() {
       data: {
         labels: linhas.map((linha) => linha.nome),
         datasets: [{
-          data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
-          backgroundColor: "#dd5b12",
+          data: linhas.map((linha) => linha.media),
+          backgroundColor: coresComDestaque(linhas.map((linha) => linha.media)),
           borderRadius: 6,
           borderSkipped: false,
           maxBarThickness: espessuraDaBarra(linhas.length),
@@ -4432,7 +4728,7 @@ function ligarAnalise() {
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          x: { beginAtZero: true, ticks: { color: texto, padding: 6, callback: rotuloDeHoras, maxRotation: 0, autoSkipPadding: 16 }, grid: { display: false } },
           y: { ticks: { color: texto, padding: 8 }, grid: { display: false } },
         },
       },
@@ -4496,12 +4792,15 @@ function ligarAnalise() {
       }
     });
 
-    secao.querySelector("[data-analise-solicitante-mais-chamados]").textContent =
-      maisChamados ? `${maisChamados.nome} (${maisChamados.valor.toLocaleString("pt-BR")})` : "—";
-    secao.querySelector("[data-analise-solicitante-mais-urgente]").textContent =
-      maisUrgente ? `${maisUrgente.nome} (${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%)` : "—";
-    secao.querySelector("[data-analise-solicitante-maior-sla]").textContent =
-      maiorSla ? `${maiorSla.nome} (${formatarDuracao(maiorSla.valor)})` : "—";
+    escreverDestaque(secao.querySelector("[data-analise-solicitante-mais-chamados]"),
+      maisChamados && maisChamados.nome,
+      maisChamados && `${maisChamados.valor.toLocaleString("pt-BR")}`);
+    escreverDestaque(secao.querySelector("[data-analise-solicitante-mais-urgente]"),
+      maisUrgente && maisUrgente.nome,
+      maisUrgente && `${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`);
+    escreverDestaque(secao.querySelector("[data-analise-solicitante-maior-sla]"),
+      maiorSla && maiorSla.nome,
+      maiorSla && `${formatarDuracao(maiorSla.valor)}`);
   }
 
   function desenharGraficoSolicitantesEmpilhado(chamados) {
@@ -4605,8 +4904,8 @@ function ligarAnalise() {
       data: {
         labels: linhas.map((linha) => linha.nome),
         datasets: [{
-          data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
-          backgroundColor: "#dd5b12",
+          data: linhas.map((linha) => linha.media),
+          backgroundColor: coresComDestaque(linhas.map((linha) => linha.media)),
           borderRadius: 6,
           borderSkipped: false,
           maxBarThickness: espessuraDaBarra(linhas.length),
@@ -4618,7 +4917,7 @@ function ligarAnalise() {
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          x: { beginAtZero: true, ticks: { color: texto, padding: 6, callback: rotuloDeHoras, maxRotation: 0, autoSkipPadding: 16 }, grid: { display: false } },
           y: { ticks: { color: texto, padding: 8 }, grid: { display: false } },
         },
       },
@@ -4729,14 +5028,18 @@ function ligarAnalise() {
       }
     });
 
-    secao.querySelector("[data-analise-atendente-mais-chamados]").textContent =
-      maisChamados ? `${maisChamados.nome} (${maisChamados.valor.toLocaleString("pt-BR")})` : "—";
-    secao.querySelector("[data-analise-atendente-mais-urgente]").textContent =
-      maisUrgente ? `${maisUrgente.nome} (${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%)` : "—";
-    secao.querySelector("[data-analise-atendente-maior-sla]").textContent =
-      maiorSla ? `${maiorSla.nome} (${formatarDuracao(maiorSla.valor)})` : "—";
-    secao.querySelector("[data-analise-atendente-melhor-resposta]").textContent =
-      melhorResposta ? `${melhorResposta.nome} (${formatarDuracao(melhorResposta.valor)})` : "—";
+    escreverDestaque(secao.querySelector("[data-analise-atendente-mais-chamados]"),
+      maisChamados && maisChamados.nome,
+      maisChamados && `${maisChamados.valor.toLocaleString("pt-BR")}`);
+    escreverDestaque(secao.querySelector("[data-analise-atendente-mais-urgente]"),
+      maisUrgente && maisUrgente.nome,
+      maisUrgente && `${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`);
+    escreverDestaque(secao.querySelector("[data-analise-atendente-maior-sla]"),
+      maiorSla && maiorSla.nome,
+      maiorSla && `${formatarDuracao(maiorSla.valor)}`);
+    escreverDestaque(secao.querySelector("[data-analise-atendente-melhor-resposta]"),
+      melhorResposta && melhorResposta.nome,
+      melhorResposta && `${formatarDuracao(melhorResposta.valor)}`);
   }
 
   //GRAFICOS DE COLUNA (EM PE): pedido explicito do usuario — as outras
@@ -4744,6 +5047,7 @@ function ligarAnalise() {
   //(o padrao do Chart.js), rotulos no eixo X embaixo de cada coluna.
   function desenharGraficoAtendentesTotal(chamados) {
     const grupos = agruparPorAtendente(chamados);
+    const cores = coresDosAtendentes(grupos);
 
     const linhas = [...grupos.entries()]
       .map(([nome, { pessoa, chamados: doGrupo }]) => ({ nome, rotulo: primeiroNome(pessoa), total: doGrupo.length }))
@@ -4764,7 +5068,7 @@ function ligarAnalise() {
         labels: linhas.map((linha) => linha.rotulo),
         datasets: [{
           data: linhas.map((linha) => linha.total),
-          backgroundColor: "#dd5b12",
+          backgroundColor: linhas.map((linha) => cores.get(linha.nome)),
           borderRadius: 6,
           borderSkipped: false,
           maxBarThickness: 48,
@@ -4792,6 +5096,7 @@ function ligarAnalise() {
 
   function desenharGraficoAtendentesSla(chamados) {
     const grupos = agruparPorAtendente(chamados);
+    const cores = coresDosAtendentes(grupos);
 
     const linhas = [...grupos.entries()]
       .map(([nome, { pessoa, chamados: doGrupo }]) => {
@@ -4817,8 +5122,8 @@ function ligarAnalise() {
         //SO O PRIMEIRO NOME NO EIXO — mesmo motivo do grafico de total.
         labels: linhas.map((linha) => linha.rotulo),
         datasets: [{
-          data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
-          backgroundColor: "#dd5b12",
+          data: linhas.map((linha) => linha.media),
+          backgroundColor: linhas.map((linha) => cores.get(linha.nome)),
           borderRadius: 6,
           borderSkipped: false,
           maxBarThickness: 48,
@@ -4830,7 +5135,7 @@ function ligarAnalise() {
         plugins: { legend: { display: false } },
         scales: {
           x: { ticks: { color: texto, padding: 8, maxRotation: 0, minRotation: 0 }, grid: { display: false } },
-          y: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: texto, padding: 6, callback: rotuloDeHoras, maxRotation: 0, autoSkipPadding: 16 }, grid: { display: false } },
         },
       },
     });
@@ -4888,14 +5193,18 @@ function ligarAnalise() {
       }
     });
 
-    secao.querySelector("[data-analise-terceiro-mais-chamados]").textContent =
-      maisChamados ? `${maisChamados.nome} (${maisChamados.valor.toLocaleString("pt-BR")})` : "—";
-    secao.querySelector("[data-analise-terceiro-mais-urgente]").textContent =
-      maisUrgente ? `${maisUrgente.nome} (${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%)` : "—";
-    secao.querySelector("[data-analise-terceiro-maior-sla]").textContent =
-      maiorSla ? `${maiorSla.nome} (${formatarDuracao(maiorSla.valor)})` : "—";
-    secao.querySelector("[data-analise-terceiro-melhor-resposta]").textContent =
-      melhorResposta ? `${melhorResposta.nome} (${formatarDuracao(melhorResposta.valor)})` : "—";
+    escreverDestaque(secao.querySelector("[data-analise-terceiro-mais-chamados]"),
+      maisChamados && maisChamados.nome,
+      maisChamados && `${maisChamados.valor.toLocaleString("pt-BR")}`);
+    escreverDestaque(secao.querySelector("[data-analise-terceiro-mais-urgente]"),
+      maisUrgente && maisUrgente.nome,
+      maisUrgente && `${maisUrgente.valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`);
+    escreverDestaque(secao.querySelector("[data-analise-terceiro-maior-sla]"),
+      maiorSla && maiorSla.nome,
+      maiorSla && `${formatarDuracao(maiorSla.valor)}`);
+    escreverDestaque(secao.querySelector("[data-analise-terceiro-melhor-resposta]"),
+      melhorResposta && melhorResposta.nome,
+      melhorResposta && `${formatarDuracao(melhorResposta.valor)}`);
   }
 
   function desenharGraficoTerceirosTotal(chamados) {
@@ -4914,7 +5223,7 @@ function ligarAnalise() {
         labels: linhas.map((linha) => linha.rotulo),
         datasets: [{
           data: linhas.map((linha) => linha.total),
-          backgroundColor: "#dd5b12",
+          backgroundColor: coresComDestaque(linhas.map((linha) => linha.total)),
           borderRadius: 6,
           borderSkipped: false,
           maxBarThickness: 48,
@@ -4962,8 +5271,8 @@ function ligarAnalise() {
       data: {
         labels: linhas.map((linha) => linha.rotulo),
         datasets: [{
-          data: linhas.map((linha) => Math.round(linha.media * 10) / 10),
-          backgroundColor: "#dd5b12",
+          data: linhas.map((linha) => linha.media),
+          backgroundColor: coresComDestaque(linhas.map((linha) => linha.media)),
           borderRadius: 6,
           borderSkipped: false,
           maxBarThickness: 48,
@@ -4975,7 +5284,7 @@ function ligarAnalise() {
         plugins: { legend: { display: false } },
         scales: {
           x: { ticks: { color: texto, padding: 8, maxRotation: 0, minRotation: 0 }, grid: { display: false } },
-          y: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: texto, padding: 6, callback: rotuloDeHoras, maxRotation: 0, autoSkipPadding: 16 }, grid: { display: false } },
         },
       },
     });
@@ -5090,19 +5399,20 @@ function ligarAnalise() {
   }
 
   function formatarVariacaoNumero(valor) {
-    const sinal = valor > 0 ? "+" : "";
-    return `${sinal}${valor.toLocaleString("pt-BR")}`;
+    if (!valor) return "sem mudança";
+    return `${valor > 0 ? "+" : "−"}${contagemDeChamados(Math.abs(valor))}`;
   }
 
   function formatarVariacaoPercentual(valor) {
     if (!Number.isFinite(valor)) return "—";
-    const sinal = valor > 0 ? "+" : "";
-    return `${sinal}${valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`;
+    if (Math.round(valor) === 0) return "0%";
+    return `${valor > 0 ? "+" : "−"}${Math.abs(valor).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`;
   }
 
   function formatarVariacaoHoras(valor) {
-    const sinal = valor > 0 ? "+" : "";
-    return `${sinal}${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}h`;
+    if (!Number.isFinite(valor)) return "—";
+    if (Math.round(Math.abs(valor) * 60) < 1) return "sem mudança";
+    return `${valor > 0 ? "+" : "−"}${formatarDuracao(Math.abs(valor))}`;
   }
 
   //APLICA A COR SEMANTICA (alta = vermelho, baixa = verde) num <span> de
@@ -5191,7 +5501,7 @@ function ligarAnalise() {
           const valor = dataset.data[indice];
           if (valor == null) return;
           ctx.fillText(
-            valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 }),
+            ehGraficoDeTempo(chart) ? formatarDuracao(valor) : valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 }),
             ponto.x,
             ponto.y - 10,
           );
@@ -5213,11 +5523,13 @@ function ligarAnalise() {
         labels: meses.map((mes) => mes.rotulo),
         datasets: [{
           data: totais,
-          borderColor: "#dd5b12",
-          backgroundColor: "#dd5b12",
+          borderColor: corDasBarras(),
+          backgroundColor: corDasBarras(),
           borderWidth: 3,
           pointRadius: 3,
-          pointBackgroundColor: "#dd5b12",
+          // O mes de pico em laranja, como a maior barra dos outros graficos.
+          pointBackgroundColor: coresComDestaque(totais),
+          pointBorderColor: coresComDestaque(totais),
           tension: 0.35,
         }],
       },
@@ -5249,7 +5561,7 @@ function ligarAnalise() {
           .filter((chamado) => chamado.eh_urgente === urgente && chamado.fechamento_em)
           .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)));
         return duracoes.length
-          ? Math.round((duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length) * 10) / 10
+          ? duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length
           : null;
       });
     }
@@ -5300,7 +5612,7 @@ function ligarAnalise() {
         },
         scales: {
           x: { ticks: { color: texto, padding: 6 }, grid: { display: false } },
-          y: { beginAtZero: true, ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: texto, padding: 6, callback: rotuloDeHoras, maxRotation: 0, autoSkipPadding: 16 }, grid: { display: false } },
         },
       },
     });
@@ -5330,7 +5642,10 @@ async function montarPainel() {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) return;
+  if (!user) {
+    avisarCoresProntas();
+    return;
+  }
 
   usuarioAtual = user.id;
 
@@ -5358,6 +5673,22 @@ async function montarPainel() {
       supabase.from("textos_rapidos").select("id, titulo, corpo").eq("ativo", true).order("titulo"),
       supabase.from("terceiros").select("id, nome, foto_path").eq("ativo", true).order("nome"),
     ]);
+
+  // Antes de qualquer tela desenhar a equipe: quem esta sem etiqueta ganha
+  // uma (ver darCorParaQuemNaoTem). A Analise espera por isto. Os membros
+  // dentro dos chamados ja carregados recebem a cor nova tambem.
+  darCorParaQuemNaoTem(equipe.data ?? [])
+    .then(() => {
+      const corDe = new Map((equipe.data ?? []).map((pessoa) => [pessoa.id, pessoa.cor_destaque]));
+      (chamados.data ?? []).forEach((chamado) => {
+        chamado.chamado_membros.forEach((membro) => {
+          if (membro.usuarios && !membro.usuarios.cor_destaque && corDe.get(membro.usuario_id)) {
+            membro.usuarios.cor_destaque = corDe.get(membro.usuario_id);
+          }
+        });
+      });
+    })
+    .finally(avisarCoresProntas);
 
   if (filas.error || chamados.error) {
     console.error("Erro ao carregar o painel:", filas.error ?? chamados.error);
