@@ -2068,7 +2068,10 @@ async function desativarItem(tabela, id) {
    arquivada volta a existir.
    ========================================================================== */
 
-function ligarListaDeFilas(filas) {
+//ICONE DE COLUNA DO QUADRO: cada lista e uma coluna do Portal.
+const ICONE_DA_LISTA = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="4" y="4.5" width="6" height="15" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="14" y="4.5" width="6" height="9" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>';
+
+function ligarListaDeFilas(filas, chamados = []) {
   const corpo = document.querySelector("[data-listas-corpo]");
   const campoBusca = document.querySelector("[data-listas-busca]");
   const resumo = document.querySelector("[data-listas-resumo]");
@@ -2076,32 +2079,85 @@ function ligarListaDeFilas(filas) {
 
   let termo = "";
 
+  //QUANTOS CHAMADOS ABERTOS ESTAO EM CADA LISTA (fotografia da hora em que
+  //o Painel abriu): mostra onde o trabalho esta parado.
+  const abertosNaFila = new Map();
+  chamados.forEach((chamado) => {
+    if (chamado.fechamento_em) return;
+    abertosNaFila.set(chamado.fila_id, (abertosNaFila.get(chamado.fila_id) ?? 0) + 1);
+  });
+
   function combina(fila) {
     return !termo || fila.nome.toLowerCase().includes(termo);
   }
 
-  function montarLinha(fila) {
+  function pedaco(tag, classe, conteudo) {
+    const elemento = document.createElement(tag);
+    elemento.className = classe;
+    if (conteudo !== undefined) elemento.textContent = conteudo;
+    return elemento;
+  }
+
+  //CABECALHO DE GRUPO dentro da tabela: "No quadro · 4" e "Arquivadas · 2".
+  function montarGrupo(titulo, quantidade, dica) {
+    const linha = pedaco("tr", "listas__grupo");
+    const celula = document.createElement("td");
+    celula.colSpan = 4;
+    celula.append(pedaco("span", "listas__grupo-titulo", titulo), pedaco("span", "listas__grupo-contagem", String(quantidade)));
+    if (dica) celula.appendChild(pedaco("span", "listas__grupo-dica", dica));
+    linha.appendChild(celula);
+    return linha;
+  }
+
+  function montarLinha(fila, posicao, maiorContagem) {
     const linha = document.createElement("tr");
     linha.dataset.item = fila.id;
+    linha.classList.toggle("listas__linha--arquivada", !fila.ativo);
 
-    const nome = document.createElement("td");
-    nome.textContent = fila.nome;
+    //LISTA: icone de coluna, nome e, embaixo, onde ela fica no quadro.
+    const nome = pedaco("td", "listas__identidade");
+    const caixa = pedaco("span", "listas__caixa");
+    const icone = pedaco("span", "listas__icone");
+    icone.innerHTML = ICONE_DA_LISTA;
+    const textos = pedaco("span", "listas__textos");
+    textos.append(
+      pedaco("span", "listas__nome", fila.nome),
+      pedaco("span", "listas__apoio", fila.ativo ? `${posicao}ª coluna do quadro` : "fora do quadro"),
+    );
+    caixa.append(icone, textos);
+    nome.appendChild(caixa);
+
+    //CHAMADOS ABERTOS: o numero e uma barra proporcional a lista mais cheia.
+    const carga = pedaco("td", "listas__carga");
+    const quantidade = abertosNaFila.get(fila.id) ?? 0;
+    carga.appendChild(pedaco("span", "listas__quantidade", quantidade
+      ? `${quantidade.toLocaleString("pt-BR")} ${quantidade === 1 ? "chamado" : "chamados"}`
+      : "Nenhum"));
+    const trilho = pedaco("span", "listas__trilho");
+    const preenchido = pedaco("span", "listas__preenchido");
+    preenchido.style.width = maiorContagem ? `${(quantidade / maiorContagem) * 100}%` : "0%";
+    // A mais cheia em laranja, as outras neutras: mesma regra dos graficos.
+    preenchido.classList.toggle("listas__preenchido--maior", ehDestaque(quantidade, filas.map((outra) => abertosNaFila.get(outra.id) ?? 0)));
+    trilho.appendChild(preenchido);
+    carga.appendChild(trilho);
 
     const situacao = document.createElement("td");
-    const selo = document.createElement("span");
-    selo.className = `painel-selo painel-selo--${fila.ativo ? "aberto" : "fechado"}`;
-    selo.textContent = fila.ativo ? "Ativa" : "Inativa";
-    situacao.appendChild(selo);
+    situacao.appendChild(pedaco(
+      "span",
+      `listas__situacao listas__situacao--${fila.ativo ? "ativa" : "arquivada"}`,
+      fila.ativo ? "Ativa" : "Arquivada",
+    ));
 
-    const acao = document.createElement("td");
+    const acao = pedaco("td", "listas__acao");
 
     // So a arquivada ganha o botao — reativar uma que ja esta ativa nao
     // faz sentido, e nao ha lixeira aqui (arquivar e so pelo quadro).
     if (!fila.ativo) {
       const reativar = document.createElement("button");
       reativar.type = "button";
-      reativar.className = "painel-tabela__reativar";
-      reativar.textContent = "Reativar";
+      reativar.className = "painel-tabela__reativar listas__reativar";
+      reativar.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v3.8h3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      reativar.append("Reativar");
 
       reativar.addEventListener("click", async () => {
         reativar.disabled = true;
@@ -2126,7 +2182,7 @@ function ligarListaDeFilas(filas) {
       acao.appendChild(reativar);
     }
 
-    linha.append(nome, situacao, acao);
+    linha.append(nome, carga, situacao, acao);
 
     return linha;
   }
@@ -2134,14 +2190,31 @@ function ligarListaDeFilas(filas) {
   function desenhar() {
     const lista = filas.filter(combina);
 
+    // Ativas na ordem do quadro (a posicao conta entre TODAS as ativas, nao
+    // so as que passaram na busca); arquivadas depois, por nome.
+    const ativasNoQuadro = filas.filter((fila) => fila.ativo).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+    const posicaoDe = new Map(ativasNoQuadro.map((fila, indice) => [fila.id, indice + 1]));
+    const ativas = lista.filter((fila) => fila.ativo).sort((a, b) => posicaoDe.get(a.id) - posicaoDe.get(b.id));
+    const arquivadas = lista.filter((fila) => !fila.ativo).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    const maiorContagem = Math.max(0, ...filas.map((fila) => abertosNaFila.get(fila.id) ?? 0));
+
     corpo.replaceChildren();
-    lista.forEach((fila) => corpo.appendChild(montarLinha(fila)));
+
+    if (ativas.length) {
+      corpo.appendChild(montarGrupo("No quadro", ativas.length, "na ordem das colunas do Portal"));
+      ativas.forEach((fila) => corpo.appendChild(montarLinha(fila, posicaoDe.get(fila.id), maiorContagem)));
+    }
+
+    if (arquivadas.length) {
+      corpo.appendChild(montarGrupo("Arquivadas", arquivadas.length, "fora do quadro; reative para voltar"));
+      arquivadas.forEach((fila) => corpo.appendChild(montarLinha(fila, null, maiorContagem)));
+    }
 
     vazio.hidden = lista.length > 0;
 
-    const ativas = filas.filter((fila) => fila.ativo).length;
+    const totalAtivas = ativasNoQuadro.length;
     resumo.textContent = lista.length === filas.length
-      ? `${filas.length} listas · ${ativas} ${ativas === 1 ? "ativa" : "ativas"}`
+      ? `${filas.length} listas · ${totalAtivas} ${totalAtivas === 1 ? "ativa" : "ativas"} no quadro`
       : `Mostrando ${lista.length} de ${filas.length}`;
   }
 
@@ -2409,9 +2482,47 @@ function ligarItemSimplesDialog() {
    uma funcao generica monta as tres, so troca tabela/seletor/rotulos.
    ------------------------------------------------------------------------ */
 
+//PEDACO DE TELA: elemento com classe e texto, o que as linhas das tabelas
+//reformuladas montam o tempo todo.
+function criarElemento(tag, classe, texto) {
+  const elemento = document.createElement(tag);
+  if (classe) elemento.className = classe;
+  if (texto !== undefined) elemento.textContent = texto;
+  return elemento;
+}
+
+//"ha 3 dias", "semana passada": quando foi, para ler de relance.
+const TEMPO_RELATIVO_CURTO = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
+
+function haQuantoTempo(iso) {
+  const minutos = Math.round((new Date(iso).getTime() - Date.now()) / 60_000);
+  const passos = [[60, "minute"], [24, "hour"], [7, "day"], [4.35, "week"], [12, "month"]];
+  let valor = minutos;
+
+  if (Math.abs(valor) < 1) return "agora";
+
+  for (const [tamanho, unidade] of passos) {
+    if (Math.abs(valor) < tamanho) return TEMPO_RELATIVO_CURTO.format(Math.round(valor), unidade);
+    valor /= tamanho;
+  }
+
+  return TEMPO_RELATIVO_CURTO.format(Math.round(valor), "year");
+}
+
+//ICONES DAS LISTAS SIMPLES: um por tipo de cadastro, no quadradinho ao
+//lado do nome — de longe ja se sabe em que aba se esta.
+const ICONES_DAS_LISTAS = {
+  unidades: '<path d="M4.5 19.5V9l7.5-4.5L19.5 9v10.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9.5 19.5v-5h5v5M3 19.5h18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
+  setores: '<rect x="4" y="4" width="7" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13" y="4" width="7" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="4" y="13" width="7" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13" y="13" width="7" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/>',
+  categorias: '<path d="M4 7.5a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>',
+  terceiros: '<path d="M4 19.5V6.5l6-2v15M10 9.5l10 2.5v7.5M3 19.5h18M7 9h.01M7 12.5h.01M7 16h.01M14 14.5h3M14 17h3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+
+//COLUNAS EXTRAS (opcionais): cada uma { titulo, montar(item) -> Node }. A
+//aba Unidades usa para pessoas/chamados; as outras ficam so com o nome.
 function ligarListaSimples({
   prefixo, tabela, itens, rotuloSingular, rotuloPlural, generoMasculino = false, dialog,
-  comFoto = false, bucketFoto = null,
+  comFoto = false, bucketFoto = null, colunas = [], descrever = null,
 }) {
   const corpo = document.querySelector(`[data-${prefixo}-corpo]`);
   const campoBusca = document.querySelector(`[data-${prefixo}-busca]`);
@@ -2420,6 +2531,20 @@ function ligarListaSimples({
   const botaoNovo = document.querySelector(`[data-${prefixo}-novo]`);
 
   let termo = "";
+
+  //CABECALHO MONTADO AQUI: nome + colunas extras + a coluna das acoes. O
+  //HTML so tem o esqueleto; quem define as colunas e quem chama.
+  const tabelaEl = corpo.closest("table");
+  tabelaEl.classList.add("painel-tabela--simples");
+  const cabecalho = document.createElement("tr");
+  cabecalho.append(
+    criarElemento("th", null, rotuloSingular),
+    ...colunas.map((coluna) => criarElemento("th", null, coluna.titulo)),
+    criarElemento("th", "simples__coluna-acao"),
+  );
+  cabecalho.querySelectorAll("th").forEach((celula) => { celula.scope = "col"; });
+  cabecalho.lastChild.setAttribute("aria-label", "Ações");
+  tabelaEl.tHead.replaceChildren(cabecalho);
 
   function combina(item) {
     return !termo || item.nome.toLowerCase().includes(termo);
@@ -2430,10 +2555,41 @@ function ligarListaSimples({
     linha.dataset.item = item.id;
     linha.tabIndex = 0;
 
-    const nome = document.createElement("td");
-    nome.textContent = item.nome;
+    //NOME: icone do tipo de cadastro, o nome em destaque e, se quem chama
+    //quiser, uma linha de apoio embaixo.
+    const nome = criarElemento("td", "simples__identidade");
+    const caixa = criarElemento("span", "simples__caixa");
+    const icone = criarElemento("span", "simples__icone");
+    icone.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">${ICONES_DAS_LISTAS[prefixo] ?? ICONES_DAS_LISTAS.categorias}</svg>`;
 
-    const acao = document.createElement("td");
+    // Com foto (Terceirizados): o logo no lugar do icone; sem foto, ou se
+    // o arquivo sumiu do Storage, fica o icone.
+    if (comFoto && item.foto_path) {
+      const iconePadrao = icone.innerHTML;
+      const foto = document.createElement("img");
+      foto.alt = "";
+      pintarImagemPrivada(foto, bucketFoto, item.foto_path, () => {
+        icone.classList.remove("simples__icone--foto");
+        icone.innerHTML = iconePadrao;
+      });
+      icone.classList.add("simples__icone--foto");
+      icone.replaceChildren(foto);
+    }
+    const textos = criarElemento("span", "simples__textos");
+    textos.appendChild(criarElemento("span", "simples__nome", item.nome));
+    const apoio = descrever?.(item);
+    if (apoio) textos.appendChild(criarElemento("span", "simples__apoio", apoio));
+    caixa.append(icone, textos);
+    nome.appendChild(caixa);
+
+    const extras = colunas.map((coluna) => {
+      const celula = criarElemento("td", "simples__extra");
+      const conteudo = coluna.montar(item);
+      if (conteudo) celula.appendChild(conteudo);
+      return celula;
+    });
+
+    const acao = criarElemento("td", "simples__acao");
     const excluir = document.createElement("button");
     excluir.type = "button";
     excluir.className = "painel-tabela__excluir";
@@ -2471,8 +2627,13 @@ function ligarListaSimples({
       desenhar();
     });
 
-    acao.appendChild(excluir);
-    linha.append(nome, acao);
+    // Seta que aparece no hover: a linha abre o editor.
+    const seta = criarElemento("span", "simples__seta");
+    seta.setAttribute("aria-hidden", "true");
+    seta.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><path d="m9.5 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    acao.append(excluir, seta);
+    linha.append(nome, ...extras, acao);
 
     return linha;
   }
@@ -2564,16 +2725,27 @@ function ligarListaTextos(textos) {
     linha.dataset.item = texto.id;
     linha.tabIndex = 0;
 
-    const titulo = document.createElement("td");
-    titulo.textContent = texto.titulo;
+    //TEXTO: icone de balao, o titulo e, embaixo, o comeco da resposta em
+    //ate duas linhas — da para reconhecer sem abrir.
+    const titulo = criarElemento("td", "simples__identidade textos__identidade");
+    const caixa = criarElemento("span", "simples__caixa textos__caixa");
+    const icone = criarElemento("span", "simples__icone");
+    icone.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-8L7 19.5v-3H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 10h8M8 13h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+    const textosDaLinha = criarElemento("span", "simples__textos");
+    textosDaLinha.append(
+      criarElemento("span", "simples__nome", texto.titulo),
+      criarElemento("span", "textos__previa", texto.corpo?.trim() || "Sem texto"),
+    );
+    caixa.append(icone, textosDaLinha);
+    titulo.appendChild(caixa);
 
-    const previa = document.createElement("td");
-    const spanPrevia = document.createElement("span");
-    spanPrevia.className = "painel-tabela__previa";
-    spanPrevia.textContent = texto.corpo ?? "";
-    previa.appendChild(spanPrevia);
+    //TAMANHO: palavras, para saber se e uma frase curta ou um passo a passo.
+    const palavras = (texto.corpo ?? "").trim().split(/\s+/).filter(Boolean).length;
+    const previa = criarElemento("td", "textos__tamanho");
+    previa.appendChild(criarElemento("span", "simples__contagem",
+      palavras ? `${palavras.toLocaleString("pt-BR")} ${palavras === 1 ? "palavra" : "palavras"}` : "Vazio"));
 
-    const acao = document.createElement("td");
+    const acao = criarElemento("td", "simples__acao");
     const excluir = document.createElement("button");
     excluir.type = "button";
     excluir.className = "painel-tabela__excluir";
@@ -2608,7 +2780,11 @@ function ligarListaTextos(textos) {
       desenhar();
     });
 
-    acao.appendChild(excluir);
+    const seta = criarElemento("span", "simples__seta");
+    seta.setAttribute("aria-hidden", "true");
+    seta.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><path d="m9.5 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    acao.append(excluir, seta);
     linha.append(titulo, previa, acao);
 
     return linha;
@@ -2777,6 +2953,13 @@ const CORES_GRAFICO = [
 //continua cinza x vermelho.
 function corDasBarras() {
   return document.documentElement.dataset.tema === "escuro" ? "#8a837d" : "#78716c";
+}
+
+//A BARRA EM DESTAQUE de uma lista de valores: a maior, desde que nem todas
+//empatem (ai nao ha o que apontar). Usada nas barras de carga de Listas
+//e Unidades, com a mesma regra dos graficos.
+function ehDestaque(valor, valores) {
+  return coresComDestaque(valores)[valores.indexOf(valor)] === "#dd5b12";
 }
 
 //Empate no topo: todas as que empatam com a maior ficam em destaque — a
@@ -5789,11 +5972,124 @@ async function montarPainel() {
       : `Mostrando ${visiveis.length} de ${todas.length}`),
   });
 
-  ligarListaDeFilas(filasTodas.data ?? []);
+  ligarListaDeFilas(filasTodas.data ?? [], chamados.data ?? []);
 
   //DIALOG DE ITEM SIMPLES: UM SO, compartilhado por Unidades/Setores/
   //Categorias (ver comentario em ligarItemSimplesDialog).
   const dialogItemSimples = ligarItemSimplesDialog();
+
+  //AS LISTAS SIMPLES COM NUMEROS DE VERDADE: quem esta em cada cadastro e
+  //quanto ele demanda da TI. Fotografia da hora em que o Painel abriu.
+  //Os chamados trazem unidade e categoria pelo NOME (CAMPOS_CHAMADO nao
+  //tem os ids), entao essas duas contas casam pelo nome.
+  function agruparPessoas(chave) {
+    const grupos = new Map();
+    (pessoas.data ?? []).filter((pessoa) => pessoa.ativo).forEach((pessoa) => {
+      const valor = pessoa[chave];
+      if (!grupos.has(valor)) grupos.set(valor, []);
+      grupos.get(valor).push(pessoa);
+    });
+    return grupos;
+  }
+
+  // chavesDe(chamado) -> lista de chaves (um chamado pode ter varios
+  // terceiros). Para cada chave: abertos, total e o mais recente.
+  function contarChamados(chavesDe) {
+    const contas = new Map();
+    (chamados.data ?? []).forEach((chamado) => {
+      chavesDe(chamado).filter(Boolean).forEach((chave) => {
+        const conta = contas.get(chave) ?? { abertos: 0, total: 0, ultimo: null };
+        conta.total += 1;
+        if (!chamado.fechamento_em) conta.abertos += 1;
+        if (!conta.ultimo || chamado.abertura_em > conta.ultimo) conta.ultimo = chamado.abertura_em;
+        contas.set(chave, conta);
+      });
+    });
+    return contas;
+  }
+
+  const textoDeChamados = (quantidade) => (quantidade
+    ? `${quantidade.toLocaleString("pt-BR")} ${quantidade === 1 ? "chamado" : "chamados"}`
+    : "Nenhum");
+
+  //PESSOAS: ate 4 fotos sobrepostas e quantas sao no total.
+  function colunaPessoas(pessoasDe) {
+    return {
+      titulo: "Pessoas",
+      montar: (item) => {
+        const doItem = pessoasDe(item);
+
+        if (!doItem.length) return criarElemento("span", "simples__vazio", "Ninguém ainda");
+
+        const caixa = criarElemento("span", "simples__pessoas");
+        const pilha = criarElemento("span", "tickets__pilha");
+        pilha.title = doItem.map((pessoa) => nomeCompleto(pessoa)).filter(Boolean).join(", ");
+
+        doItem.slice(0, 4).forEach((pessoa) => {
+          const avatar = criarElemento("span", "painel-pessoa__avatar tickets__avatar");
+          pintarAvatar(avatar, pessoa);
+          pilha.appendChild(avatar);
+        });
+
+        caixa.append(pilha, criarElemento("span", "simples__contagem",
+          `${doItem.length} ${doItem.length === 1 ? "pessoa" : "pessoas"}`));
+        return caixa;
+      },
+    };
+  }
+
+  //CHAMADOS ABERTOS: numero e barra; o mais cheio em laranja, os outros
+  //neutros (mesma regra dos graficos da Analise, inclusive no empate).
+  function colunaAbertos(contaDe, itens) {
+    return {
+      titulo: "Chamados abertos",
+      montar: (item) => {
+        const abertos = contaDe(item)?.abertos ?? 0;
+        const todos = itens.map((outro) => contaDe(outro)?.abertos ?? 0);
+        const maior = Math.max(0, ...todos);
+
+        const caixa = criarElemento("span", "simples__carga");
+        caixa.appendChild(criarElemento("span", "listas__quantidade", textoDeChamados(abertos)));
+        const trilho = criarElemento("span", "listas__trilho");
+        const preenchido = criarElemento("span", "listas__preenchido");
+        preenchido.style.width = maior ? `${(abertos / maior) * 100}%` : "0%";
+        preenchido.classList.toggle("listas__preenchido--maior", ehDestaque(abertos, todos));
+        trilho.appendChild(preenchido);
+        caixa.appendChild(trilho);
+        return caixa;
+      },
+    };
+  }
+
+  function colunaTotal(contaDe) {
+    return {
+      titulo: "Total de chamados",
+      montar: (item) => criarElemento("span", "simples__total", textoDeChamados(contaDe(item)?.total ?? 0)),
+    };
+  }
+
+  function colunaUltimo(contaDe) {
+    return {
+      titulo: "Último chamado",
+      montar: (item) => {
+        const ultimo = contaDe(item)?.ultimo;
+
+        if (!ultimo) return criarElemento("span", "simples__vazio", "Nenhum ainda");
+
+        const caixa = criarElemento("span", "simples__quando");
+        caixa.append(
+          criarElemento("span", "simples__relativo", haQuantoTempo(ultimo)),
+          criarElemento("span", "simples__apoio", new Date(ultimo).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })),
+        );
+        return caixa;
+      },
+    };
+  }
+
+  //UNIDADES: quem trabalha em cada uma e quanto ela demanda da TI.
+  const pessoasPorUnidade = agruparPessoas("unidade_id");
+  const chamadosPorUnidade = contarChamados((chamado) => [chamado.unidades?.nome]);
+  const contaDaUnidade = (unidade) => chamadosPorUnidade.get(unidade.nome);
 
   ligarListaSimples({
     prefixo: "unidades",
@@ -5802,7 +6098,18 @@ async function montarPainel() {
     rotuloSingular: "Unidade",
     rotuloPlural: "Unidades",
     dialog: dialogItemSimples,
+    colunas: [
+      colunaPessoas((unidade) => pessoasPorUnidade.get(unidade.id) ?? []),
+      colunaAbertos(contaDaUnidade, unidades.data ?? []),
+      colunaUltimo(contaDaUnidade),
+    ],
   });
+
+  //SETORES: as pessoas do setor e os chamados que elas abriram (o setor de
+  //um chamado e o setor de quem abriu).
+  const pessoasPorSetor = agruparPessoas("setor_id");
+  const chamadosPorSetor = contarChamados((chamado) => [chamado.usuarios?.setor_id]);
+  const contaDoSetor = (setor) => chamadosPorSetor.get(setor.id);
 
   ligarListaSimples({
     prefixo: "setores",
@@ -5812,7 +6119,16 @@ async function montarPainel() {
     rotuloPlural: "Setores",
     generoMasculino: true,
     dialog: dialogItemSimples,
+    colunas: [
+      colunaPessoas((setor) => pessoasPorSetor.get(setor.id) ?? []),
+      colunaAbertos(contaDoSetor, setores.data ?? []),
+      colunaUltimo(contaDoSetor),
+    ],
   });
+
+  //CATEGORIAS: quanto cada assunto pesa hoje e no historico.
+  const chamadosPorCategoria = contarChamados((chamado) => [chamado.categorias?.nome]);
+  const contaDaCategoria = (categoria) => chamadosPorCategoria.get(categoria.nome);
 
   ligarListaSimples({
     prefixo: "categorias",
@@ -5821,7 +6137,17 @@ async function montarPainel() {
     rotuloSingular: "Categoria",
     rotuloPlural: "Categorias",
     dialog: dialogItemSimples,
+    colunas: [
+      colunaAbertos(contaDaCategoria, categorias.data ?? []),
+      colunaTotal(contaDaCategoria),
+      colunaUltimo(contaDaCategoria),
+    ],
   });
+
+  //TERCEIRIZADOS: com a foto (logo do fornecedor) no lugar do icone, e
+  //quantos chamados foram passados para cada um.
+  const chamadosPorTerceiro = contarChamados((chamado) => (chamado.chamado_terceiros ?? []).map((vinculo) => vinculo.terceiro_id));
+  const contaDoTerceiro = (terceiro) => chamadosPorTerceiro.get(terceiro.id);
 
   ligarListaSimples({
     prefixo: "terceiros",
@@ -5833,6 +6159,11 @@ async function montarPainel() {
     comFoto: true,
     bucketFoto: "terceiros",
     dialog: dialogItemSimples,
+    colunas: [
+      colunaAbertos(contaDoTerceiro, terceiros.data ?? []),
+      colunaTotal(contaDoTerceiro),
+      colunaUltimo(contaDoTerceiro),
+    ],
   });
 
   ligarListaTextos(textos.data ?? []);

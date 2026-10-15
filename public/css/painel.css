@@ -697,7 +697,7 @@ html[data-painel-sidebar="colapsada"] .painel {
 }
 
 .painel-filtro-grupo--aberto .painel-filtro-grupo__nome {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .painel-filtro-grupo__contagem {
@@ -1113,7 +1113,7 @@ html[data-painel-sidebar="colapsada"] .painel {
   padding: 0.65rem 0.9rem;
   background: var(--superficie-3);
   color: var(--texto-3);
-  font: 600 0.6875rem/1.2 "Poppins", sans-serif;
+  font: 500 0.6875rem/1.2 "Poppins", sans-serif;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -1159,7 +1159,7 @@ html[data-painel-sidebar="colapsada"] .painel {
 
 .tickets__numero {
   color: var(--laranja-forte);
-  font: 700 0.75rem/1.2 "Sora", sans-serif;
+  font: 500 0.75rem/1.2 "Sora", sans-serif;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1182,7 +1182,7 @@ html[data-painel-sidebar="colapsada"] .painel {
   padding: 0.1rem 0.4rem;
   border: 1px solid;
   border-radius: 999px;
-  font: 600 0.625rem/1.2 "Poppins", sans-serif;
+  font: 500 0.625rem/1.2 "Poppins", sans-serif;
   letter-spacing: 0.02em;
 }
 
@@ -1203,7 +1203,7 @@ html[data-painel-sidebar="colapsada"] .painel {
   max-width: 34ch;
   overflow: hidden;
   color: var(--texto);
-  font: 600 0.84375rem/1.35 "Poppins", sans-serif;
+  font: 500 0.84375rem/1.35 "Poppins", sans-serif;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1219,7 +1219,7 @@ html[data-painel-sidebar="colapsada"] .painel {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .tickets__selo::before {
@@ -1369,7 +1369,7 @@ html[data-painel-sidebar="colapsada"] .painel {
   padding: 0.65rem 0.9rem;
   background: var(--superficie-3);
   color: var(--texto-3);
-  font: 600 0.6875rem/1.2 "Poppins", sans-serif;
+  font: 500 0.6875rem/1.2 "Poppins", sans-serif;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -1417,7 +1417,7 @@ html[data-painel-sidebar="colapsada"] .painel {
   gap: 0.4rem;
   overflow: hidden;
   color: var(--texto);
-  font: 600 0.84375rem/1.35 "Poppins", sans-serif;
+  font: 500 0.84375rem/1.35 "Poppins", sans-serif;
   white-space: nowrap;
 }
 
@@ -1426,7 +1426,7 @@ html[data-painel-sidebar="colapsada"] .painel {
   border-radius: 999px;
   background: var(--superficie-2);
   color: var(--texto-2);
-  font: 600 0.625rem/1.4 "Poppins", sans-serif;
+  font: 500 0.625rem/1.4 "Poppins", sans-serif;
 }
 
 .pessoas__apoio {
@@ -1459,7 +1459,7 @@ html[data-painel-sidebar="colapsada"] .painel {
   border-radius: 7px;
   background: color-mix(in srgb, var(--cor-perfil) 9%, var(--superficie));
   color: var(--cor-perfil);
-  font: 600 0.75rem/1.3 "Poppins", sans-serif;
+  font: 500 0.75rem/1.3 "Poppins", sans-serif;
   white-space: nowrap;
 }
 
@@ -1535,6 +1535,386 @@ html[data-painel-sidebar="colapsada"] .painel {
 
 @media (prefers-reduced-motion: reduce) {
   .pessoas__seta {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   LISTAS: as colunas do quadro, no padrao das telas de "etapas do fluxo"
+   (Linear, Jira): ativas na ordem do quadro, arquivadas num grupo a parte,
+   e quanto trabalho aberto esta em cada uma. Cabecalho igual as outras
+   tabelas reformuladas.
+   ========================================================================== */
+
+.painel-tabela--listas thead th {
+  padding: 0.65rem 0.9rem;
+  background: var(--superficie-3);
+  color: var(--texto-3);
+  font: 500 0.6875rem/1.2 "Poppins", sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.painel-tabela--listas thead th:first-child,
+.painel-tabela--listas tbody td:first-child {
+  padding-left: 1.25rem;
+}
+
+.painel-tabela--listas td {
+  padding: 0.75rem 0.9rem;
+}
+
+/*So o botao de reativar e clicavel aqui: a linha nao abre nada, entao
+  nao finge que abre (sem cursor de mao, hover so de leve).*/
+.painel-tabela--listas tbody tr {
+  cursor: default;
+}
+
+.painel-tabela--listas tbody tr:hover {
+  background: var(--superficie-3);
+}
+
+/*GRUPO: faixa fina com o nome, a contagem e uma dica do que e o grupo.*/
+.painel-tabela--listas .listas__grupo td {
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--borda-suave);
+  background: var(--superficie-2);
+}
+
+.painel-tabela--listas tbody .listas__grupo:hover {
+  background: none;
+}
+
+.listas__grupo-titulo {
+  color: var(--texto);
+  font: 500 0.75rem/1.2 "Poppins", sans-serif;
+}
+
+.listas__grupo-contagem {
+  margin-left: 0.45rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  font: 500 0.6875rem/1.4 "Poppins", sans-serif;
+}
+
+.listas__grupo-dica {
+  margin-left: 0.6rem;
+  color: var(--texto-3);
+  font: 400 0.71875rem/1.2 "Poppins", sans-serif;
+}
+
+.listas__caixa {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.listas__icone {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--realce);
+  color: var(--laranja-forte);
+}
+
+.listas__textos {
+  display: grid;
+  min-width: 0;
+}
+
+.listas__nome {
+  color: var(--texto);
+  font: 500 0.84375rem/1.35 "Poppins", sans-serif;
+}
+
+.listas__apoio {
+  color: var(--texto-3);
+  font: 400 0.75rem/1.4 "Poppins", sans-serif;
+}
+
+/*CARGA: numero em cima, barra proporcional a lista mais cheia embaixo.*/
+.listas__carga {
+  min-width: 11rem;
+}
+
+.listas__quantidade {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--texto);
+  font: 500 0.8125rem/1.3 "Poppins", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.listas__trilho {
+  display: block;
+  width: 100%;
+  max-width: 10rem;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--superficie-2);
+  overflow: hidden;
+}
+
+.listas__preenchido {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #78716c;
+}
+
+[data-tema="escuro"] .listas__preenchido {
+  background: #8a837d;
+}
+
+.listas__preenchido--maior,
+[data-tema="escuro"] .listas__preenchido--maior {
+  background: var(--laranja);
+}
+
+/*SITUACAO: bolinha + texto, como em Contatos.*/
+.listas__situacao {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--texto-3);
+  font: 500 0.78125rem/1.3 "Poppins", sans-serif;
+}
+
+.listas__situacao::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.listas__situacao--ativa {
+  color: var(--status-fechado);
+}
+
+.listas__coluna-acao,
+.listas__acao {
+  width: 7.5rem;
+  text-align: right;
+}
+
+.listas__reativar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/*ARQUIVADA: em segundo plano, menos o botao de reativar.*/
+.listas__linha--arquivada .listas__identidade,
+.listas__linha--arquivada .listas__carga {
+  opacity: 0.55;
+}
+
+.listas__linha--arquivada .listas__icone {
+  background: var(--superficie-2);
+  color: var(--texto-3);
+}
+
+/* ==========================================================================
+   LISTAS SIMPLES (Unidades, Setores, Categorias, Terceirizados): mesmo
+   cabecalho e mesmo ritmo das outras tabelas reformuladas. Icone do tipo
+   de cadastro ao lado do nome; lixeira discreta e seta no hover a direita.
+   As colunas extras (Unidades) vem de ligarListaSimples({ colunas }).
+   ========================================================================== */
+
+.painel-tabela--simples thead th {
+  padding: 0.65rem 0.9rem;
+  background: var(--superficie-3);
+  color: var(--texto-3);
+  font: 500 0.6875rem/1.2 "Poppins", sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.painel-tabela--simples thead th:first-child,
+.painel-tabela--simples tbody td:first-child {
+  padding-left: 1.25rem;
+}
+
+.painel-tabela--simples td {
+  padding: 0.75rem 0.9rem;
+}
+
+.painel-tabela--simples tbody tr:hover {
+  background: var(--realce);
+}
+
+.simples__identidade {
+  min-width: 13rem;
+}
+
+.simples__caixa {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.simples__icone {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--realce);
+  color: var(--laranja-forte);
+}
+
+.simples__textos {
+  display: grid;
+  min-width: 0;
+}
+
+.simples__nome {
+  color: var(--texto);
+  font: 500 0.84375rem/1.35 "Poppins", sans-serif;
+}
+
+.simples__apoio {
+  display: block;
+  color: var(--texto-3);
+  font: 400 0.75rem/1.4 "Poppins", sans-serif;
+  white-space: nowrap;
+}
+
+.simples__vazio {
+  color: var(--texto-4);
+  font: 400 0.78125rem/1.3 "Poppins", sans-serif;
+}
+
+.simples__pessoas {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.simples__contagem {
+  color: var(--texto-2);
+  font: 500 0.78125rem/1.3 "Poppins", sans-serif;
+  white-space: nowrap;
+}
+
+.painel-tabela--simples tbody tr:hover .tickets__avatar {
+  box-shadow: 0 0 0 2px var(--realce);
+}
+
+.simples__carga {
+  display: block;
+  min-width: 9rem;
+}
+
+.simples__quando {
+  display: block;
+  white-space: nowrap;
+}
+
+.simples__relativo {
+  display: block;
+  color: var(--texto);
+  font: 500 0.8125rem/1.35 "Poppins", sans-serif;
+}
+
+.simples__total {
+  color: var(--texto-2);
+  font: 400 0.8125rem/1.35 "Poppins", sans-serif;
+  white-space: nowrap;
+}
+
+/*LOGO DO TERCEIRIZADO no lugar do icone: preenche o quadradinho.*/
+.simples__icone--foto {
+  overflow: hidden;
+  background: var(--superficie-2);
+}
+
+.simples__icone--foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*TEXTOS RAPIDOS: o titulo e o comeco da resposta em ate duas linhas.*/
+.textos__identidade {
+  width: 100%;
+}
+
+.textos__caixa {
+  align-items: flex-start;
+}
+
+.textos__previa {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 70ch;
+  margin-top: 0.1rem;
+  color: var(--texto-3);
+  font: 400 0.78125rem/1.45 "Poppins", sans-serif;
+}
+
+.textos__tamanho {
+  white-space: nowrap;
+}
+
+/*ACOES: lixeira e seta lado a lado, encostadas a direita. A lixeira fica
+  apagada ate o hover da linha — remover e raro, nao precisa gritar.*/
+.simples__coluna-acao,
+.simples__acao {
+  width: 5.5rem;
+}
+
+.simples__acao {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.simples__acao .painel-tabela__excluir {
+  display: inline-grid;
+  vertical-align: middle;
+  opacity: 0.35;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-tabela--simples tbody tr:hover .painel-tabela__excluir,
+.simples__acao .painel-tabela__excluir:focus-visible {
+  opacity: 1;
+}
+
+.simples__seta {
+  display: inline-block;
+  margin-left: 0.25rem;
+  vertical-align: middle;
+  color: var(--laranja);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.simples__seta svg {
+  display: block;
+}
+
+.painel-tabela--simples tbody tr:hover .simples__seta,
+.painel-tabela--simples tbody tr:focus-visible .simples__seta {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .simples__seta,
+  .simples__acao .painel-tabela__excluir {
     transition: none;
   }
 }
@@ -2696,7 +3076,7 @@ html[data-painel-sidebar="colapsada"] .painel {
   border-radius: 999px;
   background: color-mix(in srgb, var(--tom) 13%, var(--superficie));
   color: var(--tom);
-  font: 600 0.75rem/1.4 "Poppins", sans-serif;
+  font: 500 0.75rem/1.4 "Poppins", sans-serif;
   letter-spacing: 0;
 }
 
