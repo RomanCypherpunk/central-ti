@@ -906,6 +906,14 @@ function desenharSolucoes(encontradas) {
         outro.querySelector(".triagem__ver").textContent = "Ver solução";
       });
 
+      // Abrir a solucao aqui tambem e uma visualizacao (a mesma contagem do
+      // card da Base). Fechar nao conta; falhar nao atrapalha a triagem.
+      if (abrindo) {
+        supabase.rpc("registrar_visualizacao_artigo", { p_artigo_id: artigo.id }).then(({ error }) => {
+          if (error) console.warn("Não foi possível contar a visualização:", error);
+        });
+      }
+
       detalhe.hidden = !abrindo;
       cabecalho.setAttribute("aria-expanded", String(abrindo));
       acao.textContent = abrindo ? "Fechar solução" : "Ver solução";

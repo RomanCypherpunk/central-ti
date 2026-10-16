@@ -750,6 +750,240 @@ html[data-sidebar="colapsada"] .sidebar__logo {
   gap: 8px;
 }
 
+/*VISUALIZACOES no topo do card, do lado oposto ao tipo: olho e o numero,
+  discreto — e informacao de apoio, nao compete com o titulo.*/
+.solucao-card__visualizacoes {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  color: #8a8a8a;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.solucao-card__visualizacoes svg {
+  flex: none;
+}
+
+/*ADMINISTRADOR: o mesmo contador, so que clicavel (abre "Quem visualizou").
+  Sem cara de botao ate o hover, para o card ficar igual ao dos outros.*/
+.solucao-card__visualizacoes--botao {
+  margin: -4px -8px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.solucao-card__visualizacoes--botao:hover {
+  background-color: #fdf3ec;
+  color: #c24f00;
+}
+
+.solucao-card__visualizacoes--botao:focus-visible {
+  outline: 2px solid #dd5b12;
+  outline-offset: 1px;
+}
+
+.painel__quem-viu {
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #c24f00;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+   QUEM VISUALIZOU (so administrador): cartao no centro com a lista de
+   pessoas, quantas vezes cada uma abriu e quando foi a ultima.
+   -------------------------------------------------------------------------- */
+
+/*margin: auto e o que centraliza um <dialog> aberto como modal — o reset
+  "* { margin: 0 }" do topo deste arquivo tirava isso, e a janela grudava
+  no canto superior esquerdo.*/
+.quem-viu {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: min(36rem, 80dvh);
+  margin: auto;
+  padding: 0;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  background: #fff;
+  color: #1a1a1a;
+  box-shadow: 0 24px 60px -20px rgba(26, 26, 26, 0.35);
+  overflow: hidden;
+}
+
+.quem-viu[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.quem-viu::backdrop {
+  background: rgba(20, 20, 20, 0.35);
+}
+
+.quem-viu__topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 20px 4px;
+}
+
+.quem-viu__textos {
+  flex: 1;
+  min-width: 0;
+}
+
+.quem-viu__titulo {
+  margin: 0;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.quem-viu__subtitulo {
+  margin: 4px 0 0;
+  color: #8a8a8a;
+  font-size: 12px;
+}
+
+.quem-viu__fechar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: #8a8a8a;
+  cursor: pointer;
+}
+
+.quem-viu__fechar:hover {
+  background: #f4f4f5;
+  color: #1a1a1a;
+}
+
+/*Qual solucao: uma linha, para nao perder o contexto.*/
+.quem-viu__solucao {
+  margin: 0;
+  padding: 8px 20px 14px;
+  border-bottom: 1px solid #ececec;
+  overflow: hidden;
+  color: #5a5a5a;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quem-viu__lista {
+  flex: 1;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  list-style: none;
+}
+
+.quem-viu__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+
+.quem-viu__item:hover {
+  background: #fafafa;
+}
+
+.quem-viu__mensagem {
+  padding: 24px 12px;
+  color: #8a8a8a;
+  font-size: 13px;
+  text-align: center;
+}
+
+.quem-viu__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #f0dcce;
+  color: #a8794f;
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.quem-viu__avatar-foto {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.quem-viu__corpo {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.quem-viu__nome {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quem-viu__apoio {
+  overflow: hidden;
+  color: #8a8a8a;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*Quantas vezes: em destaque a direita, com a ultima vez embaixo.*/
+.quem-viu__numeros {
+  display: grid;
+  flex: none;
+  justify-items: end;
+  text-align: right;
+}
+
+.quem-viu__vezes {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fdf3ec;
+  color: #c24f00;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .solucao-card__visualizacoes--botao {
+    transition: none;
+  }
+}
+
 .tipo-pill {
   display: inline-flex;
   align-items: center;

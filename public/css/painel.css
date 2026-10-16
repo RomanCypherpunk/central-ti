@@ -1963,9 +1963,12 @@ html[data-painel-sidebar="colapsada"] .painel {
    a ficha da pessoa ou o chamado.
    ========================================================================== */
 
+/*margin: auto centraliza o <dialog> modal; explicito para nao depender de
+  nenhum reset de margem de outra folha.*/
 .numeros {
   width: min(34rem, calc(100vw - 2rem));
   max-height: min(36rem, 80dvh);
+  margin: auto;
   padding: 0;
   border: 1px solid var(--borda);
   border-radius: 16px;
@@ -2032,6 +2035,7 @@ html[data-painel-sidebar="colapsada"] .painel {
   margin: 0;
   padding: 0.4rem;
   overflow-y: auto;
+  overflow-x: hidden;
   list-style: none;
 }
 

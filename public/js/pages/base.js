@@ -36,6 +36,11 @@ const visualizacaoListaBtn = document.getElementById("visualizacao-lista");
 let artigosTodos = [];
 let ordenacao = "recentes";
 
+// So o administrador ve QUEM visualizou cada solucao (clicando no olho). A
+// tela pergunta ao banco (is_admin) so para mostrar o botao; quem barra de
+// verdade e a RLS de artigo_visualizacoes_por_pessoa, que so libera admin.
+let souAdmin = false;
+
 // As cores ficam aqui em hex, e nao em var(--), porque o CSS do projeto
 // nao usa variaveis de cor.
 const TIPO_INFO = {
@@ -123,6 +128,195 @@ function renderizarLinhaTags(itens, limite) {
   return `<div class="solucao-card__tags">${chips}${mais}</div>`;
 }
 
+//VISUALIZACOES: quantas vezes a solucao foi aberta (tabela
+//artigo_visualizacoes, que vem junto na consulta). A junção pode chegar
+//como objeto ou como lista de um item, conforme o PostgREST reconhece a
+//relação — as duas formas valem.
+function visualizacoesDe(artigo) {
+  const contador = Array.isArray(artigo.artigo_visualizacoes)
+    ? artigo.artigo_visualizacoes[0]
+    : artigo.artigo_visualizacoes;
+
+  return Number(contador?.total ?? 0);
+}
+
+function textoVisualizacoes(total) {
+  return `${total.toLocaleString("pt-BR")} ${total === 1 ? "visualização" : "visualizações"}`;
+}
+
+const ICONE_OLHO = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/></svg>';
+
+//O CONTADOR DO CARD: texto para todos; botao (abre "Quem viu") so para o
+//administrador.
+function htmlVisualizacoes(artigo) {
+  const conteudo = `${ICONE_OLHO}<span data-visualizacoes-texto>${textoVisualizacoes(visualizacoesDe(artigo))}</span>`;
+
+  if (!souAdmin) {
+    return `<span class="solucao-card__visualizacoes" data-visualizacoes="${escapar(artigo.id)}" title="Quantas vezes esta solução foi aberta">${conteudo}</span>`;
+  }
+
+  return `<button type="button" class="solucao-card__visualizacoes solucao-card__visualizacoes--botao" data-visualizacoes="${escapar(artigo.id)}" data-quem-viu title="Ver quem visualizou" aria-label="Ver quem visualizou esta solução">${conteudo}</button>`;
+}
+
+/* --------------------------------------------------------------------------
+   QUEM VIU (so administrador): cada pessoa que abriu a solucao, quantas
+   vezes e quando foi a ultima. Uma janela so, montada uma vez.
+   -------------------------------------------------------------------------- */
+
+const quemViuEl = document.createElement("dialog");
+quemViuEl.className = "quem-viu";
+quemViuEl.setAttribute("aria-labelledby", "quem-viu-titulo");
+quemViuEl.innerHTML = `
+  <header class="quem-viu__topo">
+    <div class="quem-viu__textos">
+      <h2 class="quem-viu__titulo" id="quem-viu-titulo">Quem visualizou</h2>
+      <p class="quem-viu__subtitulo" data-quem-viu-subtitulo></p>
+    </div>
+    <button type="button" class="quem-viu__fechar" aria-label="Fechar" data-quem-viu-fechar>
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+  <p class="quem-viu__solucao" data-quem-viu-solucao></p>
+  <ul class="quem-viu__lista" data-quem-viu-lista></ul>
+`;
+document.body.appendChild(quemViuEl);
+
+const quemViuSubtitulo = quemViuEl.querySelector("[data-quem-viu-subtitulo]");
+const quemViuSolucao = quemViuEl.querySelector("[data-quem-viu-solucao]");
+const quemViuLista = quemViuEl.querySelector("[data-quem-viu-lista]");
+
+quemViuEl.querySelector("[data-quem-viu-fechar]").addEventListener("click", () => quemViuEl.close());
+// Clique no fundo escuro fecha, como os outros avisos do site.
+quemViuEl.addEventListener("click", (evento) => {
+  if (evento.target === quemViuEl) quemViuEl.close();
+});
+
+const TEMPO_RELATIVO = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
+
+function haQuantoTempo(iso) {
+  const minutos = Math.round((new Date(iso).getTime() - Date.now()) / 60_000);
+  const passos = [[60, "minute"], [24, "hour"], [7, "day"], [4.35, "week"], [12, "month"]];
+  let valor = minutos;
+
+  if (Math.abs(valor) < 1) return "agora";
+
+  for (const [tamanho, unidade] of passos) {
+    if (Math.abs(valor) < tamanho) return TEMPO_RELATIVO.format(Math.round(valor), unidade);
+    valor /= tamanho;
+  }
+
+  return TEMPO_RELATIVO.format(Math.round(valor), "year");
+}
+
+function mensagemNaLista(texto) {
+  const item = document.createElement("li");
+  item.className = "quem-viu__mensagem";
+  item.textContent = texto;
+  quemViuLista.replaceChildren(item);
+}
+
+async function abrirQuemViu(artigo) {
+  quemViuSolucao.textContent = artigo.titulo || "Sem título";
+  quemViuSubtitulo.textContent = textoVisualizacoes(visualizacoesDe(artigo));
+  mensagemNaLista("Carregando…");
+  if (!quemViuEl.open) quemViuEl.showModal();
+
+  const { data, error } = await supabase
+    .from("artigo_visualizacoes_por_pessoa")
+    .select("total, ultima_em, usuarios(id, nome, sobrenome, email, foto_path)")
+    .eq("artigo_id", artigo.id)
+    .order("total", { ascending: false })
+    .order("ultima_em", { ascending: false });
+
+  if (error) {
+    console.error("Erro ao carregar quem visualizou:", error);
+
+    // Tabela ainda nao criada no banco: diz o que falta, em vez de um erro
+    // generico que nao ajuda ninguem a resolver.
+    const semTabela = ["PGRST205", "42P01"].includes(error.code)
+      || /artigo_visualizacoes_por_pessoa/.test(error.message ?? "");
+
+    mensagemNaLista(semTabela
+      ? "O registro de quem visualizou ainda não está ativo no banco: falta rodar a migration 20261016100000_artigos_visualizacoes_por_pessoa."
+      : `Não foi possível carregar quem visualizou (${error.message ?? error.code ?? "erro desconhecido"}).`);
+    return;
+  }
+
+  const pessoas = data ?? [];
+  const totalGeral = visualizacoesDe(artigo);
+  const somaDasPessoas = pessoas.reduce((soma, linha) => soma + Number(linha.total), 0);
+
+  // As visualizacoes de antes do registro por pessoa entram so no total.
+  const semRegistro = Math.max(0, totalGeral - somaDasPessoas);
+  quemViuSubtitulo.textContent = `${pessoas.length} ${pessoas.length === 1 ? "pessoa" : "pessoas"} · ${textoVisualizacoes(totalGeral)}`
+    + (semRegistro ? ` (${semRegistro.toLocaleString("pt-BR")} de antes do registro por pessoa)` : "");
+
+  if (!pessoas.length) {
+    const antes = totalGeral === 1
+      ? "A visualização desta solução é de antes do registro por pessoa começar"
+      : `As ${textoVisualizacoes(totalGeral)} desta solução são de antes do registro por pessoa começar`;
+
+    mensagemNaLista(totalGeral
+      ? `${antes}, por isso não há nomes. As próximas aberturas já aparecem aqui.`
+      : "Ninguém abriu esta solução ainda.");
+    return;
+  }
+
+  quemViuLista.replaceChildren(...pessoas.map((linha) => {
+    const pessoa = linha.usuarios;
+    const nome = [pessoa?.nome, pessoa?.sobrenome].filter(Boolean).join(" ") || "Conta excluída";
+    const vezes = Number(linha.total);
+
+    const item = document.createElement("li");
+    item.className = "quem-viu__item";
+    item.innerHTML = `
+      <span class="quem-viu__avatar" data-avatar></span>
+      <span class="quem-viu__corpo">
+        <span class="quem-viu__nome">${escapar(nome)}</span>
+        <span class="quem-viu__apoio">${escapar(pessoa?.email ?? "")}</span>
+      </span>
+      <span class="quem-viu__numeros">
+        <span class="quem-viu__vezes">${vezes.toLocaleString("pt-BR")} ${vezes === 1 ? "vez" : "vezes"}</span>
+        <span class="quem-viu__apoio" title="${escapar(new Date(linha.ultima_em).toLocaleString("pt-BR"))}">última ${escapar(haQuantoTempo(linha.ultima_em))}</span>
+      </span>
+    `;
+    pintarFoto(item.querySelector("[data-avatar]"), pessoa?.foto_path, iniciaisAutor(nome), { classeFoto: "quem-viu__avatar-foto" });
+    return item;
+  }));
+}
+
+// Delegado: os cards e o painel sao redesenhados o tempo todo. O
+// stopPropagation impede que o clique no olho tambem abra a solucao (e
+// conte uma visualizacao do proprio admin).
+document.addEventListener("click", (evento) => {
+  const botao = evento.target.closest("[data-quem-viu]");
+
+  if (!botao || !souAdmin) return;
+
+  evento.stopPropagation();
+  const artigo = artigosTodos.find((outro) => outro.id === botao.dataset.visualizacoes);
+  if (artigo) abrirQuemViu(artigo);
+}, true);
+
+//CONTA UMA VISUALIZACAO: cada vez que alguem abre a solucao. O banco soma e
+//devolve o total novo, que ja atualiza o card e o painel na hora. Se falhar
+//(sem conexao, por exemplo), a solucao abre do mesmo jeito.
+async function registrarVisualizacao(artigo) {
+  const { data, error } = await supabase.rpc("registrar_visualizacao_artigo", { p_artigo_id: artigo.id });
+
+  if (error) {
+    console.warn("Não foi possível contar a visualização:", error);
+    return;
+  }
+
+  artigo.artigo_visualizacoes = { total: Number(data) };
+
+  document.querySelectorAll(`[data-visualizacoes="${artigo.id}"]`).forEach((elemento) => {
+    const texto = elemento.querySelector("[data-visualizacoes-texto]");
+    if (texto) texto.textContent = textoVisualizacoes(Number(data));
+  });
+}
+
 function criarCard(artigo) {
   const tipoInfo = TIPO_INFO[artigo.tipo] || { label: artigo.tipo || "—", cor: "#6b7280", fundo: "#f2f3f5", icone: "" };
   const emLista = grade.classList.contains("solucoes-grade--lista");
@@ -142,6 +336,7 @@ function criarCard(artigo) {
         <svg class="tipo-pill__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${tipoInfo.icone}</svg>
         ${escapar(tipoInfo.label)}
       </span>
+      ${htmlVisualizacoes(artigo)}
     </div>
 
     <h3 class="solucao-card__titulo">${escapar(artigo.titulo || "Sem título")}</h3>
@@ -327,6 +522,7 @@ function renderizarRelacionadas(relacionadas) {
 function abrirPainel(artigo) {
   artigoAberto = artigo;
   painelErroEl.textContent = "";
+  registrarVisualizacao(artigo);
 
   const tipoInfo = TIPO_INFO[artigo.tipo] || { label: artigo.tipo || "—", cor: "#6b7280", fundo: "#f2f3f5" };
   painelTipoEl.textContent = tipoInfo.label;
@@ -351,6 +547,11 @@ function abrirPainel(artigo) {
       <div>
         <span class="painel__campo-label">Criado em</span>
         <p class="painel__campo-valor">${formatarData(artigo.criado_em)}</p>
+      </div>
+      <div data-visualizacoes="${escapar(artigo.id)}">
+        <span class="painel__campo-label">Visualizações</span>
+        <p class="painel__campo-valor" data-visualizacoes-texto>${textoVisualizacoes(visualizacoesDe(artigo))}</p>
+        ${souAdmin ? `<button type="button" class="painel__quem-viu" data-quem-viu data-visualizacoes="${escapar(artigo.id)}">Ver quem visualizou</button>` : ""}
       </div>
     </div>
 
@@ -895,17 +1096,29 @@ function avisarConteudoPronto() {
 
 async function carregarArtigos() {
   // `setores` é uuid[]: não dá junção direta, então os nomes vêm à parte.
-  const [{ data, error }, { data: setores }] = await Promise.all([
-    supabase
-      // O autor vem por junção em autor_id, e não da coluna de texto `autor`:
-      // é o que permite mostrar a foto de quem cadastrou (a foto mora no
-      // perfil) e o nome sempre atualizado, mesmo que a pessoa se renomeie.
-      .from("artigos")
-      .select("*, usuarios!artigos_autor_id_fkey(id, nome, sobrenome, foto_path)")
-      .eq("ativo", true)
-      .order("criado_em", { ascending: false }),
-    supabase.from("setores").select("id,nome")
+  // O autor vem por junção em autor_id, e não da coluna de texto `autor`:
+  // é o que permite mostrar a foto de quem cadastrou (a foto mora no
+  // perfil) e o nome sempre atualizado, mesmo que a pessoa se renomeie.
+  const consultar = (comVisualizacoes) => supabase
+    .from("artigos")
+    .select(`*, usuarios!artigos_autor_id_fkey(id, nome, sobrenome, foto_path)${comVisualizacoes ? ", artigo_visualizacoes(total)" : ""}`)
+    .eq("ativo", true)
+    .order("criado_em", { ascending: false });
+
+  let [{ data, error }, { data: setores }, { data: ehAdmin }] = await Promise.all([
+    consultar(true),
+    supabase.from("setores").select("id,nome"),
+    supabase.rpc("is_admin"),
   ]);
+
+  souAdmin = ehAdmin === true;
+
+  // Banco ainda sem a tabela de visualizações (migration
+  // 20261016090000 não rodada): a Base abre do mesmo jeito, com zero.
+  if (error) {
+    console.warn("Soluções sem contagem de visualizações:", error);
+    ({ data, error } = await consultar(false));
+  }
 
   if (error) {
     console.error("Erro ao carregar soluções:", error);
