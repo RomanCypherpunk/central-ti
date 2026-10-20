@@ -3295,6 +3295,24 @@ function horasUteisEntre(inicio, fim) {
   return minutos / 60;
 }
 
+//SLA INDIVIDUAL CONTA DA ENTRADA NO CHAMADO (decisao do usuario): o
+//cronometro de um atendente ou terceirizado so comeca quando ele e posto
+//como membro/terceiro no quadro (adicionado_em), nao na abertura — quem
+//entra tarde nao herda o tempo que o chamado ficou parado antes dele.
+//Nunca antes da abertura (alguns vinculos antigos tem adicionado_em
+//anterior a ela). Devolve uma copia com `sla_inicio`, sem mexer em
+//abertura_em, que os demais calculos (resposta, filtros) continuam usando.
+function comInicioDeSla(chamado, vinculo) {
+  const abertura = new Date(chamado.abertura_em);
+  const entrada = vinculo?.adicionado_em ? new Date(vinculo.adicionado_em) : abertura;
+
+  return { ...chamado, sla_inicio: entrada > abertura ? entrada : abertura };
+}
+
+function horasDeSlaIndividual(chamado) {
+  return horasUteisEntre(new Date(chamado.sla_inicio ?? chamado.abertura_em), new Date(chamado.fechamento_em));
+}
+
 //DURACAO LEGIVEL, NUNCA HORA QUEBRADA: menos de 1 hora sai sempre em
 //minutos ("45 min"), ate 1 dia em horas e minutos ("2h 30min"), acima
 //disso em dias e horas ("3d 4h"). "0,7 horas" obrigava a fazer conta de
@@ -4263,8 +4281,8 @@ function ligarAnalise() {
         unidade_id, categoria_id,
         unidades(nome), categorias(nome),
         usuarios!chamados_solicitante_id_fkey(nome, sobrenome, setor_id, setores(nome)),
-        chamado_membros(usuario_id, usuarios(nome, sobrenome, cor_destaque)),
-        chamado_terceiros(terceiro_id, terceiros(nome)),
+        chamado_membros(usuario_id, adicionado_em, usuarios(nome, sobrenome, cor_destaque)),
+        chamado_terceiros(terceiro_id, adicionado_em, terceiros(nome)),
         comentarios(autor_id, criado_em, visibilidade, tipo)
       `)
       .gte("abertura_em", `${desde}T00:00:00`)
@@ -5292,7 +5310,7 @@ function ligarAnalise() {
           if (!membro.usuarios) return;
           const nome = nomeCompleto(membro.usuarios) ?? "Alguém";
           if (!grupos.has(nome)) grupos.set(nome, { pessoa: membro.usuarios, chamados: [] });
-          grupos.get(nome).chamados.push(chamado);
+          grupos.get(nome).chamados.push(comInicioDeSla(chamado, membro));
         });
       });
 
@@ -5313,7 +5331,7 @@ function ligarAnalise() {
         if (!fornecedor?.nome) return;
 
         if (!grupos.has(fornecedor.nome)) grupos.set(fornecedor.nome, { pessoa: fornecedor, chamados: [] });
-        grupos.get(fornecedor.nome).chamados.push(chamado);
+        grupos.get(fornecedor.nome).chamados.push(comInicioDeSla(chamado, vinculo));
       });
     });
 
@@ -5344,7 +5362,7 @@ function ligarAnalise() {
 
       const duracoes = chamadosDoAtendente
         .filter((chamado) => chamado.fechamento_em)
-        .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)));
+        .map(horasDeSlaIndividual);
 
       if (duracoes.length) {
         const media = duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length;
@@ -5441,7 +5459,7 @@ function ligarAnalise() {
       .map(([nome, { pessoa, chamados: doGrupo }]) => {
         const duracoes = doGrupo
           .filter((chamado) => chamado.fechamento_em)
-          .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)));
+          .map(horasDeSlaIndividual);
 
         const media = duracoes.length
           ? duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length
@@ -5511,7 +5529,7 @@ function ligarAnalise() {
 
       const duracoes = chamadosDoTerceiro
         .filter((chamado) => chamado.fechamento_em)
-        .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)));
+        .map(horasDeSlaIndividual);
 
       if (duracoes.length) {
         const media = duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length;
@@ -5591,7 +5609,7 @@ function ligarAnalise() {
       .map(([nome, { pessoa, chamados: doGrupo }]) => {
         const duracoes = doGrupo
           .filter((chamado) => chamado.fechamento_em)
-          .map((chamado) => horasUteisEntre(new Date(chamado.abertura_em), new Date(chamado.fechamento_em)));
+          .map(horasDeSlaIndividual);
 
         const media = duracoes.length
           ? duracoes.reduce((soma, horas) => soma + horas, 0) / duracoes.length
