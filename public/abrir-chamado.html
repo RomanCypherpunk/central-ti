@@ -458,14 +458,14 @@
 
             <div class="abrir__linha">
               <div class="abrir__campo">
-                <label class="abrir__label" for="cadastro-nome">Nome completo</label>
+                <label class="abrir__label" for="cadastro-nome">Nome completo <span class="abrir__obrigatorio" aria-hidden="true">*</span></label>
                 <input class="abrir__input" id="cadastro-nome" type="text" maxlength="120" autocomplete="off"
                        data-campo="nome" data-obrigatorio data-minimo="3"
                        data-mensagem="Informe o nome completo do colaborador." placeholder="Ex.: Maria Souza Lima">
               </div>
 
               <div class="abrir__campo">
-                <label class="abrir__label" for="cadastro-cargo">Cargo</label>
+                <label class="abrir__label" for="cadastro-cargo">Cargo <span class="abrir__obrigatorio" aria-hidden="true">*</span></label>
                 <input class="abrir__input" id="cadastro-cargo" type="text" maxlength="80" autocomplete="off"
                        data-campo="cargo" data-obrigatorio data-mensagem="Informe o cargo." placeholder="Ex.: Vendedora">
               </div>
@@ -473,7 +473,7 @@
 
             <div class="abrir__linha">
               <div class="abrir__campo">
-                <label class="abrir__label" for="cadastro-setor">Setor</label>
+                <label class="abrir__label" for="cadastro-setor">Setor <span class="abrir__obrigatorio" aria-hidden="true">*</span></label>
                 <select class="abrir__input abrir__select" id="cadastro-setor"
                         data-campo="setor" data-lista="setores" data-obrigatorio data-mensagem="Escolha o setor do colaborador.">
                   <option value="">Carregando…</option>
@@ -481,7 +481,7 @@
               </div>
 
               <div class="abrir__campo">
-                <label class="abrir__label" for="cadastro-gestor">Gestor responsável</label>
+                <label class="abrir__label" for="cadastro-gestor">Gestor responsável <span class="abrir__obrigatorio" aria-hidden="true">*</span></label>
                 <input class="abrir__input" id="cadastro-gestor" type="text" maxlength="120" autocomplete="off"
                        data-campo="gestor" data-obrigatorio data-mensagem="Informe o gestor responsável."
                        placeholder="Quem responde por essa pessoa">
@@ -490,14 +490,14 @@
 
             <div class="abrir__linha">
               <div class="abrir__campo">
-                <label class="abrir__label" for="cadastro-nascimento">Data de nascimento</label>
+                <label class="abrir__label" for="cadastro-nascimento">Data de nascimento <span class="abrir__obrigatorio" aria-hidden="true">*</span></label>
                 <input class="abrir__input" id="cadastro-nascimento" type="date"
                        data-campo="nascimento" data-obrigatorio data-validar="nascimento"
                        data-mensagem="Informe a data de nascimento.">
               </div>
 
               <div class="abrir__campo">
-                <label class="abrir__label" for="cadastro-cpf">CPF</label>
+                <label class="abrir__label" for="cadastro-cpf">CPF <span class="abrir__obrigatorio" aria-hidden="true">*</span></label>
                 <input class="abrir__input" id="cadastro-cpf" type="text" inputmode="numeric" maxlength="14" autocomplete="off"
                        data-campo="cpf" data-mascara="cpf" data-obrigatorio data-validar="cpf"
                        data-mensagem="Informe o CPF." placeholder="000.000.000-00">
@@ -506,14 +506,14 @@
 
             <div class="abrir__linha">
               <div class="abrir__campo">
-                <label class="abrir__label" for="cadastro-cep">CEP</label>
+                <label class="abrir__label" for="cadastro-cep">CEP <span class="abrir__obrigatorio" aria-hidden="true">*</span></label>
                 <input class="abrir__input" id="cadastro-cep" type="text" inputmode="numeric" maxlength="9" autocomplete="off"
                        data-campo="cep" data-mascara="cep" data-obrigatorio data-validar="cep"
                        data-mensagem="Informe o CEP." placeholder="00000-000">
               </div>
 
               <div class="abrir__campo">
-                <label class="abrir__label" for="cadastro-celular">Nº do celular</label>
+                <label class="abrir__label" for="cadastro-celular">Nº do celular <span class="abrir__obrigatorio" aria-hidden="true">*</span></label>
                 <input class="abrir__input" id="cadastro-celular" type="tel" inputmode="numeric" maxlength="15" autocomplete="off"
                        data-campo="celular" data-mascara="celular" data-obrigatorio data-validar="celular"
                        data-mensagem="Informe o número do celular." placeholder="(12) 91234-5678">
@@ -550,10 +550,12 @@
 
             <div class="abrir__campo">
               <label class="abrir__label" for="cadastro-copiar">
-                Copiar acessos do login <span class="abrir__opcional">opcional</span>
+                Copiar acessos do login <span class="abrir__obrigatorio" aria-hidden="true">*</span>
               </label>
               <input class="abrir__input" id="cadastro-copiar" type="text" maxlength="80" autocomplete="off"
-                     data-campo="copiar_acessos" placeholder="Login de quem já tem os mesmos acessos. Ex.: maria.souza">
+                     data-campo="copiar_acessos" data-obrigatorio data-minimo="2" required aria-required="true"
+                     data-mensagem="Informe o login de quem já tem os mesmos acessos."
+                     placeholder="Login de quem já tem os mesmos acessos. Ex.: maria.souza">
             </div>
           </section>
 
