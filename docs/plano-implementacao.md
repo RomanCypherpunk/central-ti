@@ -4138,3 +4138,22 @@ neles. Testado com um teste de lógica isolado replicando a decisão de
 `montarAvatarTerceiro` contra o objeto corrigido, e um segundo caso
 confirmando que um terceiro sem foto continua caindo no ícone padrão
 corretamente (não virou "sempre foto").
+
+### 2026-10-20 — SLA individual conta a partir da entrada no chamado
+
+Pedido do usuário: o SLA de atendente/terceirizado só deve contar a partir
+do momento em que ele é adicionado ao chamado como membro/terceiro, e não
+desde a abertura.
+
+`chamado_membros` e `chamado_terceiros` já tinham `adicionado_em`
+(`default now()`, preenchido nas 117 linhas existentes) — nenhuma migração.
+Nas sub-abas **Atendentes** e **Terceiros** da Análise, cada chamado entra
+no grupo da pessoa como uma cópia com `sla_inicio = max(abertura_em,
+adicionado_em)` (`comInicioDeSla`), e os 4 pontos de SLA dessas sub-abas
+(cards e gráficos) usam `horasDeSlaIndividual`. O `max` existe porque 10
+vínculos antigos têm `adicionado_em` anterior à abertura. Só o SLA mudou:
+tempo até a primeira resposta, SLA por unidade/categoria/setor/solicitante
+e o mensal continuam contando da abertura. Retroativo, já que é cálculo no
+navegador. Query da Análise passou a pedir `adicionado_em`.
+
+Não testado no navegador (só `node --check`).
