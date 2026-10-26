@@ -4932,3 +4932,11 @@ body.portal-pagina {
   background-color: var(--borda-suave);
 }
 
+
+/*LINKS DENTRO DAS MENSAGENS: o balao e sempre claro, entao o link usa azul
+  escuro e quebra em qualquer ponto pra nao estourar o balao.*/
+.texto-link {
+  color: #0b57d0;
+  text-decoration: underline;
+  word-break: break-all;
+}

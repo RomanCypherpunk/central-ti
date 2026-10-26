@@ -6,6 +6,7 @@ import { inscreverPush, limparPushNoLogout } from "../componentes/push-sessao.js
 import { prepararArquivoParaUploadChamado as prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/anexos-chamado.js";
 import { prepararArquivoParaUpload as prepararImagemFundo } from "../componentes/otimizar-upload.js";
 import { criarIndiceDeBusca, destacar, trechoEmVolta } from "../componentes/busca-texto.js";
+import { preencherTextoComLinks } from "../componentes/texto-com-links.js";
 // Peças que o Painel também usa: moram em componentes/ para as duas telas
 // mostrarem status, nome e avatar pela mesma regra.
 import {
@@ -2324,7 +2325,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
       } else {
         const texto = document.createElement("p");
         texto.className = "comentario__texto";
-        texto.textContent = comentario.texto;
+        preencherTextoComLinks(texto, comentario.texto);
         balao.appendChild(texto);
       }
 

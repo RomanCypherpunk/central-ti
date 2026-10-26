@@ -11,6 +11,7 @@ import { supabase } from "../config/supabase-config.js";
 import { pintarFoto } from "../componentes/avatar.js";
 import { prepararArquivoParaUploadChamado as prepararArquivoParaUpload, validarArquivoParaUpload } from "../componentes/anexos-chamado.js";
 import { abrirArquivoPrivado } from "../componentes/storage-privado.js";
+import { preencherTextoComLinks } from "../componentes/texto-com-links.js";
 
 const lista = document.querySelector("[data-lista]");
 const vazioEl = document.querySelector("[data-vazio]");
@@ -434,7 +435,7 @@ function montarMensagem(comentario) {
   } else {
     const texto = document.createElement("p");
     texto.className = "mensagem__texto";
-    texto.textContent = comentario.texto;
+    preencherTextoComLinks(texto, comentario.texto);
     balao.appendChild(texto);
   }
 
