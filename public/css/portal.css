@@ -3526,7 +3526,8 @@ body.portal-pagina {
 /*ITEM COM INTERRUPTOR (Notificações): o texto ocupa o espaço disponível,
   o interruptor fica colado na direita — mesma linha, sem quebrar layout
   dos outros itens do menu que não tem esse span extra.*/
-.quadro-menu__item--interruptor span[data-acao-notificacoes-texto] {
+.quadro-menu__item--interruptor span[data-acao-notificacoes-texto],
+.quadro-menu__item--interruptor span[data-acao-saudacao-texto] {
   flex: 1;
 }
 

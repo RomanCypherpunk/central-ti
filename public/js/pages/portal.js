@@ -2671,7 +2671,8 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
   //RESPONDER AO SOLICITANTE. Tudo que se escreve aqui e conversa com ele —
   //nota interna nao existe nesta tela.
   async function responder() {
-    const texto = campoMensagem.value.trim();
+    // So a saudacao pre-preenchida ("Bom dia,") conta como campo vazio.
+    const texto = campoMensagem.value.trim().replace(/^(bom dia|boa tarde|boa noite),$/i, "");
     const arquivos = anexosPendentes.map((pendente) => pendente.arquivo);
 
     if (!texto && !arquivos.length) return;
@@ -3857,6 +3858,16 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     atualizarBotaoFechar();
 
     campoMensagem.value = "";
+
+    // Saudacao so na PRIMEIRA resposta da equipe: enquanto ninguem alem do
+    // solicitante (e do sistema) escreveu no chamado.
+    const equipeJaRespondeu = chamado.comentarios.some((comentario) =>
+      comentario.tipo !== "sistema" && comentario.autor_id !== chamado.solicitante_id);
+
+    if (saudacaoLigada(atendente) && !equipeJaRespondeu) {
+      campoMensagem.value = `${saudacaoDoMomento()}, `;
+    }
+
     // Mensagem e anexos de outro ticket nunca acompanham a aprovação.
     limparPendentes();
     aviso.textContent = "";
@@ -4418,6 +4429,49 @@ function chaveVapidParaUint8Array(chaveBase64) {
   const bruto = window.atob(base64);
 
   return Uint8Array.from([...bruto].map((caractere) => caractere.charCodeAt(0)));
+}
+
+//SAUDACAO AUTOMATICA. Preferencia so deste navegador (localStorage, por
+//pessoa), no mesmo espirito da ordem das listas: nao precisa de coluna no
+//banco. Faixas: 5h-12h bom dia, 12h01-18h boa tarde, 18h01-5h boa noite.
+const CHAVE_SAUDACAO = "saudacao-automatica-portal";
+
+function saudacaoLigada(atendente) {
+  try {
+    return localStorage.getItem(`${CHAVE_SAUDACAO}:${atendente}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saudacaoDoMomento(agora = new Date()) {
+  const minutos = agora.getHours() * 60 + agora.getMinutes();
+
+  if (minutos >= 5 * 60 && minutos <= 12 * 60) return "Bom dia";
+  if (minutos > 12 * 60 && minutos <= 18 * 60) return "Boa tarde";
+
+  return "Boa noite";
+}
+
+function ligarSaudacao(atendente) {
+  const item = document.querySelector("[data-acao-saudacao]");
+
+  if (!item) return;
+
+  item.setAttribute("aria-checked", String(saudacaoLigada(atendente)));
+
+  item.addEventListener("click", () => {
+    const ligada = !saudacaoLigada(atendente);
+
+    try {
+      localStorage.setItem(`${CHAVE_SAUDACAO}:${atendente}`, ligada ? "1" : "0");
+    } catch {
+      // Sem localStorage a preferencia nao se mantem; o interruptor nao muda.
+      return;
+    }
+
+    item.setAttribute("aria-checked", String(ligada));
+  });
 }
 
 function ligarNotificacoes(atendente, ativasNoCadastro) {
@@ -6269,6 +6323,7 @@ async function montarQuadro() {
   const exportar = ligarExportar(chamados.data, filas.data, carregarFechados);
   ligarQuadroMenu(exportar);
   ligarNotificacoes(atendente, usuarioAtendendo.notificacoesAtivas);
+  ligarSaudacao(atendente);
   ligarFiltros(chamados.data, equipe.data ?? [], filas.data);
   finalizados = ligarFinalizados(chamados.data, filas.data, detalhe, carregarFechados, atendente);
   ligarFundo();
