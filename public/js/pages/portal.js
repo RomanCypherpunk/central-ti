@@ -2205,7 +2205,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     return painel;
   }
 
-  function montarBotaoMembros({ tipo, rotulo, icone, desativado = false }) {
+  function montarBotaoMembros({ tipo, rotulo, icone, desativado = false, aoClicar = () => alternarPainel(tipo) }) {
     const ativo = painelAberto(tipo);
     const botao = document.createElement("button");
 
@@ -2217,7 +2217,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     botao.setAttribute("aria-label", rotulo);
     botao.setAttribute("aria-expanded", String(ativo));
     botao.innerHTML = icone;
-    botao.addEventListener("click", () => alternarPainel(tipo));
+    botao.addEventListener("click", aoClicar);
 
     return botao;
   }
@@ -2278,6 +2278,23 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
 
     const disponiveis = equipe.filter((pessoa) =>
       !aberto.chamado_membros.some((membro) => membro.usuario_id === pessoa.id));
+
+    // INGRESSAR: coloca quem esta logado como membro, sem abrir painel.
+    // Some quando a pessoa ja esta no chamado.
+    const eu = equipe.find((pessoa) => pessoa.id === atendente);
+
+    if (eu && disponiveis.some((pessoa) => pessoa.id === eu.id)) {
+      campoMembros.appendChild(montarBotaoMembros({
+        tipo: "ingressar",
+        rotulo: "Ingressar no chamado",
+        aoClicar: () => adicionarMembro(eu),
+        icone: `
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0m8 12h6m-3-3v6M6 21v-2a4 4 0 0 1 4-4h4"/>
+        </svg>`,
+      }));
+    }
 
     // Painel de adicionar aberto mas ninguem mais disponivel: fecha sozinho.
     if (painelAberto("adicionar") && !disponiveis.length) painelMembros = null;
