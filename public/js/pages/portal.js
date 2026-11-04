@@ -21,6 +21,8 @@ import {
   aplicarCorDestaque,
   CORES_DESTAQUE,
   CAMPOS_CHAMADO,
+  progressoChecklist,
+  montarBarraChecklist,
 } from "../componentes/chamado-comum.js";
 
 const quadro = document.querySelector("[data-quadro]");
@@ -410,6 +412,10 @@ function montarCard(chamado) {
   card.draggable = true;
   card.dataset.chamado = chamado.id;
   card.dataset.fila = chamado.fila_id;
+
+  //PROGRESSO DO CHECKLIST DE CRIACAO (so cadastro novo): linha no topo.
+  const barra = montarBarraChecklist(chamado);
+  if (barra) card.appendChild(barra);
 
   //ETIQUETAS: TODO CARD TEM UMA PRIORIDADE. SEM FLAG MARCADA, E NORMAL.
   const etiquetas = document.createElement("div");
@@ -1745,6 +1751,9 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
   const campoEtiquetas = document.querySelector("[data-detalhe-etiquetas]");
   const campoMembros = document.querySelector("[data-detalhe-membros]");
   const campoDescricao = document.querySelector("[data-detalhe-descricao]");
+  const blocoChecklist = document.querySelector("[data-detalhe-checklist]");
+  const listaChecklist = document.querySelector("[data-detalhe-checklist-lista]");
+  const resumoChecklist = document.querySelector("[data-detalhe-checklist-resumo]");
   const campoConversa = document.querySelector("[data-detalhe-conversa]");
   const campoAnexos = document.querySelector("[data-detalhe-anexos]");
   const campoMensagem = document.querySelector("[data-conversa-campo]");
@@ -1795,6 +1804,48 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     Object.assign(aberto, mudancas);
     avisar("Salvo");
     return true;
+  }
+
+  //CHECKLIST DE CRIACAO: so existe em cadastro novo (coluna nula nos demais).
+  //Marcar grava a lista inteira, ja que e um jsonb unico.
+  function desenharChecklist() {
+    const progresso = progressoChecklist(aberto);
+
+    blocoChecklist.hidden = !progresso;
+    listaChecklist.replaceChildren();
+
+    if (!progresso) return;
+
+    resumoChecklist.textContent = `${progresso.feitos}/${progresso.total} (${progresso.percentual}%)`;
+
+    aberto.checklist_criacao.forEach((entrada, indice) => {
+      const rotulo = document.createElement("label");
+      rotulo.className = "detalhe__checklist-item";
+
+      const caixa = document.createElement("input");
+      caixa.type = "checkbox";
+      caixa.checked = Boolean(entrada.feito);
+
+      caixa.addEventListener("change", async () => {
+        const nova = aberto.checklist_criacao.map((item, i) => (
+          i === indice ? { ...item, feito: caixa.checked } : item
+        ));
+
+        if (await gravar({ checklist_criacao: nova })) {
+          atualizarCard();
+        } else {
+          caixa.checked = !caixa.checked;
+        }
+
+        desenharChecklist();
+      });
+
+      const nome = document.createElement("span");
+      nome.textContent = entrada.item;
+
+      rotulo.append(caixa, nome);
+      listaChecklist.appendChild(rotulo);
+    });
   }
 
   //ETIQUETAS DE PRIORIDADE: CLICAR LIGA E DESLIGA
@@ -3331,6 +3382,13 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
 
     card.querySelector("[data-titulo]").textContent = tituloDoChamado(aberto);
 
+    const barraAtual = card.querySelector("[data-progresso]");
+    const barraNova = montarBarraChecklist(aberto);
+
+    if (barraAtual && barraNova) barraAtual.replaceWith(barraNova);
+    else if (barraNova) card.prepend(barraNova);
+    else barraAtual?.remove();
+
     const etiquetas = card.querySelector(".card__etiquetas");
     etiquetas.replaceChildren();
 
@@ -3802,6 +3860,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     desenharDados();
     desenharEtiquetas();
     desenharMembros();
+    desenharChecklist();
     desenharConversa();
     desenharAnexos();
 
@@ -3935,6 +3994,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     desenharDados();
     desenharEtiquetas();
     desenharMembros();
+    desenharChecklist();
 
     // A conversa so desce sozinha se a pessoa ja estava no fim dela; quem
     // esta lendo mensagens antigas continua onde estava.

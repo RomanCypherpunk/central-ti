@@ -124,7 +124,7 @@ export const CORES_DESTAQUE = [
 export const CAMPOS_CHAMADO = `
   id, numero, titulo, fila_id, solicitante_id, descricao,
   eh_urgente, eh_prioridade, fechamento_em, abertura_em,
-  acesso_remoto, cliente_na_loja, sistema_lento_ou_fora,
+  acesso_remoto, cliente_na_loja, sistema_lento_ou_fora, checklist_criacao,
   categorias(nome),
   unidades(nome),
   usuarios!chamados_solicitante_id_fkey(id, nome, sobrenome, email, perfil, status_aprovacao, setor_id, unidade_id, setores(id, nome)),
@@ -133,3 +133,44 @@ export const CAMPOS_CHAMADO = `
   comentarios(id, autor_id, texto, visibilidade, tipo, criado_em, artigo_id, artigos(titulo, ativo), usuarios(nome, sobrenome, foto_path)),
   anexos(id, comentario_id, nome_arquivo, storage_path, criado_em)
 `;
+
+//CHECKLIST DE CRIACAO (so chamados de cadastro novos; a coluna e nula nos
+//demais). Devolve null quando nao ha checklist.
+export function progressoChecklist(chamado) {
+  const itens = chamado.checklist_criacao;
+
+  if (!Array.isArray(itens) || !itens.length) return null;
+
+  const feitos = itens.filter((item) => item.feito).length;
+
+  return { feitos, total: itens.length, percentual: Math.round((feitos / itens.length) * 100) };
+}
+
+//BARRA DE PROGRESSO DO CARD: linha fina no topo, que enche de verde conforme
+//os itens sao marcados, com "1/3 (33%)" ao lado. Sem checklist, nao ha barra.
+export function montarBarraChecklist(chamado) {
+  const progresso = progressoChecklist(chamado);
+
+  if (!progresso) return null;
+
+  const barra = document.createElement("div");
+  barra.className = "card__progresso";
+  barra.classList.toggle("card__progresso--completo", progresso.feitos === progresso.total);
+  barra.dataset.progresso = "";
+
+  const rotulo = document.createElement("span");
+  rotulo.className = "card__progresso-rotulo";
+  rotulo.textContent = `${progresso.feitos}/${progresso.total}`;
+
+  const trilho = document.createElement("div");
+  trilho.className = "card__progresso-trilho";
+
+  const preenchimento = document.createElement("div");
+  preenchimento.className = "card__progresso-preenchimento";
+  preenchimento.style.width = `${progresso.percentual}%`;
+
+  trilho.appendChild(preenchimento);
+  barra.append(rotulo, trilho);
+
+  return barra;
+}

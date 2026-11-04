@@ -4940,3 +4940,110 @@ body.portal-pagina {
   text-decoration: underline;
   word-break: break-all;
 }
+
+/*BARRA DE PROGRESSO DO CHECKLIST (cadastro novo): linha fina no topo do card
+  que enche de verde, com "1/3 (33%)" ao lado.*/
+.card__progresso {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.card__progresso-rotulo {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--texto-3);
+}
+
+.card__progresso-trilho {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background-color: rgba(128, 128, 128, 0.25);
+  overflow: hidden;
+}
+
+.card__progresso-preenchimento {
+  height: 100%;
+  border-radius: 2px;
+  background-color: #2f9e44;
+  transition: width 0.25s ease;
+}
+
+.card__progresso--completo .card__progresso-rotulo {
+  color: #2f9e44;
+}
+
+/*CHECKLIST NO DETALHE DO CHAMADO*/
+.detalhe__checklist-resumo {
+  margin-left: 0.5rem;
+  color: #2f9e44;
+}
+
+.detalhe__checklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+}
+
+/*MESMO ESTILO DAS ETIQUETAS "O QUE VAI PRECISAR" DO FORMULARIO: caixa com
+  quadradinho, laranja quando marcada.*/
+.detalhe__checklist-item {
+  position: relative;
+  cursor: pointer;
+}
+
+.detalhe__checklist-item input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.detalhe__checklist-item span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.9375rem;
+  border: 1px solid var(--borda, #d7dce3);
+  border-radius: 3px;
+  background-color: var(--superficie, #fff);
+  font-size: 0.875rem;
+  color: var(--texto);
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.detalhe__checklist-item span::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0.9375rem;
+  height: 0.9375rem;
+  box-sizing: border-box;
+  border: 1.5px solid #b6bfcb;
+  border-radius: 3px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 11px;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.detalhe__checklist-item:hover span {
+  border-color: #94a3b8;
+}
+
+.detalhe__checklist-item input:checked + span {
+  border-color: #dd5b12;
+  background-color: color-mix(in srgb, #dd5b12 14%, var(--superficie, #fff));
+}
+
+.detalhe__checklist-item input:checked + span::before {
+  border-color: #dd5b12;
+  background-color: #dd5b12;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+}
+
+.detalhe__checklist-item input:focus-visible + span {
+  box-shadow: 0 0 0 3px rgba(248, 120, 0, 0.18);
+}
