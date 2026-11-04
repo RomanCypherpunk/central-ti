@@ -2339,6 +2339,25 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     if (painelAberto("cor")) campoMembros.appendChild(montarPainelCores());
   }
 
+  //ATALHO: ESPACO COM O CHAMADO ABERTO ME COLOCA COMO MEMBRO. So vale fora
+  //de qualquer campo de digitacao ou botao (no chat o espaco e espaco, e num
+  //botao ele ja aciona o botao), e so enquanto eu ainda nao sou membro.
+  janela.addEventListener("keydown", (evento) => {
+    if (evento.key !== " " || evento.repeat || evento.ctrlKey || evento.metaKey || evento.altKey) return;
+    if (!janela.open || !aberto || ehAprovacaoDeAcesso(aberto)) return;
+
+    const alvo = evento.target;
+
+    if (alvo.closest("input, textarea, select, button, a, [contenteditable]")) return;
+
+    const eu = equipe.find((pessoa) => pessoa.id === atendente);
+
+    if (!eu || aberto.chamado_membros.some((membro) => membro.usuario_id === eu.id)) return;
+
+    evento.preventDefault();
+    adicionarMembro(eu);
+  });
+
   function desenharConversa() {
     campoConversa.replaceChildren();
 
