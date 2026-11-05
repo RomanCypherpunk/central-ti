@@ -29,6 +29,11 @@ const quadro = document.querySelector("[data-quadro]");
 const resumo = document.querySelector("[data-resumo]");
 const erro = document.querySelector("[data-erro]");
 
+//O QUE PODE ENTRAR NO CHECKLIST DE CRIACAO: as mesmas opcoes de "O que vai
+//precisar" do formulario de cadastro (abrir-chamado.html, name="acessos").
+//Mudou la, muda aqui.
+const ITENS_DA_CRIACAO = ["E-mail", "NL", "Teams"];
+
 //ICONE DE PREDIO: usado em todo lugar que mostra um TERCEIRO (fornecedor
 //sem conta) em vez de uma pessoa — chip do card, chip do detalhe, opcao no
 //painel de escolha. Um so lugar pra editar o desenho.
@@ -1806,19 +1811,46 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     return true;
   }
 
-  //CHECKLIST DE CRIACAO: so existe em cadastro novo (coluna nula nos demais).
+  //CHECKLIST DE CRIACAO: so existe em cadastro (coluna nula nos demais).
   //Marcar grava a lista inteira, ja que e um jsonb unico.
+  //
+  //QUEM ABRIU PODE TER MARCADO ERRADO (pediu so E-mail, mas precisa de NL
+  //tambem; ou pediu Teams sem precisar). Por isso a equipe ajusta a lista:
+  //o "+" no fim abre o que falta entre as opcoes do formulario, e o "−" de
+  //cada item tira ele. Vale tambem para cadastro aberto sem nada marcado.
   function desenharChecklist() {
+    const itens = Array.isArray(aberto.checklist_criacao) ? aberto.checklist_criacao : [];
+    // Lista vazia (a equipe tirou todos os itens) continua sendo checklist:
+    // o bloco fica, com o "+" para recomecar. A categoria cobre o cadastro
+    // que nunca teve lista — mesma regra do formulario (padraoCategoria do
+    // cadastro em abrir-chamado.js).
+    const ehCadastro = Array.isArray(aberto.checklist_criacao)
+      || /cadastro|admiss/i.test(aberto.categorias?.nome ?? "");
     const progresso = progressoChecklist(aberto);
 
-    blocoChecklist.hidden = !progresso;
+    blocoChecklist.hidden = !ehCadastro;
     listaChecklist.replaceChildren();
 
-    if (!progresso) return;
+    if (!ehCadastro) return;
 
-    resumoChecklist.textContent = `${progresso.feitos}/${progresso.total} (${progresso.percentual}%)`;
+    resumoChecklist.textContent = progresso
+      ? `${progresso.feitos}/${progresso.total} (${progresso.percentual}%)`
+      : "nenhum item";
 
-    aberto.checklist_criacao.forEach((entrada, indice) => {
+    // Grava a lista nova e redesenha; a barra do card acompanha.
+    async function gravarLista(nova) {
+      if (await gravar({ checklist_criacao: nova })) atualizarCard();
+      desenharChecklist();
+    }
+
+    // Sempre parte da lista ATUAL (e nao da que estava na tela quando o
+    // botao nasceu): outro clique pode ter mudado a lista nesse meio-tempo.
+    const listaAtual = () => (Array.isArray(aberto.checklist_criacao) ? aberto.checklist_criacao : []);
+
+    itens.forEach((entrada) => {
+      const linha = document.createElement("span");
+      linha.className = "detalhe__checklist-linha";
+
       const rotulo = document.createElement("label");
       rotulo.className = "detalhe__checklist-item";
 
@@ -1827,26 +1859,112 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
       caixa.checked = Boolean(entrada.feito);
 
       caixa.addEventListener("change", async () => {
-        const nova = aberto.checklist_criacao.map((item, i) => (
-          i === indice ? { ...item, feito: caixa.checked } : item
-        ));
-
-        if (await gravar({ checklist_criacao: nova })) {
-          atualizarCard();
-        } else {
-          caixa.checked = !caixa.checked;
-        }
-
-        desenharChecklist();
+        const marcado = caixa.checked;
+        await gravarLista(listaAtual().map((item) => (
+          item.item === entrada.item ? { ...item, feito: marcado } : item
+        )));
       });
 
       const nome = document.createElement("span");
       nome.textContent = entrada.item;
 
       rotulo.append(caixa, nome);
-      listaChecklist.appendChild(rotulo);
+
+      //TIRAR: item ja feito pede confirmacao (some com um registro de
+      //trabalho); item ainda pendente sai direto.
+      const tirar = document.createElement("button");
+      tirar.type = "button";
+      tirar.className = "detalhe__checklist-tirar";
+      tirar.textContent = "−";
+      tirar.title = `Tirar ${entrada.item} do checklist`;
+      tirar.setAttribute("aria-label", `Tirar ${entrada.item} do checklist`);
+
+      tirar.addEventListener("click", async () => {
+        if (entrada.feito) {
+          const confirmou = await confirmarNoSite({
+            titulo: `Tirar ${entrada.item}?`,
+            mensagem: `${entrada.item} já está marcado como feito. Tirar mesmo assim do checklist?`,
+            confirmar: "Tirar",
+            perigo: true,
+          });
+
+          if (!confirmou) return;
+        }
+
+        tirar.disabled = true;
+        await gravarLista(listaAtual().filter((item) => item.item !== entrada.item));
+      });
+
+      linha.append(rotulo, tirar);
+      listaChecklist.appendChild(linha);
     });
+
+    //ADICIONAR: um "+" so. Clicar abre o menu com o que ainda nao esta na
+    //lista; sem nada faltando, o "+" nem aparece.
+    const jaTem = new Set(itens.map((entrada) => String(entrada.item).trim().toLowerCase()));
+    const faltando = ITENS_DA_CRIACAO.filter((item) => !jaTem.has(item.toLowerCase()));
+
+    if (!faltando.length) return;
+
+    const mais = document.createElement("span");
+    mais.className = "detalhe__checklist-mais";
+
+    const botaoMais = document.createElement("button");
+    botaoMais.type = "button";
+    botaoMais.className = "detalhe__checklist-adicionar";
+    botaoMais.textContent = "+";
+    botaoMais.title = "Adicionar ao checklist";
+    botaoMais.setAttribute("aria-label", "Adicionar ao checklist");
+    botaoMais.setAttribute("aria-haspopup", "true");
+    botaoMais.setAttribute("aria-expanded", "false");
+
+    const menu = document.createElement("div");
+    menu.className = "detalhe__checklist-menu";
+    menu.setAttribute("role", "menu");
+    menu.hidden = true;
+
+    faltando.forEach((item) => {
+      const opcao = document.createElement("button");
+      opcao.type = "button";
+      opcao.className = "detalhe__checklist-opcao";
+      opcao.setAttribute("role", "menuitem");
+      opcao.textContent = item;
+
+      opcao.addEventListener("click", async () => {
+        menu.hidden = true;
+        await gravarLista([...listaAtual(), { item, feito: false }]);
+      });
+
+      menu.appendChild(opcao);
+    });
+
+    botaoMais.addEventListener("click", () => {
+      menu.hidden = !menu.hidden;
+      botaoMais.setAttribute("aria-expanded", String(!menu.hidden));
+      if (!menu.hidden) menu.querySelector("button")?.focus();
+    });
+
+    mais.append(botaoMais, menu);
+    listaChecklist.appendChild(mais);
   }
+
+  //MENU DO "+": fecha ao clicar fora ou com Esc, como os outros menus. Um
+  //ouvinte so (o menu e recriado a cada redesenho do checklist).
+  document.addEventListener("click", (evento) => {
+    const menu = listaChecklist.querySelector(".detalhe__checklist-menu");
+    if (!menu || menu.hidden || evento.target.closest(".detalhe__checklist-mais")) return;
+    menu.hidden = true;
+    listaChecklist.querySelector(".detalhe__checklist-adicionar")?.setAttribute("aria-expanded", "false");
+  });
+
+  listaChecklist.addEventListener("keydown", (evento) => {
+    const menu = listaChecklist.querySelector(".detalhe__checklist-menu");
+    if (evento.key !== "Escape" || !menu || menu.hidden) return;
+    evento.preventDefault();
+    evento.stopPropagation();
+    menu.hidden = true;
+    listaChecklist.querySelector(".detalhe__checklist-adicionar")?.focus();
+  });
 
   //ETIQUETAS DE PRIORIDADE: CLICAR LIGA E DESLIGA
   function desenharEtiquetas() {
