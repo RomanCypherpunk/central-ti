@@ -23,6 +23,7 @@ import {
   CAMPOS_CHAMADO,
   progressoChecklist,
   montarBarraChecklist,
+  alertaTempoRespostaChamado,
 } from "../componentes/chamado-comum.js";
 
 const quadro = document.querySelector("[data-quadro]");
@@ -411,6 +412,39 @@ function chamadoPassaNosFiltros(chamado) {
   return true;
 }
 
+function atualizarAlertaCard(card, chamado, agora = new Date()) {
+  const alerta = alertaTempoRespostaChamado(chamado, agora);
+  card.classList.toggle("card--alerta-sem-resposta-ti", alerta === "sem_resposta_ti");
+  card.classList.toggle("card--alerta-sem-retorno-usuario", alerta === "sem_retorno_usuario");
+
+  let barraTopo = card.querySelector(".card__alerta-topo");
+  if (!alerta) {
+    barraTopo?.remove();
+    return;
+  }
+
+  if (!barraTopo) {
+    barraTopo = document.createElement("div");
+    card.prepend(barraTopo);
+  }
+
+  barraTopo.className = `card__alerta-topo card__alerta-topo--${alerta}`;
+  barraTopo.textContent = alerta === "sem_resposta_ti"
+    ? "Sem resposta do TI"
+    : "Sem resposta do Usuário";
+}
+
+function atualizarAlertasCards(listaChamados, agora = new Date()) {
+  if (!quadro) return;
+  quadro.querySelectorAll(".fila__cards .card").forEach((card) => {
+    const chamadoId = card.dataset.chamado;
+    const chamado = listaChamados.find((item) => item.id === chamadoId);
+    if (chamado) {
+      atualizarAlertaCard(card, chamado, agora);
+    }
+  });
+}
+
 function montarCard(chamado) {
   const card = document.createElement("li");
   card.className = "card";
@@ -475,6 +509,9 @@ function montarCard(chamado) {
   // Ja nasce escondido se nao passa no filtro: vale para a carga, para o
   // chamado que chega pelo tempo real e para o reaberto.
   card.classList.toggle("card--filtrado", !chamadoPassaNosFiltros(chamado));
+
+  // Alerta de SLA / tempo util sem resposta ou retorno:
+  atualizarAlertaCard(card, chamado);
 
   return card;
 }
@@ -2941,6 +2978,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     const selo = card.querySelector(".card__status");
     selo.className = `card__status card__status--${status.chave}`;
     selo.textContent = status.rotulo;
+    atualizarAlertaCard(card, aberto);
   }
 
   //ANEXOS PENDENTES: O QUE VAI JUNTO COM A PROXIMA RESPOSTA. Entra pelo
@@ -6288,6 +6326,7 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
     ressincronizar();
     recarregarFilas();
     conferirCanal();
+    atualizarAlertasCards(chamados);
   }
 
   setInterval(() => {

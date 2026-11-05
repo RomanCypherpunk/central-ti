@@ -422,8 +422,8 @@ body.portal-pagina {
 
 /*CARD QUE VEIO DA BUSCA: PISCA PARA O OLHO ACHAR ONDE ELE ESTA*/
 .card--destacado {
-  border-color: var(--laranja);
-  box-shadow: 0 0 0 3px rgba(221, 91, 18, 0.28);
+  border-color: var(--laranja) !important;
+  box-shadow: 0 0 0 3px rgba(221, 91, 18, 0.28) !important;
 }
 
 /*ERRO DE CARGA: OCUPA O LUGAR DO QUADRO*/
@@ -877,14 +877,155 @@ body.portal-pagina {
   box-shadow: var(--sombra-card-alta);
 }
 
+/* ==========================================================================
+   ALERTAS DE TEMPO DE RESPOSTA / SLA NO CARD:
+   - Mais de 6h úteis sem resposta do TI (usuário aguardando resposta do TI):
+     Modo escuro: #820413
+     Modo claro: #ebd5d8
+   - Mais de 6h úteis sem retorno do usuário após resposta do TI:
+     Modo escuro: #926302
+     Modo claro: #efe4c8
+   ========================================================================== */
+.card--alerta-sem-resposta-ti {
+  background-color: #ebd5d8;
+  border-color: #dfb2b7;
+  --superficie: #ebd5d8;
+}
+
+.card--alerta-sem-resposta-ti:hover {
+  border-color: #c98a92;
+}
+
+.card--alerta-sem-resposta-ti .card__etiqueta--normal {
+  background-color: rgba(255, 255, 255, 0.65);
+  color: #47262a;
+}
+
+.card--alerta-sem-resposta-ti .card__status {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-tema="escuro"] body.portal-pagina .card--alerta-sem-resposta-ti {
+  background-color: #820413;
+  border-color: #9c0e1f;
+  --superficie: #820413;
+  --texto: #fce8eb;
+  --texto-2: #f2c7cc;
+}
+
+[data-tema="escuro"] body.portal-pagina .card--alerta-sem-resposta-ti:hover {
+  border-color: #c71e34;
+}
+
+[data-tema="escuro"] body.portal-pagina .card--alerta-sem-resposta-ti .card__etiqueta--normal {
+  background-color: rgba(0, 0, 0, 0.35);
+  color: #f7d5d8;
+}
+
+[data-tema="escuro"] body.portal-pagina .card--alerta-sem-resposta-ti .card__etiqueta--urgente {
+  background-color: #4f030b;
+  border: 1px solid #c92a3e;
+  color: #ffccd2;
+}
+
+[data-tema="escuro"] body.portal-pagina .card--alerta-sem-resposta-ti .card__status {
+  background-color: rgba(0, 0, 0, 0.22);
+  color: #ffb8c0;
+}
+
+.card--alerta-sem-retorno-usuario {
+  background-color: #efe4c8;
+  border-color: #ded1ad;
+  --superficie: #efe4c8;
+}
+
+.card--alerta-sem-retorno-usuario:hover {
+  border-color: #cbb986;
+}
+
+.card--alerta-sem-retorno-usuario .card__etiqueta--normal {
+  background-color: rgba(255, 255, 255, 0.65);
+  color: #4e3f1e;
+}
+
+.card--alerta-sem-retorno-usuario .card__status {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-tema="escuro"] body.portal-pagina .card--alerta-sem-retorno-usuario {
+  background-color: #926302;
+  border-color: #ad7807;
+  --superficie: #926302;
+  --texto: #fcf4e3;
+  --texto-2: #f5dfb8;
+}
+
+[data-tema="escuro"] body.portal-pagina .card--alerta-sem-retorno-usuario:hover {
+  border-color: #d69812;
+}
+
+[data-tema="escuro"] body.portal-pagina .card--alerta-sem-retorno-usuario .card__etiqueta--normal {
+  background-color: rgba(0, 0, 0, 0.35);
+  color: #faebd2;
+}
+
+[data-tema="escuro"] body.portal-pagina .card--alerta-sem-retorno-usuario .card__status {
+  background-color: rgba(0, 0, 0, 0.22);
+  color: #ffe8b5;
+}
+
+/* FAIXA DE ALERTA NO TOPO DO CARD:
+   Acompanha a largura total do card (como o status embaixo) avisando
+   quando está sem resposta do usuário ou do TI. */
+.card__alerta-topo {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: -0.5rem -0.5625rem 0.375rem -0.6875rem;
+  padding: 0.25rem 0.6875rem;
+  border-radius: 7px 7px 0 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.card__alerta-topo::before {
+  content: "";
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background-color: currentColor;
+  flex-shrink: 0;
+}
+
+.card--alerta-sem-resposta-ti .card__alerta-topo {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: #820413;
+}
+
+[data-tema="escuro"] body.portal-pagina .card--alerta-sem-resposta-ti .card__alerta-topo {
+  background-color: rgba(0, 0, 0, 0.25);
+  color: #ffccd2;
+}
+
+.card--alerta-sem-retorno-usuario .card__alerta-topo {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: #724c00;
+}
+
+[data-tema="escuro"] body.portal-pagina .card--alerta-sem-retorno-usuario .card__alerta-topo {
+  background-color: rgba(0, 0, 0, 0.25);
+  color: #ffe6a3;
+}
+
 /*CARD SENDO ARRASTADO: VIRA O "LUGAR RESERVADO". Ele anda pela coluna junto
   com o mouse, entao e ele que mostra onde o card vai cair: apagado e com
   borda tracejada, le como um espaco vazio, nao como um card de verdade.*/
 .card--arrastando {
-  border-style: dashed;
-  border-color: var(--laranja);
-  box-shadow: none;
-  opacity: 0.45;
+  border-style: dashed !important;
+  border-color: var(--laranja) !important;
+  box-shadow: none !important;
+  opacity: 0.45 !important;
   cursor: grabbing;
 }
 

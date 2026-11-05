@@ -25,6 +25,8 @@ import {
   formatarData,
   CAMPOS_CHAMADO,
   CORES_DESTAQUE,
+  EXPEDIENTE_POR_DIA_DA_SEMANA,
+  horasUteisEntre,
 } from "../componentes/chamado-comum.js";
 
 const erro = document.querySelector("[data-erro]");
@@ -3432,47 +3434,8 @@ Chart.defaults.plugins.legend.labels.pointStyle = "circle";
 //Cada dia tem uma LISTA de janelas (a semana tem duas por causa do
 //almoco): o algoritmo soma, dia a dia entre abertura e fechamento, a
 //sobreposicao entre [abertura, fechamento] e cada janela daquele dia.
-const EXPEDIENTE_POR_DIA_DA_SEMANA = {
-  0: [], // domingo: sem expediente
-  1: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
-  2: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
-  3: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
-  4: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
-  5: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
-  6: [{ inicio: [8, 0], fim: [12, 0] }], // sabado so de manha, sem almoco
-};
-
-function horasUteisEntre(inicio, fim) {
-  if (fim <= inicio) return 0;
-
-  let minutos = 0;
-  // Comeca no dia da abertura e anda dia a dia ate o dia do fechamento —
-  // no maximo alguns milhares de iteracoes mesmo pra um chamado aberto
-  // ha anos, entao nao ha problema de desempenho aqui.
-  const cursor = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
-
-  while (cursor <= fim) {
-    EXPEDIENTE_POR_DIA_DA_SEMANA[cursor.getDay()].forEach((janela) => {
-      const abreDoDia = new Date(cursor);
-      abreDoDia.setHours(janela.inicio[0], janela.inicio[1], 0, 0);
-      const fechaDoDia = new Date(cursor);
-      fechaDoDia.setHours(janela.fim[0], janela.fim[1], 0, 0);
-
-      // Sobreposicao entre [inicio, fim] do chamado e [abreDoDia, fechaDoDia]
-      // desta janela — maior dos inicios, menor dos fins.
-      const comeco = inicio > abreDoDia ? inicio : abreDoDia;
-      const termino = fim < fechaDoDia ? fim : fechaDoDia;
-
-      if (termino > comeco) {
-        minutos += (termino - comeco) / 60_000;
-      }
-    });
-
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  return minutos / 60;
-}
+//(EXPEDIENTE_POR_DIA_DA_SEMANA e horasUteisEntre moram em chamado-comum.js
+//para o Portal e o Painel usarem exatamente a mesma regra).
 
 //SLA INDIVIDUAL CONTA DA ENTRADA NO CHAMADO (decisao do usuario): o
 //cronometro de um atendente ou terceirizado so comeca quando ele e posto

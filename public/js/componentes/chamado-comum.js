@@ -12,7 +12,7 @@ export function derivarStatus(chamado) {
     return { chave: "fechado", rotulo: "Fechado" };
   }
 
-  const publicos = chamado.comentarios
+  const publicos = (chamado.comentarios ?? [])
     .filter((comentario) => comentario.visibilidade === "publico" && comentario.tipo === "humano")
     .sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em));
 
@@ -173,4 +173,96 @@ export function montarBarraChecklist(chamado) {
   barra.append(rotulo, trilho);
 
   return barra;
+}
+
+//SLA EM HORAS UTEIS, NAO HORAS CORRIDAS: regra do horario de
+//funcionamento do TI — seg-sex 8h as 12h e 13h as 17h48 (a hora de almoco
+//da equipe NAO conta), sabado 8h as 12h, domingo sem expediente.
+export const EXPEDIENTE_POR_DIA_DA_SEMANA = {
+  0: [], // domingo: sem expediente
+  1: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
+  2: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
+  3: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
+  4: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
+  5: [{ inicio: [8, 0], fim: [12, 0] }, { inicio: [13, 0], fim: [17, 48] }],
+  6: [{ inicio: [8, 0], fim: [12, 0] }], // sabado so de manha, sem almoco
+};
+
+export function horasUteisEntre(inicio, fim) {
+  const dInicio = inicio instanceof Date ? inicio : new Date(inicio);
+  const dFim = fim instanceof Date ? fim : new Date(fim);
+
+  if (!dInicio || isNaN(dInicio.getTime()) || !dFim || isNaN(dFim.getTime()) || dFim <= dInicio) {
+    return 0;
+  }
+
+  let minutos = 0;
+  const cursor = new Date(dInicio.getFullYear(), dInicio.getMonth(), dInicio.getDate());
+
+  while (cursor <= dFim) {
+    const janelas = EXPEDIENTE_POR_DIA_DA_SEMANA[cursor.getDay()] ?? [];
+    janelas.forEach((janela) => {
+      const abreDoDia = new Date(cursor);
+      abreDoDia.setHours(janela.inicio[0], janela.inicio[1], 0, 0);
+      const fechaDoDia = new Date(cursor);
+      fechaDoDia.setHours(janela.fim[0], janela.fim[1], 0, 0);
+
+      const comeco = dInicio > abreDoDia ? dInicio : abreDoDia;
+      const termino = dFim < fechaDoDia ? dFim : fechaDoDia;
+
+      if (termino > comeco) {
+        minutos += (termino - comeco) / 60_000;
+      }
+    });
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return minutos / 60;
+}
+
+//ALERTA DE SLA / TEMPO DE ESPERA DO CARD:
+//- "sem_resposta_ti": usuário aguarda resposta do TI há mais de 6h úteis (vermelho: #820413 escuro / #ebd5d8 claro)
+//- "sem_retorno_usuario": TI respondeu e usuário não deu retorno há mais de 6h úteis (amarelo: #926302 escuro / #efe4c8 claro)
+export function alertaTempoRespostaChamado(chamado, agora = new Date()) {
+  if (!chamado || chamado.fechamento_em) {
+    return null;
+  }
+
+  const publicos = (chamado.comentarios ?? [])
+    .filter((c) => c.visibilidade === "publico" && c.tipo === "humano")
+    .sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em));
+
+  const ultimo = publicos[publicos.length - 1];
+
+  // Caso 1: Nenhuma resposta pública ainda no chamado
+  // O solicitante abriu o chamado e aguarda primeira resposta da equipe de TI
+  if (!ultimo) {
+    if (!chamado.abertura_em) return null;
+    const inicio = new Date(chamado.abertura_em);
+    const horas = horasUteisEntre(inicio, agora);
+    return horas >= 6 ? "sem_resposta_ti" : null;
+  }
+
+  // Caso 2: A última mensagem pública foi do solicitante (usuário)
+  // O usuário falou e aguarda retorno da equipe de TI
+  if (ultimo.autor_id === chamado.solicitante_id) {
+    let inicio = null;
+    const indiceUltimaRespostaTI = publicos.map((c) => c.autor_id !== chamado.solicitante_id).lastIndexOf(true);
+    if (indiceUltimaRespostaTI === -1) {
+      inicio = new Date(chamado.abertura_em ?? ultimo.criado_em);
+    } else {
+      const primeiroAposTI = publicos.slice(indiceUltimaRespostaTI + 1)[0];
+      inicio = new Date(primeiroAposTI?.criado_em ?? ultimo.criado_em);
+    }
+
+    const horas = horasUteisEntre(inicio, agora);
+    return horas >= 6 ? "sem_resposta_ti" : null;
+  }
+
+  // Caso 3: A última mensagem pública foi do TI (equipe)
+  // O TI respondeu e aguarda retorno do usuário
+  const inicio = new Date(ultimo.criado_em);
+  const horas = horasUteisEntre(inicio, agora);
+  return horas >= 6 ? "sem_retorno_usuario" : null;
 }
