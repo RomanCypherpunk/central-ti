@@ -2071,13 +2071,162 @@ async function desativarItem(tabela, id) {
 //ICONE DE COLUNA DO QUADRO: cada lista e uma coluna do Portal.
 const ICONE_DA_LISTA = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="4" y="4.5" width="6" height="15" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="14" y="4.5" width="6" height="9" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>';
 
-function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null) {
+//categorias: as ativas, com fila_entrada_id (a lista onde cada uma cai
+//direto). temListaDeEntrada: false quando o banco ainda nao tem a coluna
+//(migration 20261105090000 nao rodada) — a configuracao avisa o que falta.
+function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null, { categorias = [], temListaDeEntrada = false } = {}) {
   const corpo = document.querySelector("[data-listas-corpo]");
   const campoBusca = document.querySelector("[data-listas-busca]");
   const resumo = document.querySelector("[data-listas-resumo]");
   const vazio = document.querySelector("[data-listas-vazio]");
 
   let termo = "";
+
+  const categoriasDaFila = (fila) => categorias
+    .filter((categoria) => categoria.fila_entrada_id === fila.id)
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+  /* ------------------------------------------------------------------
+     CONFIGURAR LISTA: clicar numa lista ativa abre esta janela, onde se
+     escolhe quais categorias de chamado caem direto nela (em vez do
+     Inbox). Uma janela so, montada uma vez.
+     ------------------------------------------------------------------ */
+  const janela = criarElemento("dialog", "lista-config");
+  janela.setAttribute("aria-labelledby", "lista-config-titulo");
+  janela.innerHTML = `
+    <form method="dialog" class="lista-config__form" data-lista-config-form>
+      <header class="lista-config__topo">
+        <span class="lista-config__icone" aria-hidden="true">${ICONE_DA_LISTA}</span>
+        <div class="lista-config__textos">
+          <p class="lista-config__sobre">Configurar lista</p>
+          <h2 class="lista-config__titulo" id="lista-config-titulo" data-lista-config-nome></h2>
+        </div>
+        <button type="button" class="lista-config__fechar" aria-label="Fechar" data-lista-config-fechar>
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </header>
+      <section class="lista-config__secao">
+        <h3 class="lista-config__secao-titulo">Recebe direto</h3>
+        <p class="lista-config__dica">Todo chamado novo das categorias marcadas entra nesta lista, em vez do Inbox. Uma categoria cai em uma lista só.</p>
+        <div class="lista-config__categorias" data-lista-config-categorias></div>
+      </section>
+      <p class="lista-config__aviso" data-lista-config-aviso role="status"></p>
+      <footer class="lista-config__acoes">
+        <button type="button" class="periodo-botao" data-lista-config-cancelar>Cancelar</button>
+        <button type="submit" class="periodo-botao periodo-botao--principal" data-lista-config-salvar>Salvar</button>
+      </footer>
+    </form>
+  `;
+  document.body.appendChild(janela);
+
+  const formulario = janela.querySelector("[data-lista-config-form]");
+  const nomeDaJanela = janela.querySelector("[data-lista-config-nome]");
+  const caixaCategorias = janela.querySelector("[data-lista-config-categorias]");
+  const avisoDaJanela = janela.querySelector("[data-lista-config-aviso]");
+  const botaoSalvar = janela.querySelector("[data-lista-config-salvar]");
+  let filaEmConfiguracao = null;
+
+  const fecharJanela = () => janela.close();
+  janela.querySelector("[data-lista-config-fechar]").addEventListener("click", fecharJanela);
+  janela.querySelector("[data-lista-config-cancelar]").addEventListener("click", fecharJanela);
+  janela.addEventListener("click", (evento) => {
+    if (evento.target === janela) fecharJanela();
+  });
+
+  function abrirConfiguracao(fila) {
+    filaEmConfiguracao = fila;
+    nomeDaJanela.textContent = fila.nome;
+    avisoDaJanela.textContent = "";
+    avisoDaJanela.classList.remove("lista-config__aviso--erro");
+    caixaCategorias.replaceChildren();
+    botaoSalvar.disabled = !temListaDeEntrada;
+
+    if (!temListaDeEntrada) {
+      caixaCategorias.appendChild(criarElemento("p", "lista-config__vazio",
+        "A configuração de listas ainda não está ativa no banco: falta rodar a migration 20261105090000_lista_de_entrada_por_categoria."));
+    } else if (!categorias.length) {
+      caixaCategorias.appendChild(criarElemento("p", "lista-config__vazio", "Nenhuma categoria cadastrada."));
+    }
+
+    const nomeDaFila = new Map(filas.map((outra) => [outra.id, outra.nome]));
+
+    if (temListaDeEntrada) {
+      [...categorias].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).forEach((categoria) => {
+        const opcao = criarElemento("label", "lista-config__categoria");
+        const caixa = document.createElement("input");
+        caixa.type = "checkbox";
+        caixa.value = categoria.id;
+        caixa.checked = categoria.fila_entrada_id === fila.id;
+
+        const textos = criarElemento("span", "lista-config__categoria-textos");
+        textos.appendChild(criarElemento("span", "lista-config__categoria-nome", categoria.nome));
+
+        // Ja cai em OUTRA lista: avisa — marcar aqui tira de la.
+        const outra = categoria.fila_entrada_id && categoria.fila_entrada_id !== fila.id
+          ? nomeDaFila.get(categoria.fila_entrada_id) : null;
+        if (outra) textos.appendChild(criarElemento("span", "lista-config__categoria-apoio", `hoje cai em ${outra}; marcar traz para cá`));
+
+        opcao.append(caixa, textos);
+        caixaCategorias.appendChild(opcao);
+      });
+    }
+
+    if (!janela.open) janela.showModal();
+  }
+
+  formulario.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+
+    if (!filaEmConfiguracao || !temListaDeEntrada) return;
+
+    const marcadas = [...caixaCategorias.querySelectorAll("input:checked")].map((caixa) => caixa.value);
+
+    botaoSalvar.disabled = true;
+    avisoDaJanela.textContent = "Salvando…";
+    avisoDaJanela.classList.remove("lista-config__aviso--erro");
+
+    const { error } = await supabase.rpc("definir_categorias_da_lista", {
+      p_fila_id: filaEmConfiguracao.id,
+      p_categorias: marcadas,
+    });
+
+    botaoSalvar.disabled = false;
+
+    if (error) {
+      console.error("Erro ao configurar lista:", error);
+      avisoDaJanela.textContent = error.code === "42501"
+        ? "Somente administradores podem configurar as listas."
+        : "Não foi possível salvar. Tente de novo.";
+      avisoDaJanela.classList.add("lista-config__aviso--erro");
+      return;
+    }
+
+    // Espelha no que esta em memoria a mesma regra que o banco aplicou.
+    const escolhidas = new Set(marcadas);
+    categorias.forEach((categoria) => {
+      if (escolhidas.has(categoria.id)) categoria.fila_entrada_id = filaEmConfiguracao.id;
+      else if (categoria.fila_entrada_id === filaEmConfiguracao.id) categoria.fila_entrada_id = null;
+    });
+
+    janela.close();
+    desenhar();
+  });
+
+  // Linha de lista ativa abre a configuracao (clique, Enter ou espaco).
+  corpo.addEventListener("click", (evento) => {
+    const linha = evento.target.closest("tr.listas__linha--configuravel");
+    const fila = linha && filas.find((outra) => outra.id === linha.dataset.item);
+    if (fila) abrirConfiguracao(fila);
+  });
+
+  corpo.addEventListener("keydown", (evento) => {
+    if (evento.key !== "Enter" && evento.key !== " ") return;
+    const linha = evento.target.closest("tr.listas__linha--configuravel");
+    const fila = linha && filas.find((outra) => outra.id === linha.dataset.item);
+    if (!fila) return;
+    evento.preventDefault();
+    abrirConfiguracao(fila);
+  });
 
   //QUANTOS CHAMADOS ABERTOS ESTAO EM CADA LISTA (fotografia da hora em que
   //o Painel abriu): mostra onde o trabalho esta parado.
@@ -2105,7 +2254,7 @@ function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null) {
   function montarGrupo(titulo, quantidade, dica) {
     const linha = pedaco("tr", "listas__grupo");
     const celula = document.createElement("td");
-    celula.colSpan = 4;
+    celula.colSpan = 5;
     celula.append(pedaco("span", "listas__grupo-titulo", titulo), pedaco("span", "listas__grupo-contagem", String(quantidade)));
     if (dica) celula.appendChild(pedaco("span", "listas__grupo-dica", dica));
     linha.appendChild(celula);
@@ -2116,6 +2265,13 @@ function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null) {
     const linha = document.createElement("tr");
     linha.dataset.item = fila.id;
     linha.classList.toggle("listas__linha--arquivada", !fila.ativo);
+
+    // Lista ativa abre a configuracao; arquivada nao recebe chamado, entao
+    // nao tem o que configurar ate ser reativada.
+    if (fila.ativo) {
+      linha.classList.add("listas__linha--configuravel");
+      linha.tabIndex = 0;
+    }
 
     //LISTA: icone de coluna, nome e, embaixo, onde ela fica no quadro.
     const nome = pedaco("td", "listas__identidade");
@@ -2152,6 +2308,22 @@ function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null) {
         () => aoVerChamados(`Chamados abertos em ${fila.nome}`, chamadosAbertosDaFila.get(fila.id) ?? [])));
     }
 
+    //RECEBE DIRETO: as categorias configuradas para cair nesta lista.
+    const regras = pedaco("td", "listas__regras");
+    const daFila = fila.ativo ? categoriasDaFila(fila) : [];
+
+    if (!fila.ativo) {
+      regras.appendChild(pedaco("span", "simples__vazio", "—"));
+    } else if (!daFila.length) {
+      regras.appendChild(pedaco("span", "simples__vazio", "Nenhuma categoria"));
+    } else {
+      const chips = pedaco("span", "listas__chips");
+      daFila.slice(0, 2).forEach((categoria) => chips.appendChild(pedaco("span", "listas__chip", categoria.nome)));
+      if (daFila.length > 2) chips.appendChild(pedaco("span", "listas__chip listas__chip--mais", `+${daFila.length - 2}`));
+      chips.title = daFila.map((categoria) => categoria.nome).join(", ");
+      regras.appendChild(chips);
+    }
+
     const situacao = document.createElement("td");
     situacao.appendChild(pedaco(
       "span",
@@ -2160,6 +2332,13 @@ function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null) {
     ));
 
     const acao = pedaco("td", "listas__acao");
+
+    if (fila.ativo) {
+      const seta = pedaco("span", "listas__seta");
+      seta.setAttribute("aria-hidden", "true");
+      seta.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><path d="m9.5 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      acao.appendChild(seta);
+    }
 
     // So a arquivada ganha o botao — reativar uma que ja esta ativa nao
     // faz sentido, e nao ha lixeira aqui (arquivar e so pelo quadro).
@@ -2193,7 +2372,7 @@ function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null) {
       acao.appendChild(reativar);
     }
 
-    linha.append(nome, carga, situacao, acao);
+    linha.append(nome, carga, regras, situacao, acao);
 
     return linha;
   }
@@ -6010,7 +6189,8 @@ async function montarPainel() {
   //(o Portal faz igual), entao o que foi removido nao volta a aparecer aqui —
   //EXCETO filasTodas, que e a excecao de proposito: a aba Listas precisa
   //mostrar tambem as arquivadas, pra dar pra reativar.
-  const [filas, filasTodas, chamados, equipe, pessoas, setores, unidades, categorias, textos, terceiros] =
+  // let: categorias pode ser recarregada logo abaixo (ver temListaDeEntrada).
+  let [filas, filasTodas, chamados, equipe, pessoas, setores, unidades, categorias, textos, terceiros] =
     await Promise.all([
       supabase.from("filas").select("id, nome, ordem, ativo").eq("ativo", true).order("ordem"),
       supabase.from("filas").select("id, nome, ordem, ativo").order("nome"),
@@ -6026,7 +6206,7 @@ async function montarPainel() {
         .order("nome"),
       supabase.from("setores").select("id, nome").eq("ativo", true).order("nome"),
       supabase.from("unidades").select("id, nome").eq("ativo", true).order("nome"),
-      supabase.from("categorias").select("id, nome").eq("ativo", true).order("nome"),
+      supabase.from("categorias").select("id, nome, fila_entrada_id").eq("ativo", true).order("nome"),
       supabase.from("textos_rapidos").select("id, titulo, corpo").eq("ativo", true).order("titulo"),
       supabase.from("terceiros").select("id, nome, foto_path").eq("ativo", true).order("nome"),
     ]);
@@ -6046,6 +6226,16 @@ async function montarPainel() {
       });
     })
     .finally(avisarCoresProntas);
+
+  // Banco ainda sem a lista de entrada por categoria (migration
+  // 20261105090000 nao rodada): carrega as categorias sem ela, e a
+  // configuracao da aba Listas avisa o que falta.
+  const temListaDeEntrada = !categorias.error;
+
+  if (categorias.error) {
+    console.warn("Categorias sem lista de entrada:", categorias.error);
+    categorias = await supabase.from("categorias").select("id, nome").eq("ativo", true).order("nome");
+  }
 
   if (filas.error || chamados.error) {
     console.error("Erro ao carregar o painel:", filas.error ?? chamados.error);
@@ -6117,7 +6307,10 @@ async function montarPainel() {
   });
 
   // verChamados e declarada mais abaixo: so e chamada no clique, ja pronta.
-  ligarListaDeFilas(filasTodas.data ?? [], chamados.data ?? [], (titulo, lista) => verChamados(titulo, lista));
+  ligarListaDeFilas(filasTodas.data ?? [], chamados.data ?? [], (titulo, lista) => verChamados(titulo, lista), {
+    categorias: categorias.data ?? [],
+    temListaDeEntrada,
+  });
 
   //DIALOG DE ITEM SIMPLES: UM SO, compartilhado por Unidades/Setores/
   //Categorias (ver comentario em ligarItemSimplesDialog).

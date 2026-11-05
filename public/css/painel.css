@@ -1711,6 +1711,60 @@ html[data-painel-sidebar="colapsada"] .painel {
   gap: 0.35rem;
 }
 
+/*LISTA ATIVA ABRE A CONFIGURACAO: mao, realce e a seta no hover, como as
+  outras tabelas que abrem algo ao clicar.*/
+.painel-tabela--listas tbody tr.listas__linha--configuravel {
+  cursor: pointer;
+}
+
+.painel-tabela--listas tbody tr.listas__linha--configuravel:hover {
+  background: var(--realce);
+}
+
+.painel-tabela--listas tbody tr.listas__linha--configuravel:focus-visible {
+  outline: 2px solid var(--laranja);
+  outline-offset: -2px;
+}
+
+.listas__seta {
+  display: inline-block;
+  color: var(--laranja);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.listas__seta svg {
+  display: block;
+}
+
+.painel-tabela--listas tbody tr.listas__linha--configuravel:hover .listas__seta,
+.painel-tabela--listas tbody tr.listas__linha--configuravel:focus-visible .listas__seta {
+  opacity: 1;
+  transform: none;
+}
+
+/*RECEBE DIRETO: as categorias que caem nesta lista, em chips.*/
+.listas__chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.listas__chip {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background: var(--superficie-3);
+  color: var(--texto-2);
+  font: 500 0.75rem/1.3 "Poppins", sans-serif;
+  white-space: nowrap;
+}
+
+.listas__chip--mais {
+  color: var(--texto-3);
+}
+
 /*ARQUIVADA: em segundo plano, menos o botao de reativar.*/
 .listas__linha--arquivada .listas__identidade,
 .listas__linha--arquivada .listas__carga {
@@ -1917,6 +1971,184 @@ html[data-painel-sidebar="colapsada"] .painel {
   .simples__acao .painel-tabela__excluir {
     transition: none;
   }
+}
+
+/* ==========================================================================
+   CONFIGURAR LISTA: janela que abre ao clicar numa lista ativa. Escolhe as
+   categorias de chamado que caem direto nela.
+   ========================================================================== */
+
+.lista-config {
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: min(38rem, 85dvh);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--borda);
+  border-radius: 16px;
+  background: var(--superficie);
+  color: var(--texto);
+  box-shadow: 0 24px 60px -20px rgba(26, 26, 26, 0.35);
+  overflow: hidden;
+}
+
+.lista-config::backdrop {
+  background: rgba(20, 20, 20, 0.35);
+}
+
+.lista-config__form {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+}
+
+.lista-config__topo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.1rem 1.25rem 0.9rem;
+  border-bottom: 1px solid var(--borda-suave);
+}
+
+.lista-config__icone {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--realce);
+  color: var(--laranja-forte);
+}
+
+.lista-config__textos {
+  flex: 1;
+  min-width: 0;
+}
+
+.lista-config__sobre {
+  margin: 0;
+  color: var(--texto-3);
+  font: 500 0.6875rem/1.2 "Poppins", sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lista-config__titulo {
+  margin: 0.15rem 0 0;
+  overflow: hidden;
+  color: var(--texto);
+  font: 500 1rem/1.3 "Sora", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lista-config__fechar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--texto-3);
+  cursor: pointer;
+}
+
+.lista-config__fechar:hover {
+  background: var(--superficie-2);
+  color: var(--texto);
+}
+
+.lista-config__secao {
+  flex: 1;
+  min-height: 0;
+  padding: 1rem 1.25rem 0.5rem;
+  overflow-y: auto;
+}
+
+.lista-config__secao-titulo {
+  margin: 0;
+  color: var(--texto);
+  font: 500 0.875rem/1.3 "Poppins", sans-serif;
+}
+
+.lista-config__dica {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--texto-3);
+  font: 400 0.75rem/1.45 "Poppins", sans-serif;
+}
+
+.lista-config__categorias {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.lista-config__categoria {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.lista-config__categoria:hover {
+  border-color: var(--realce-borda);
+}
+
+.lista-config__categoria:has(input:checked) {
+  border-color: var(--laranja);
+  background: var(--realce);
+}
+
+.lista-config__categoria input {
+  width: 16px;
+  height: 16px;
+  margin: 0.1rem 0 0;
+  accent-color: var(--laranja);
+}
+
+.lista-config__categoria-textos {
+  display: grid;
+  min-width: 0;
+}
+
+.lista-config__categoria-nome {
+  color: var(--texto);
+  font: 500 0.84375rem/1.35 "Poppins", sans-serif;
+}
+
+.lista-config__categoria-apoio {
+  color: var(--texto-3);
+  font: 400 0.71875rem/1.4 "Poppins", sans-serif;
+}
+
+.lista-config__vazio {
+  margin: 0.5rem 0;
+  color: var(--texto-3);
+  font: 400 0.8125rem/1.45 "Poppins", sans-serif;
+}
+
+.lista-config__aviso {
+  min-height: 1.1rem;
+  margin: 0;
+  padding: 0 1.25rem;
+  color: var(--texto-3);
+  font: 400 0.75rem/1.4 "Poppins", sans-serif;
+}
+
+.lista-config__aviso--erro {
+  color: var(--erro-texto);
+}
+
+.lista-config__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem 1.1rem;
 }
 
 /* ==========================================================================
