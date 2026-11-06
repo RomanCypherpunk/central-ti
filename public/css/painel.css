@@ -2073,6 +2073,33 @@ html[data-painel-sidebar="colapsada"] .painel {
   font: 500 0.875rem/1.3 "Poppins", sans-serif;
 }
 
+.lista-config__secao-titulo {
+  display: block;
+}
+
+.lista-config__secao-titulo--espaco {
+  margin-top: 1.1rem;
+}
+
+.lista-config__nome-campo {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.4rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: 9px;
+  background: var(--superficie);
+  color: var(--texto);
+  font: 400 0.875rem/1.3 "Poppins", sans-serif;
+}
+
+.lista-config__nome-campo:focus {
+  border-color: var(--laranja);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--laranja) 18%, transparent);
+}
+
 .lista-config__dica {
   margin: 0.25rem 0 0.75rem;
   color: var(--texto-3);

@@ -2108,7 +2108,11 @@ function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null, { categor
         </button>
       </header>
       <section class="lista-config__secao">
-        <h3 class="lista-config__secao-titulo">Recebe direto</h3>
+        <label class="lista-config__secao-titulo" for="lista-config-campo-nome">Nome da lista</label>
+        <input class="lista-config__nome-campo" id="lista-config-campo-nome" type="text" maxlength="60"
+               autocomplete="off" data-lista-config-campo-nome>
+
+        <h3 class="lista-config__secao-titulo lista-config__secao-titulo--espaco">Recebe direto</h3>
         <p class="lista-config__dica">Todo chamado novo das categorias marcadas entra nesta lista, em vez do Inbox. Uma categoria cai em uma lista só.</p>
         <div class="lista-config__categorias" data-lista-config-categorias></div>
       </section>
@@ -2126,6 +2130,7 @@ function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null, { categor
   const caixaCategorias = janela.querySelector("[data-lista-config-categorias]");
   const avisoDaJanela = janela.querySelector("[data-lista-config-aviso]");
   const botaoSalvar = janela.querySelector("[data-lista-config-salvar]");
+  const campoNome = janela.querySelector("[data-lista-config-campo-nome]");
   let filaEmConfiguracao = null;
 
   const fecharJanela = () => janela.close();
@@ -2138,10 +2143,12 @@ function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null, { categor
   function abrirConfiguracao(fila) {
     filaEmConfiguracao = fila;
     nomeDaJanela.textContent = fila.nome;
+    campoNome.value = fila.nome;
     avisoDaJanela.textContent = "";
     avisoDaJanela.classList.remove("lista-config__aviso--erro");
     caixaCategorias.replaceChildren();
-    botaoSalvar.disabled = !temListaDeEntrada;
+    // Renomear funciona mesmo sem a migration das categorias.
+    botaoSalvar.disabled = false;
 
     if (!temListaDeEntrada) {
       caixaCategorias.appendChild(criarElemento("p", "lista-config__vazio",
@@ -2179,7 +2186,21 @@ function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null, { categor
   formulario.addEventListener("submit", async (evento) => {
     evento.preventDefault();
 
-    if (!filaEmConfiguracao || !temListaDeEntrada) return;
+    if (!filaEmConfiguracao) return;
+
+    const erroNaJanela = (texto) => {
+      botaoSalvar.disabled = false;
+      avisoDaJanela.textContent = texto;
+      avisoDaJanela.classList.add("lista-config__aviso--erro");
+    };
+
+    const novoNome = campoNome.value.replace(/\s+/g, " ").trim();
+
+    if (!novoNome) {
+      erroNaJanela("Dê um nome para a lista.");
+      campoNome.focus();
+      return;
+    }
 
     const marcadas = [...caixaCategorias.querySelectorAll("input:checked")].map((caixa) => caixa.value);
 
@@ -2187,28 +2208,45 @@ function ligarListaDeFilas(filas, chamados = [], aoVerChamados = null, { categor
     avisoDaJanela.textContent = "Salvando…";
     avisoDaJanela.classList.remove("lista-config__aviso--erro");
 
-    const { error } = await supabase.rpc("definir_categorias_da_lista", {
-      p_fila_id: filaEmConfiguracao.id,
-      p_categorias: marcadas,
-    });
+    //NOME: so grava se mudou. O quadro do Portal recebe pelo tempo real.
+    if (novoNome !== filaEmConfiguracao.nome) {
+      const { data, error } = await supabase.from("filas").update({ nome: novoNome })
+        .eq("id", filaEmConfiguracao.id).select("id");
+
+      if (error || !data?.length) {
+        console.error("Erro ao renomear lista:", error ?? "(nenhuma linha gravada)");
+        erroNaJanela("Não foi possível renomear a lista. Tente de novo.");
+        return;
+      }
+
+      filaEmConfiguracao.nome = novoNome;
+    }
+
+    if (temListaDeEntrada) {
+      const { error } = await supabase.rpc("definir_categorias_da_lista", {
+        p_fila_id: filaEmConfiguracao.id,
+        p_categorias: marcadas,
+      });
+
+      if (error) {
+        console.error("Erro ao configurar lista:", error);
+        erroNaJanela(error.code === "42501"
+          ? "Somente administradores podem configurar as listas."
+          : "Não foi possível salvar as categorias. Tente de novo.");
+        return;
+      }
+    }
 
     botaoSalvar.disabled = false;
 
-    if (error) {
-      console.error("Erro ao configurar lista:", error);
-      avisoDaJanela.textContent = error.code === "42501"
-        ? "Somente administradores podem configurar as listas."
-        : "Não foi possível salvar. Tente de novo.";
-      avisoDaJanela.classList.add("lista-config__aviso--erro");
-      return;
-    }
-
     // Espelha no que esta em memoria a mesma regra que o banco aplicou.
-    const escolhidas = new Set(marcadas);
-    categorias.forEach((categoria) => {
-      if (escolhidas.has(categoria.id)) categoria.fila_entrada_id = filaEmConfiguracao.id;
-      else if (categoria.fila_entrada_id === filaEmConfiguracao.id) categoria.fila_entrada_id = null;
-    });
+    if (temListaDeEntrada) {
+      const escolhidas = new Set(marcadas);
+      categorias.forEach((categoria) => {
+        if (escolhidas.has(categoria.id)) categoria.fila_entrada_id = filaEmConfiguracao.id;
+        else if (categoria.fila_entrada_id === filaEmConfiguracao.id) categoria.fila_entrada_id = null;
+      });
+    }
 
     janela.close();
     desenhar();

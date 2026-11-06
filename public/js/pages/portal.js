@@ -663,6 +663,13 @@ function montarMenuDaLista(fila) {
   divisor.className = "fila__menu-divisor";
   painel.appendChild(divisor);
 
+  const renomear = document.createElement("button");
+  renomear.type = "button";
+  renomear.className = "fila__menu-item";
+  renomear.dataset.filaMenuRenomear = fila.id;
+  renomear.textContent = "Renomear lista";
+  painel.appendChild(renomear);
+
   const arquivar = document.createElement("button");
   arquivar.type = "button";
   arquivar.className = "fila__menu-item fila__menu-item--perigo";
@@ -685,6 +692,21 @@ function leitorDeNomeDaFila(filas) {
   return { get: (id) => filas.find((fila) => fila.id === id)?.nome };
 }
 
+//NOME DA LISTA NO TOPO DA COLUNA. "Cadastro/Desligamento/Aprovacao" nao
+//tem espaco, entao o navegador nao achava onde quebrar e o texto vazava da
+//coluna. Um <wbr> depois de cada "/" diz onde quebrar primeiro; o CSS
+//(overflow-wrap: anywhere) quebra no meio da palavra so se ainda nao couber.
+function escreverNomeDaLista(elemento, nome) {
+  const partes = String(nome ?? "").split("/");
+
+  elemento.replaceChildren();
+  partes.forEach((parte, indice) => {
+    elemento.append(indice < partes.length - 1 ? `${parte}/` : parte);
+    if (indice < partes.length - 1) elemento.appendChild(document.createElement("wbr"));
+  });
+  elemento.title = nome ?? "";
+}
+
 function montarFila(fila, chamados) {
   const coluna = document.createElement("section");
   coluna.className = "fila";
@@ -699,7 +721,7 @@ function montarFila(fila, chamados) {
 
   const nome = document.createElement("h2");
   nome.className = "fila__nome";
-  nome.textContent = fila.nome;
+  escreverNomeDaLista(nome, fila.nome);
 
   const acoes = document.createElement("div");
   acoes.className = "fila__topo-acoes";
@@ -1334,6 +1356,84 @@ function ligarArrastarLista(filas, chamados) {
   });
 
   /* ----------------------------------------------------------------------
+     RENOMEAR: o titulo da coluna vira um campo, no lugar. Enter ou clicar
+     fora salva; Esc desiste. Nome vazio ou igual nao grava nada. Os outros
+     lugares que mostram o nome (busca, detalhe, finalizados) leem o array
+     `filas`, entao acompanham sozinhos; quem esta com o Portal aberto em
+     outra maquina recebe pelo tempo real.
+     ---------------------------------------------------------------------- */
+
+  function renomearLista(filaId) {
+    const coluna = quadro.querySelector(`.fila[data-fila="${filaId}"]`);
+    const fila = filas.find((outra) => outra.id === filaId);
+    const titulo = coluna?.querySelector(".fila__nome");
+
+    if (!coluna || !fila || !titulo) return;
+
+    const campo = document.createElement("input");
+    campo.type = "text";
+    campo.className = "fila__nome-campo";
+    campo.value = fila.nome;
+    campo.maxLength = 60;
+    campo.setAttribute("aria-label", "Novo nome da lista");
+
+    // Arrastar a coluna enquanto escreve selecionaria/moveria a lista.
+    coluna.draggable = false;
+    titulo.replaceWith(campo);
+    campo.focus();
+    campo.select();
+
+    let terminado = false;
+
+    async function terminar(salvar) {
+      if (terminado) return;
+      terminado = true;
+
+      const novoNome = campo.value.replace(/\s+/g, " ").trim();
+      const mudou = salvar && novoNome && novoNome !== fila.nome;
+
+      const novoTitulo = document.createElement("h2");
+      novoTitulo.className = "fila__nome";
+      escreverNomeDaLista(novoTitulo, mudou ? novoNome : fila.nome);
+      campo.replaceWith(novoTitulo);
+      coluna.draggable = true;
+
+      if (!mudou) return;
+
+      const nomeAntigo = fila.nome;
+      fila.nome = novoNome;
+
+      const { data, error } = await supabase.from("filas").update({ nome: novoNome }).eq("id", filaId).select("id");
+
+      if (error || !data?.length) {
+        console.error("Erro ao renomear lista:", error ?? "(nenhuma linha gravada)");
+        fila.nome = nomeAntigo;
+        escreverNomeDaLista(novoTitulo, nomeAntigo);
+        avisarNoSite("Não foi possível renomear a lista. Tente de novo.", { tipo: "erro" });
+        return;
+      }
+
+      coluna.querySelector("[data-fila-menu-abrir]")?.setAttribute("aria-label", `Opções da lista ${novoNome}`);
+      avisarNoSite(`Lista renomeada para "${novoNome}".`, { tipo: "sucesso" });
+    }
+
+    campo.addEventListener("keydown", (evento) => {
+      if (evento.key === "Enter") {
+        evento.preventDefault();
+        terminar(true);
+      } else if (evento.key === "Escape") {
+        evento.preventDefault();
+        evento.stopPropagation();
+        terminar(false);
+      }
+    });
+
+    campo.addEventListener("blur", () => terminar(true));
+    // Clique no campo nao pode virar inicio de arrasto nem abrir nada.
+    campo.addEventListener("mousedown", (evento) => evento.stopPropagation());
+  }
+
+  /* ----------------------------------------------------------------------
      MENU DE 3 PONTINHOS: abrir/fechar, ordenar, arquivar.
      ---------------------------------------------------------------------- */
 
@@ -1370,6 +1470,14 @@ function ligarArrastarLista(filas, chamados) {
 
       reordenarColunaNaTela(coluna, chamados, criterio);
       fecharTodosOsMenus();
+      return;
+    }
+
+    const botaoRenomear = evento.target.closest("[data-fila-menu-renomear]");
+
+    if (botaoRenomear) {
+      fecharTodosOsMenus();
+      renomearLista(botaoRenomear.dataset.filaMenuRenomear);
       return;
     }
 
@@ -6158,7 +6266,9 @@ function ligarTempoReal({ chamados, filas, equipe, corDe, detalhe, finalizados, 
       window.dispatchEvent(new Event("resize"));
       atualizarResumo(chamados, totalDeFilasAtivas());
     } else {
-      coluna.querySelector(".fila__nome").textContent = fila.nome;
+      // Nao atropela quem esta renomeando esta mesma lista agora.
+      const nomeNaTela = coluna.querySelector(".fila__nome");
+      if (nomeNaTela) escreverNomeDaLista(nomeNaTela, fila.nome);
       coluna.querySelector("[data-fila-menu-abrir]")
         ?.setAttribute("aria-label", `Opções da lista ${fila.nome}`);
     }
