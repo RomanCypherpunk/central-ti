@@ -7,6 +7,7 @@ import { prepararArquivoParaUploadChamado as prepararArquivoParaUpload, validarA
 import { prepararArquivoParaUpload as prepararImagemFundo } from "../componentes/otimizar-upload.js";
 import { criarIndiceDeBusca, destacar, trechoEmVolta } from "../componentes/busca-texto.js";
 import { preencherTextoComLinks } from "../componentes/texto-com-links.js";
+import { ligarZoomDaImagem } from "../componentes/zoom-com-janela-aberta.js";
 // Peças que o Painel também usa: moram em componentes/ para as duas telas
 // mostrarem status, nome e avatar pela mesma regra.
 import {
@@ -2755,6 +2756,9 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
   const visualizador = document.querySelector("[data-visualizador]");
   const imagemDoVisualizador = document.querySelector("[data-visualizador-imagem]");
   const nomeDoVisualizador = document.querySelector("[data-visualizador-nome]");
+  imagemDoVisualizador.draggable = false;
+  // Zoom so na imagem (roda, pinca, Ctrl +/-), nunca na pagina por baixo.
+  const zoomDaImagem = ligarZoomDaImagem(visualizador, imagemDoVisualizador);
 
   async function abrirImagemNaTela(anexo) {
     let url = urlGuardada(anexo.storage_path);
@@ -2776,6 +2780,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     imagemDoVisualizador.src = url;
     imagemDoVisualizador.alt = anexo.nome_arquivo;
     nomeDoVisualizador.textContent = anexo.nome_arquivo;
+    zoomDaImagem.zerar();
     visualizador.showModal();
   }
 

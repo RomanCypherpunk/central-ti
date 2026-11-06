@@ -2178,6 +2178,8 @@ body.portal-pagina {
   border: 0;
   background: transparent;
   cursor: zoom-out;
+  /*A imagem aumentada passa da tela: corta aqui, sem barra de rolagem.*/
+  overflow: hidden;
 }
 
 .visualizador[open] {
@@ -2213,6 +2215,27 @@ body.portal-pagina {
   cursor: default;
 }
 
+/*IMAGEM AUMENTADA (roda, pinca ou duplo clique): arrasta para mover.
+  will-change deixa o zoom liso; user-select evita selecionar ao arrastar.*/
+.visualizador__imagem {
+  will-change: transform;
+  user-select: none;
+}
+
+.visualizador--ampliado .visualizador__imagem {
+  position: relative;
+  z-index: 1;
+  cursor: grab;
+}
+
+.visualizador--arrastando .visualizador__imagem {
+  cursor: grabbing;
+}
+
+.visualizador--ampliado .visualizador__nome {
+  visibility: hidden;
+}
+
 .visualizador__nome {
   max-width: 100%;
   margin: 0;
@@ -2226,6 +2249,7 @@ body.portal-pagina {
 
 .visualizador__fechar {
   position: fixed;
+  z-index: 2;
   top: 1rem;
   right: 1rem;
   display: flex;
