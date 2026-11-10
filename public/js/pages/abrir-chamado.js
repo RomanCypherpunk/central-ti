@@ -1637,12 +1637,14 @@ formulario.addEventListener("submit", async (evento) => {
   botaoEnviar.disabled = true;
   botaoEnviar.textContent = pendentes.length ? "Enviando anexos…" : "Abrindo…";
 
+  const dadosDoChamado = montarChamado();
+
   const { data: chamado, error } = await supabase
     .from("chamados")
     .insert({
       solicitante_id: usuarioId,
       fila_id: filaDeEntradaId,
-      ...montarChamado(),
+      ...dadosDoChamado,
     })
     .select("id, numero")
     .single();
@@ -1654,6 +1656,12 @@ formulario.addEventListener("submit", async (evento) => {
     botaoEnviar.textContent = "Abrir chamado";
     return;
   }
+
+  // O "último acesso remoto" muda assim que o chamado é aberto: sem isto, o
+  // "Abrir outro chamado" (que não recarrega a página) repreencheria o valor
+  // lido no carregamento, e não o que a pessoa acabou de informar. Chamado
+  // sem acesso remoto não troca o guardado.
+  if (dadosDoChamado.acesso_remoto) acessoRemotoSalvo = dadosDoChamado.acesso_remoto;
 
   const anexosQueFalharam = await enviarAnexos(chamado.id);
 
