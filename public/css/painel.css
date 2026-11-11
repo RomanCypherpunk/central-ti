@@ -3544,6 +3544,10 @@ html[data-painel-sidebar="colapsada"] .painel {
   gap: 1rem;
 }
 
+.analise-graficos + .analise-graficos {
+  margin-top: 1rem;
+}
+
 /*ACOMPANHAMENTO: os 2 graficos de linha ficam EMPILHADOS, nao lado a
   lado como as outras sub-abas — cada um e uma serie de 12 meses, larga
   o suficiente pra precisar da largura toda (mesmo layout do print de

@@ -806,6 +806,62 @@
           </div>
         </div>
 
+        <!--CADASTROS E DESLIGAMENTOS: acompanhamento mes a mes nos ultimos 12 meses
+            e abertura por unidade no periodo selecionado.-->
+        <div class="analise-sub" data-analise-sub="cadastros" hidden>
+          <div class="analise-cards analise-cards--4" data-analise-cadastros-cards>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Variação de cadastros (mês anterior)</span>
+              <span class="analise-card__valor" data-analise-cadastros-variacao-cadastros>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Variação de desligamentos (mês anterior)</span>
+              <span class="analise-card__valor" data-analise-cadastros-variacao-desligamentos>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Unidade com mais cadastros</span>
+              <span class="analise-card__valor" data-analise-cadastros-unidade-cadastros>—</span>
+            </div>
+            <div class="analise-card">
+              <span class="analise-card__rotulo">Unidade com mais desligamentos</span>
+              <span class="analise-card__valor" data-analise-cadastros-unidade-desligamentos>—</span>
+            </div>
+          </div>
+
+          <div class="analise-graficos analise-graficos--linha">
+            <div class="analise-grafico">
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Cadastros e desligamentos por mês</h2>
+                <p class="analise-grafico__descricao">Comparativo mês a mês nos últimos 12 meses.</p>
+              </div>
+              <div class="analise-grafico__caixa analise-grafico__caixa--linha">
+                <canvas data-analise-grafico-cadastros-linha></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="analise-graficos">
+            <div class="analise-grafico">
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Cadastros por unidade</h2>
+                <p class="analise-grafico__descricao">Total de cadastros no período selecionado.</p>
+              </div>
+              <div class="analise-grafico__caixa analise-grafico__caixa--barra">
+                <canvas data-analise-grafico-cadastros-unidades></canvas>
+              </div>
+            </div>
+            <div class="analise-grafico">
+              <div class="analise-grafico__cabecalho">
+                <h2 class="analise-grafico__titulo">Desligamentos por unidade</h2>
+                <p class="analise-grafico__descricao">Total de desligamentos no período selecionado.</p>
+              </div>
+              <div class="analise-grafico__caixa analise-grafico__caixa--barra">
+                <canvas data-analise-grafico-desligamentos-unidades></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <p class="painel-vazio" data-analise-vazio hidden>Nenhum chamado no período selecionado.</p>
 
         <!--NAVEGACAO ENTRE SUB-ABAS DA ANALISE: embaixo de tudo, a pedido
@@ -821,6 +877,7 @@
           <button class="analise-subaba" type="button" data-analise-subaba="atendentes">Atendentes</button>
           <button class="analise-subaba" type="button" data-analise-subaba="terceiros">Terceiros</button>
           <button class="analise-subaba" type="button" data-analise-subaba="acompanhamento">Acompanhamento</button>
+          <button class="analise-subaba" type="button" data-analise-subaba="cadastros">Cadastros</button>
         </nav>
       </section>
 

@@ -3572,6 +3572,8 @@ const ICONES_DOS_CARDS = {
 
 function tomDoCard(rotulo) {
   if (/varia/i.test(rotulo)) return "variacao";
+  if (/deslig/i.test(rotulo)) return "urgente";
+  if (/cadastr/i.test(rotulo)) return "resposta";
   if (/resposta/i.test(rotulo)) return "resposta";
   if (/urg/i.test(rotulo)) return "urgente";
   if (/tempo|solu|sla/i.test(rotulo)) return "tempo";
@@ -3705,6 +3707,7 @@ function ligarAnalise() {
   const atendentesCardsEl = secao.querySelector("[data-analise-atendentes-cards]");
   const terceirosCardsEl = secao.querySelector("[data-analise-terceiros-cards]");
   const acompanhamentoCardsEl = secao.querySelector("[data-analise-acompanhamento-cards]");
+  const cadastrosCardsEl = secao.querySelector("[data-analise-cadastros-cards]");
   const subabasNavEl = secao.querySelector("[data-analise-subabas]");
   const canvasUnidades = secao.querySelector("[data-analise-grafico-unidades]");
   const canvasCategorias = secao.querySelector("[data-analise-grafico-categorias]");
@@ -3722,6 +3725,9 @@ function ligarAnalise() {
   const canvasTerceirosSla = secao.querySelector("[data-analise-grafico-terceiros-sla]");
   const canvasMesTotal = secao.querySelector("[data-analise-grafico-mes-total]");
   const canvasMesSla = secao.querySelector("[data-analise-grafico-mes-sla]");
+  const canvasCadastrosLinha = secao.querySelector("[data-analise-grafico-cadastros-linha]");
+  const canvasCadastrosUnidades = secao.querySelector("[data-analise-grafico-cadastros-unidades]");
+  const canvasDesligamentosUnidades = secao.querySelector("[data-analise-grafico-desligamentos-unidades]");
 
   let graficoUnidades = null;
   let graficoCategorias = null;
@@ -3739,6 +3745,9 @@ function ligarAnalise() {
   let graficoTerceirosSla = null;
   let graficoMesTotal = null;
   let graficoMesSla = null;
+  let graficoCadastrosLinha = null;
+  let graficoCadastrosUnidades = null;
+  let graficoDesligamentosUnidades = null;
   let jaAbriu = false;
 
   // Acompanhamento tem sua PROPRIA consulta (12 meses fixos, nao o
@@ -4041,6 +4050,8 @@ function ligarAnalise() {
       // desenharAcompanhamento cuida de disparar carregarAcompanhamento()
       // se ainda nao tiver dados, e redesenhar quando a consulta voltar.
       desenharAcompanhamento();
+    } else if (chave === "cadastros") {
+      desenharCadastros();
     }
   }
 
@@ -4441,6 +4452,7 @@ function ligarAnalise() {
     solicitantesCardsEl.hidden = false;
     atendentesCardsEl.hidden = false;
     terceirosCardsEl.hidden = false;
+    if (cadastrosCardsEl) cadastrosCardsEl.hidden = false;
     subabasNavEl.hidden = false;
 
     // A cor dos atendentes vem da etiqueta: espera quem estava sem ganhar a
@@ -4458,7 +4470,7 @@ function ligarAnalise() {
       .from("chamados")
       .select(`
         eh_urgente, abertura_em, fechamento_em, solicitante_id,
-        unidade_id, categoria_id,
+        unidade_id, categoria_id, titulo, checklist_criacao,
         unidades(nome), categorias(nome),
         usuarios!chamados_solicitante_id_fkey(nome, sobrenome, setor_id, setores(nome)),
         chamado_membros(usuario_id, adicionado_em, usuarios(nome, sobrenome, cor_destaque)),
@@ -4477,6 +4489,7 @@ function ligarAnalise() {
       solicitantesCardsEl.hidden = true;
       atendentesCardsEl.hidden = true;
       terceirosCardsEl.hidden = true;
+      if (cadastrosCardsEl) cadastrosCardsEl.hidden = true;
       subabasNavEl.hidden = true;
       erroEl.hidden = false;
       erroEl.textContent = "Não foi possível carregar os dados do período. Tente novamente.";
@@ -4494,6 +4507,7 @@ function ligarAnalise() {
       solicitantesCardsEl.hidden = true;
       atendentesCardsEl.hidden = true;
       terceirosCardsEl.hidden = true;
+      if (cadastrosCardsEl) cadastrosCardsEl.hidden = true;
       subabasNavEl.hidden = true;
       vazioEl.hidden = false;
       resumoEl.textContent = `${periodoPorExtenso()} · nenhum chamado`;
@@ -4511,6 +4525,9 @@ function ligarAnalise() {
       graficoAtendentesSla?.destroy();
       graficoTerceirosTotal?.destroy();
       graficoTerceirosSla?.destroy();
+      graficoCadastrosLinha?.destroy();
+      graficoCadastrosUnidades?.destroy();
+      graficoDesligamentosUnidades?.destroy();
       graficoUnidades = null;
       graficoCategorias = null;
       graficoUnidadesEmpilhado = null;
@@ -4525,6 +4542,9 @@ function ligarAnalise() {
       graficoAtendentesSla = null;
       graficoTerceirosTotal = null;
       graficoTerceirosSla = null;
+      graficoCadastrosLinha = null;
+      graficoCadastrosUnidades = null;
+      graficoDesligamentosUnidades = null;
       return;
     }
 
@@ -5852,7 +5872,8 @@ function ligarAnalise() {
       .from("chamados")
       .select(`
         eh_urgente, abertura_em, fechamento_em,
-        unidade_id, categoria_id,
+        unidade_id, categoria_id, titulo, checklist_criacao,
+        unidades(nome), categorias(nome),
         usuarios!chamados_solicitante_id_fkey(setor_id),
         chamado_membros(usuario_id)
       `)
@@ -5867,7 +5888,13 @@ function ligarAnalise() {
     }
 
     dadosAcompanhamento = data ?? [];
-    desenharAcompanhamento();
+    const subabaAtual = subabaBotoes.find((botao) => botao.classList.contains("analise-subaba--atual"))
+      ?.dataset.analiseSubaba;
+    if (subabaAtual === "cadastros") {
+      desenharCadastros();
+    } else {
+      desenharAcompanhamento();
+    }
   }
 
   //MESMOS FILTROS GLOBAIS (unidade/categoria/setor/atendente), so que
@@ -6037,10 +6064,17 @@ function ligarAnalise() {
         meta.data.forEach((ponto, indice) => {
           const valor = dataset.data[indice];
           if (valor == null) return;
+          let offsetY = -10;
+          if (chart.data.datasets.length > 1 && indiceDataset > 0) {
+            const anterior = chart.getDatasetMeta(0)?.data[indice];
+            if (anterior && Math.abs(ponto.y - anterior.y) < 14) {
+              offsetY = -22;
+            }
+          }
           ctx.fillText(
             ehGraficoDeTempo(chart) ? formatarDuracao(valor) : valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 }),
             ponto.x,
-            ponto.y - 10,
+            ponto.y + offsetY,
           );
         });
       });
@@ -6150,6 +6184,309 @@ function ligarAnalise() {
         scales: {
           x: { ticks: { color: texto, padding: 6 }, grid: { display: false } },
           y: { beginAtZero: true, ticks: { color: texto, padding: 6, callback: rotuloDeHoras, maxRotation: 0, autoSkipPadding: 16 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  /* ------------------------------------------------------------------
+     CADASTROS E DESLIGAMENTOS: acompanhamento no estilo de Acompanhamento —
+     cards de variacao (12 meses) e de destaque por unidade (periodo
+     selecionado), grafico de duas linhas mes a mes nos ultimos 12 meses
+     (cadastros em verde e desligamentos em vermelho), e dois graficos de
+     barras horizontais por unidade no periodo selecionado.
+     ------------------------------------------------------------------ */
+
+  function ehCadastro(chamado) {
+    const cat = chamado.categorias?.nome ?? "";
+    const tit = chamado.titulo ?? "";
+    return /cadastr|admiss/i.test(cat) || /cadastr/i.test(tit) || Boolean(chamado.checklist_criacao?.length);
+  }
+
+  function ehDesligamento(chamado) {
+    const cat = chamado.categorias?.nome ?? "";
+    const tit = chamado.titulo ?? "";
+    return /deslig|demiss/i.test(cat) || /deslig/i.test(tit);
+  }
+
+  function formatarVariacaoCadastros(valor) {
+    if (!valor) return "sem mudança";
+    const abs = Math.abs(valor);
+    return `${valor > 0 ? "+" : "−"}${abs.toLocaleString("pt-BR")} ${abs === 1 ? "cadastro" : "cadastros"}`;
+  }
+
+  function formatarVariacaoDesligamentos(valor) {
+    if (!valor) return "sem mudança";
+    const abs = Math.abs(valor);
+    return `${valor > 0 ? "+" : "−"}${abs.toLocaleString("pt-BR")} ${abs === 1 ? "desligamento" : "desligamentos"}`;
+  }
+
+  function aplicarCorDeVariacaoCadastros(elemento, valor) {
+    elemento.classList.remove("analise-card__valor--alta", "analise-card__valor--baixa");
+    if (valor > 0) elemento.classList.add("analise-card__valor--baixa");
+    else if (valor < 0) elemento.classList.add("analise-card__valor--alta");
+  }
+
+  function aplicarCorDeVariacaoDesligamentos(elemento, valor) {
+    elemento.classList.remove("analise-card__valor--alta", "analise-card__valor--baixa");
+    if (valor > 0) elemento.classList.add("analise-card__valor--alta");
+    else if (valor < 0) elemento.classList.add("analise-card__valor--baixa");
+  }
+
+  function coresComDestaqueCadastros(valores) {
+    const numeros = valores.filter((valor) => valor != null);
+    const maior = numeros.length ? Math.max(...numeros) : 0;
+    const todasIguais = numeros.length > 1 && numeros.every((valor) => valor === maior);
+    return valores.map((valor) => (valor === maior && maior > 0 && !todasIguais ? "#2f9e44" : corDasBarras()));
+  }
+
+  function coresComDestaqueDesligamentos(valores) {
+    const numeros = valores.filter((valor) => valor != null);
+    const maior = numeros.length ? Math.max(...numeros) : 0;
+    const todasIguais = numeros.length > 1 && numeros.every((valor) => valor === maior);
+    return valores.map((valor) => (valor === maior && maior > 0 && !todasIguais ? "#e5484d" : corDasBarras()));
+  }
+
+  function desenharCadastros() {
+    if (!jaAbriuAcompanhamento) {
+      jaAbriuAcompanhamento = true;
+      carregarAcompanhamento();
+      return;
+    }
+
+    if (!dadosAcompanhamento.length && !ultimoResultado.length) return;
+
+    const chamados12m = dadosAcompanhamentoFiltrados();
+    const grupos12m = agruparPorMes(chamados12m);
+    const meses = mesesDoRange();
+    const chamadosPeriodo = dadosFiltrados();
+
+    desenharCardsCadastros(grupos12m, meses, chamadosPeriodo);
+    desenharGraficoLinhaCadastros(grupos12m, meses);
+    desenharGraficoCadastrosUnidades(chamadosPeriodo);
+    desenharGraficoDesligamentosUnidades(chamadosPeriodo);
+  }
+
+  function desenharCardsCadastros(grupos12m, meses, chamadosPeriodo) {
+    const mesAtual = meses[meses.length - 1];
+    const mesAnterior = meses[meses.length - 2];
+
+    const chamadosAtual = grupos12m.get(mesAtual.chave) ?? [];
+    const chamadosAnterior = grupos12m.get(mesAnterior.chave) ?? [];
+
+    const cadastrosAtual = chamadosAtual.filter(ehCadastro).length;
+    const cadastrosAnterior = chamadosAnterior.filter(ehCadastro).length;
+    const variacaoCadastros = cadastrosAtual - cadastrosAnterior;
+
+    const desligamentosAtual = chamadosAtual.filter(ehDesligamento).length;
+    const desligamentosAnterior = chamadosAnterior.filter(ehDesligamento).length;
+    const variacaoDesligamentos = desligamentosAtual - desligamentosAnterior;
+
+    const elVarCadastros = secao.querySelector("[data-analise-cadastros-variacao-cadastros]");
+    const elVarDesligamentos = secao.querySelector("[data-analise-cadastros-variacao-desligamentos]");
+    const elUnidadeCadastros = secao.querySelector("[data-analise-cadastros-unidade-cadastros]");
+    const elUnidadeDesligamentos = secao.querySelector("[data-analise-cadastros-unidade-desligamentos]");
+
+    if (elVarCadastros) {
+      elVarCadastros.textContent = formatarVariacaoCadastros(variacaoCadastros);
+      aplicarCorDeVariacaoCadastros(elVarCadastros, variacaoCadastros);
+      escreverDica("[data-analise-cadastros-variacao-cadastros]", `${cadastrosAtual} no mês atual · ${cadastrosAnterior} no anterior`);
+    }
+
+    if (elVarDesligamentos) {
+      elVarDesligamentos.textContent = formatarVariacaoDesligamentos(variacaoDesligamentos);
+      aplicarCorDeVariacaoDesligamentos(elVarDesligamentos, variacaoDesligamentos);
+      escreverDica("[data-analise-cadastros-variacao-desligamentos]", `${desligamentosAtual} no mês atual · ${desligamentosAnterior} no anterior`);
+    }
+
+    const cadastrosPeriodo = chamadosPeriodo.filter(ehCadastro);
+    const desligamentosPeriodo = chamadosPeriodo.filter(ehDesligamento);
+
+    const unidadesCadastros = contarPor(cadastrosPeriodo, (c) => c.unidades?.nome);
+    const unidadesDesligamentos = contarPor(desligamentosPeriodo, (c) => c.unidades?.nome);
+
+    const topUnidadeCadastros = unidadesCadastros[0];
+    const topUnidadeDesligamentos = unidadesDesligamentos[0];
+
+    if (elUnidadeCadastros) {
+      escreverDestaque(
+        elUnidadeCadastros,
+        topUnidadeCadastros ? topUnidadeCadastros[0] : null,
+        topUnidadeCadastros ? `${topUnidadeCadastros[1].toLocaleString("pt-BR")} ${topUnidadeCadastros[1] === 1 ? "cadastro" : "cadastros"}` : null
+      );
+      escreverDica(
+        "[data-analise-cadastros-unidade-cadastros]",
+        cadastrosPeriodo.length
+          ? `de ${cadastrosPeriodo.length} ${cadastrosPeriodo.length === 1 ? "cadastro" : "cadastros"} no período`
+          : "nenhum cadastro no período"
+      );
+    }
+
+    if (elUnidadeDesligamentos) {
+      escreverDestaque(
+        elUnidadeDesligamentos,
+        topUnidadeDesligamentos ? topUnidadeDesligamentos[0] : null,
+        topUnidadeDesligamentos ? `${topUnidadeDesligamentos[1].toLocaleString("pt-BR")} ${topUnidadeDesligamentos[1] === 1 ? "desligamento" : "desligamentos"}` : null
+      );
+      escreverDica(
+        "[data-analise-cadastros-unidade-desligamentos]",
+        desligamentosPeriodo.length
+          ? `de ${desligamentosPeriodo.length} ${desligamentosPeriodo.length === 1 ? "desligamento" : "desligamentos"} no período`
+          : "nenhum desligamento no período"
+      );
+    }
+  }
+
+  function desenharGraficoLinhaCadastros(grupos12m, meses) {
+    const texto = corDoTexto("--texto-2");
+    const serieCadastros = meses.map((mes) => (grupos12m.get(mes.chave) ?? []).filter(ehCadastro).length);
+    const serieDesligamentos = meses.map((mes) => (grupos12m.get(mes.chave) ?? []).filter(ehDesligamento).length);
+
+    graficoCadastrosLinha?.destroy();
+    graficoCadastrosLinha = new Chart(canvasCadastrosLinha, {
+      type: "line",
+      data: {
+        labels: meses.map((mes) => mes.rotulo),
+        datasets: [
+          {
+            label: "Cadastros",
+            data: serieCadastros,
+            borderColor: "#2f9e44",
+            backgroundColor: "#2f9e44",
+            borderWidth: 3,
+            pointRadius: 3,
+            pointBackgroundColor: "#2f9e44",
+            tension: 0.35,
+          },
+          {
+            label: "Desligamentos",
+            data: serieDesligamentos,
+            borderColor: "#e5484d",
+            backgroundColor: "#e5484d",
+            borderWidth: 3,
+            pointRadius: 3,
+            pointBackgroundColor: "#e5484d",
+            tension: 0.35,
+          },
+        ],
+      },
+      plugins: [desenharValoresDaLinha],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 20 } },
+        plugins: {
+          legend: {
+            position: "top",
+            align: "start",
+            labels: { color: texto, boxWidth: 10, boxHeight: 10, padding: 14, font: { weight: "500" } },
+          },
+          tooltip: {
+            callbacks: {
+              label: (contexto) => {
+                const valor = contexto.parsed?.y ?? 0;
+                const rotulo = contexto.dataset.label || "Total";
+                const sufixo = rotulo.toLowerCase().includes("deslig") ? "desligamento" : "cadastro";
+                return ` ${rotulo}: ${valor.toLocaleString("pt-BR")} ${valor === 1 ? sufixo : sufixo + "s"}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: texto, padding: 6 }, grid: { display: false } },
+          y: {
+            beginAtZero: true,
+            ticks: { color: texto, precision: 0, padding: 6 },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  }
+
+  function desenharGraficoCadastrosUnidades(chamadosPeriodo) {
+    const dados = contarPor(chamadosPeriodo.filter(ehCadastro), (c) => c.unidades?.nome);
+    const texto = corDoTexto("--texto-2");
+
+    graficoCadastrosUnidades?.destroy();
+    graficoCadastrosUnidades = new Chart(canvasCadastrosUnidades, {
+      type: "bar",
+      data: {
+        labels: dados.map(([nome]) => nome),
+        datasets: [{
+          data: dados.map(([, quantidade]) => quantidade),
+          backgroundColor: coresComDestaqueCadastros(dados.map(([, quantidade]) => quantidade)),
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: espessuraDaBarra(dados.length),
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (contexto) => {
+                const valor = contexto.parsed?.x ?? 0;
+                return ` ${valor.toLocaleString("pt-BR")} ${valor === 1 ? "cadastro" : "cadastros"}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            ticks: { color: texto, precision: 0, padding: 6 },
+            grid: { display: false },
+          },
+          y: { ticks: { color: texto, padding: 8 }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  function desenharGraficoDesligamentosUnidades(chamadosPeriodo) {
+    const dados = contarPor(chamadosPeriodo.filter(ehDesligamento), (c) => c.unidades?.nome);
+    const texto = corDoTexto("--texto-2");
+
+    graficoDesligamentosUnidades?.destroy();
+    graficoDesligamentosUnidades = new Chart(canvasDesligamentosUnidades, {
+      type: "bar",
+      data: {
+        labels: dados.map(([nome]) => nome),
+        datasets: [{
+          data: dados.map(([, quantidade]) => quantidade),
+          backgroundColor: coresComDestaqueDesligamentos(dados.map(([, quantidade]) => quantidade)),
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: espessuraDaBarra(dados.length),
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (contexto) => {
+                const valor = contexto.parsed?.x ?? 0;
+                return ` ${valor.toLocaleString("pt-BR")} ${valor === 1 ? "desligamento" : "desligamentos"}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            ticks: { color: texto, precision: 0, padding: 6 },
+            grid: { display: false },
+          },
+          y: { ticks: { color: texto, padding: 8 }, grid: { display: false } },
         },
       },
     });
