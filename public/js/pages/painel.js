@@ -4479,8 +4479,9 @@ function ligarAnalise() {
       .from("chamados")
       .select(`
         eh_urgente, abertura_em, fechamento_em, solicitante_id,
-        unidade_id, categoria_id, titulo, checklist_criacao,
+        unidade_id, categoria_id, titulo, checklist_criacao, colaborador_ja_registrado,
         unidades(nome), categorias(nome),
+        unidade_colaborador:dados_formulario->colaborador->>unidade,
         usuarios!chamados_solicitante_id_fkey(nome, sobrenome, setor_id, setores(nome)),
         chamado_membros(usuario_id, adicionado_em, usuarios(nome, sobrenome, cor_destaque)),
         chamado_terceiros(terceiro_id, adicionado_em, terceiros(nome)),
@@ -5881,8 +5882,9 @@ function ligarAnalise() {
       .from("chamados")
       .select(`
         eh_urgente, abertura_em, fechamento_em,
-        unidade_id, categoria_id, titulo, checklist_criacao,
+        unidade_id, categoria_id, titulo, checklist_criacao, colaborador_ja_registrado,
         unidades(nome), categorias(nome),
+        unidade_colaborador:dados_formulario->colaborador->>unidade,
         usuarios!chamados_solicitante_id_fkey(setor_id),
         chamado_membros(usuario_id)
       `)
