@@ -124,9 +124,10 @@ export const CORES_DESTAQUE = [
 export const CAMPOS_CHAMADO = `
   id, numero, titulo, fila_id, solicitante_id, descricao,
   eh_urgente, eh_prioridade, fechamento_em, abertura_em,
-  acesso_remoto, cliente_na_loja, sistema_lento_ou_fora, checklist_criacao,
+  acesso_remoto, cliente_na_loja, sistema_lento_ou_fora, checklist_criacao, colaborador_ja_registrado,
   categorias(nome),
   unidades(nome),
+  unidade_colaborador:dados_formulario->colaborador->>unidade,
   usuarios!chamados_solicitante_id_fkey(id, nome, sobrenome, email, perfil, status_aprovacao, setor_id, unidade_id, setores(id, nome)),
   chamado_membros(usuario_id, usuarios(id, nome, sobrenome, foto_path)),
   chamado_terceiros(terceiro_id, terceiros(id, nome, foto_path)),

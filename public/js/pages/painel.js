@@ -243,6 +243,7 @@ function ligarTickets(chamados, filas, equipe, detalhe) {
     lista: [], // fila_id
     prioridade: [], // "urgente" | "prioridade" | "normal"
     solicitante: [], // usuario id
+    unidade: [], // nome da unidade do chamado
     atendente: [], // usuario id (chamado_membros) ou SEM_ATENDENTE
     de: "", // "aaaa-mm-dd"
     ate: "",
@@ -279,6 +280,7 @@ function ligarTickets(chamados, filas, equipe, detalhe) {
       && passaNoGrupo(filtros.lista, () => filtros.lista.includes(chamado.fila_id))
       && passaNoGrupo(filtros.prioridade, () => prioridades.some((chave) => filtros.prioridade.includes(chave)))
       && passaNoGrupo(filtros.solicitante, () => filtros.solicitante.includes(chamado.solicitante_id))
+      && passaNoGrupo(filtros.unidade, () => filtros.unidade.includes(chamado.unidades?.nome))
       && passaNoGrupo(filtros.atendente, () => (
         idsAtendentes.some((id) => filtros.atendente.includes(id))
         || (filtros.atendente.includes(SEM_ATENDENTE) && !idsAtendentes.length)
@@ -334,7 +336,7 @@ function ligarTickets(chamados, filas, equipe, detalhe) {
 
   function totalDeFiltros() {
     return filtros.status.length + filtros.lista.length + filtros.prioridade.length
-      + filtros.solicitante.length + filtros.atendente.length
+      + filtros.solicitante.length + filtros.unidade.length + filtros.atendente.length
       + (filtros.de ? 1 : 0) + (filtros.ate ? 1 : 0);
   }
 
@@ -598,6 +600,12 @@ function ligarTickets(chamados, filas, equipe, detalhe) {
     ).entries()].map(([id, pessoa]) => ({ id, nome: nomeCompleto(pessoa) ?? "Alguém" }))
       .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
+    //Unidades que aparecem nos chamados (a unidade de quem abriu). O nome faz
+    //de id: e o que o chamado traz.
+    const unidadesOpcoes = [...new Set(chamados.map((chamado) => chamado.unidades?.nome).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, "pt-BR"))
+      .map((nome) => ({ id: nome, nome }));
+
     const atendentesOpcoes = [
       ...equipe.map((pessoa) => ({ id: pessoa.id, nome: nomeCompleto(pessoa) ?? "Alguém" })),
       { id: SEM_ATENDENTE, nome: "Sem atendente" },
@@ -672,7 +680,7 @@ function ligarTickets(chamados, filas, equipe, detalhe) {
 
       const vazioBusca = document.createElement("p");
       vazioBusca.className = "painel-filtro-grupo__vazio";
-      vazioBusca.textContent = "Ninguém encontrado.";
+      vazioBusca.textContent = "Nada encontrado.";
       vazioBusca.hidden = true;
 
       if (!opcoes.length) {
@@ -782,6 +790,7 @@ function ligarTickets(chamados, filas, equipe, detalhe) {
           opcoes: Object.entries(ROTULOS_PRIORIDADE).map(([valor, rotulo]) => ({ valor, rotulo })),
         }),
         grupoPessoas({ titulo: "Solicitante", chave: "solicitante", opcoes: solicitantes }),
+        grupoPessoas({ titulo: "Unidade", chave: "unidade", opcoes: unidadesOpcoes }),
         grupoPessoas({ titulo: "Atendente", chave: "atendente", opcoes: atendentesOpcoes }),
         grupoPeriodo(),
       );
@@ -796,7 +805,7 @@ function ligarTickets(chamados, filas, equipe, detalhe) {
 
     limpar.addEventListener("click", () => {
       filtros.status = []; filtros.lista = []; filtros.prioridade = [];
-      filtros.solicitante = []; filtros.atendente = []; filtros.de = ""; filtros.ate = "";
+      filtros.solicitante = []; filtros.unidade = []; filtros.atendente = []; filtros.de = ""; filtros.ate = "";
       montarGrupos();
       atualizarBotao();
       irParaPrimeiraPagina();
@@ -6200,13 +6209,22 @@ function ligarAnalise() {
   function ehCadastro(chamado) {
     const cat = chamado.categorias?.nome ?? "";
     const tit = chamado.titulo ?? "";
+    if (chamado.colaborador_ja_registrado) return false;
     return /cadastr|admiss/i.test(cat) || /cadastr/i.test(tit) || Boolean(chamado.checklist_criacao?.length);
   }
 
   function ehDesligamento(chamado) {
     const cat = chamado.categorias?.nome ?? "";
     const tit = chamado.titulo ?? "";
+    if (chamado.colaborador_ja_registrado) return false;
     return /deslig|demiss/i.test(cat) || /deslig/i.test(tit);
+  }
+
+  //UNIDADE DO DESLIGAMENTO: e a de quem esta SAINDO, informada no formulario
+  //(dados_formulario.colaborador.unidade), nao a de quem abriu o chamado.
+  //Chamado sem esse dado (aberto fora do formulario) cai na de quem abriu.
+  function unidadeDoDesligamento(chamado) {
+    return chamado.unidade_colaborador || chamado.unidades?.nome;
   }
 
   function formatarVariacaoCadastros(valor) {
@@ -6303,7 +6321,7 @@ function ligarAnalise() {
     const desligamentosPeriodo = chamadosPeriodo.filter(ehDesligamento);
 
     const unidadesCadastros = contarPor(cadastrosPeriodo, (c) => c.unidades?.nome);
-    const unidadesDesligamentos = contarPor(desligamentosPeriodo, (c) => c.unidades?.nome);
+    const unidadesDesligamentos = contarPor(desligamentosPeriodo, unidadeDoDesligamento);
 
     const topUnidadeCadastros = unidadesCadastros[0];
     const topUnidadeDesligamentos = unidadesDesligamentos[0];
@@ -6449,7 +6467,7 @@ function ligarAnalise() {
   }
 
   function desenharGraficoDesligamentosUnidades(chamadosPeriodo) {
-    const dados = contarPor(chamadosPeriodo.filter(ehDesligamento), (c) => c.unidades?.nome);
+    const dados = contarPor(chamadosPeriodo.filter(ehDesligamento), unidadeDoDesligamento);
     const texto = corDoTexto("--texto-2");
 
     graficoDesligamentosUnidades?.destroy();

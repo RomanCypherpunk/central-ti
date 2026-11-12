@@ -1905,6 +1905,9 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
   const blocoChecklist = document.querySelector("[data-detalhe-checklist]");
   const listaChecklist = document.querySelector("[data-detalhe-checklist-lista]");
   const resumoChecklist = document.querySelector("[data-detalhe-checklist-resumo]");
+  const blocoDuplicado = document.querySelector("[data-detalhe-duplicado]");
+  const caixaDuplicado = document.querySelector("[data-detalhe-duplicado-caixa]");
+  const textoDuplicado = document.querySelector("[data-detalhe-duplicado-texto]");
   const campoConversa = document.querySelector("[data-detalhe-conversa]");
   const campoAnexos = document.querySelector("[data-detalhe-anexos]");
   const campoMensagem = document.querySelector("[data-conversa-campo]");
@@ -2110,6 +2113,28 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     evento.stopPropagation();
     menu.hidden = true;
     listaChecklist.querySelector(".detalhe__checklist-adicionar")?.focus();
+  });
+
+  //CONTROLE INTERNO: so em chamado de cadastro ou de desligamento. Marcar
+  //diz que o colaborador ja foi cadastrado/desligado em outro chamado; a
+  //analise deixa este de fora da contagem pra nao duplicar.
+  function desenharDuplicado() {
+    const categoria = aberto.categorias?.nome ?? "";
+    const desligamento = /deslig|demiss/i.test(categoria);
+    const cadastro = !desligamento && (/cadastr|admiss/i.test(categoria) || Boolean(aberto.checklist_criacao?.length));
+
+    blocoDuplicado.hidden = !(cadastro || desligamento);
+
+    if (blocoDuplicado.hidden) return;
+
+    textoDuplicado.textContent = desligamento ? "Colaborador já desligado" : "Colaborador já cadastrado";
+    caixaDuplicado.checked = Boolean(aberto.colaborador_ja_registrado);
+  }
+
+  caixaDuplicado.addEventListener("change", async () => {
+    if (!await gravar({ colaborador_ja_registrado: caixaDuplicado.checked })) {
+      caixaDuplicado.checked = !caixaDuplicado.checked;
+    }
   });
 
   //ETIQUETAS DE PRIORIDADE: CLICAR LIGA E DESLIGA
@@ -4177,6 +4202,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     desenharEtiquetas();
     desenharMembros();
     desenharChecklist();
+    desenharDuplicado();
     desenharConversa();
     desenharAnexos();
 
@@ -4311,6 +4337,7 @@ function ligarDetalhe(chamados, filas, equipe, atendente, quadroApi = {}, perfil
     desenharEtiquetas();
     desenharMembros();
     desenharChecklist();
+    desenharDuplicado();
 
     // A conversa so desce sozinha se a pessoa ja estava no fim dela; quem
     // esta lendo mensagens antigas continua onde estava.
